@@ -23,9 +23,7 @@ export class UserComponent {
   // imagePath = computed(() => {
   //   return 'assets/users/' + this.avatar();});
 
-  get imagePath() {
-  return 'assets/users/' + this.user.avatar;
-  }
+
 
   onSelectUser() {
    this.select.emit(this.user.id);

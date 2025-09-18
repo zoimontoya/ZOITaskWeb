@@ -1,8 +1,8 @@
 import { Component, computed, Input, Output, EventEmitter, output } from '@angular/core';
 import { TaskComponent } from "./task/task.component";
 import { newTaskComponent } from './newTask/newTask.component';
-import { Task, type NewTask } from './task/task.model';
-import { TasksService } from './tasks.service';
+import { Task } from './task/task.model';
+import { TaskService } from './task.service';
 
 @Component({
   selector: 'app-tasks',
@@ -17,15 +17,11 @@ export class TasksComponent {
   @Input({required: true}) userId!: string;
   isAddingTask = false;
   
-  constructor(private tasksService: TasksService) {}
+  constructor(private taskService: TaskService) {}
 
-  get selectedUserTasks() {
-    return this.tasksService.getUserTasks(this.userId);
-  }
+  // Aquí podrías implementar la recarga de tareas desde Google Sheets si lo deseas
 
-  onCompleteTask(taskId: string) {
-    return this.tasksService.removeTask(taskId);
-  }
+
 
   onStartAddTask() {
     this.isAddingTask = true;
@@ -35,8 +31,15 @@ export class TasksComponent {
     this.isAddingTask = false;
   }
 
-  onAddTask(taskData: NewTask) {
-    this.tasksService.addTask(taskData, this.userId);
-    this.isAddingTask = false;
+  onAddTask(taskData: any) {
+    this.taskService.addTask(taskData).subscribe({
+      next: () => {
+        this.isAddingTask = false;
+        alert('Tarea guardada correctamente');
+      },
+      error: () => {
+        alert('Error al guardar la tarea');
+      }
+    });
   }
 }
