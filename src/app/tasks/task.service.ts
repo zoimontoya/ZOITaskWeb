@@ -5,6 +5,7 @@ import { map } from 'rxjs/operators';
 
 
 export interface Task {
+  id: string;
   invernadero: string;
   tipo_tarea: string;
   estimacion_horas: number;
@@ -13,10 +14,17 @@ export interface Task {
   descripcion: string;
 }
 
+
+
+
 @Injectable({ providedIn: 'root' })
 export class TaskService {
-  // Reemplaza esta URL por la de tu hoja de cálculo publicada como CSV para tareas
+  // URL de la hoja de cálculo de tareas en formato CSV
   private csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR_l3eDLgV1-W9cmjmg49gEoNn8nrz8OvwYgZ457tMMaGXWmypEmb-HQ2TXTpPNB5lTEHVlEe4AiHbN/pub?gid=1433446737&single=true&output=csv';
+
+  updateTask(id: string, task: Partial<Task>) {
+    return this.http.put(`/api-tareas/${id}`, task);
+  }
 
   constructor(private http: HttpClient) {}
 

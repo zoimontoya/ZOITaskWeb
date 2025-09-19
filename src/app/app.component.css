@@ -1,3 +1,36 @@
+main.solo-login {
+  display: block;
+  width: 90%;
+  max-width: 50rem;
+  margin: 2.5rem auto;
+}
+
+#login-wrapper {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+/* Botón de logout en el header */
+#logout-btn {
+  position: absolute;
+  top: 1.5rem;
+  right: 2rem;
+  background: #eee;
+  border: none;
+  border-radius: 50%;
+  width: 2.5rem;
+  height: 2.5rem;
+  font-size: 1.3rem;
+  cursor: pointer;
+  box-shadow: 0 1px 4px #0001;
+  transition: background 0.2s;
+  z-index: 10;
+}
+#logout-btn:hover {
+  background: #f8d7da;
+}
+
 main {
   width: 90%;
   max-width: 50rem;
@@ -5,6 +38,10 @@ main {
   display: grid;
   grid-auto-flow: row;
   gap: 2rem;
+}
+
+main.solo-tareas {
+  display: block;
 }
 
 #users {
@@ -28,11 +65,13 @@ main {
     margin: 4rem auto;
     grid-template-columns: 1fr 3fr;
   }
-
+  main.solo-tareas {
+    grid-template-columns: none;
+    display: block;
+  }
   #users {
     flex-direction: column;
   }
-
   #fallback {
     font-size: 1.5rem;
     text-align: left;

@@ -1,22 +1,35 @@
-<app-header />
+<app-header>
+    @if (isAuthenticated) {
+        <button id="logout-btn" (click)="logout()" title="Cerrar sesión">⎋</button>
+    }
+</app-header>
 
-<main>
-    @if (!errorMsg) {
-        <ul id="users">
-            @for (user of users; track user.id) {
-                <li>
-                    <app-user [user]="user" [userSelected]="user.id === selectedUserId" 
-                        (select)="onSelectUser($event)" />
-                </li>
-            }
-        </ul>
-
-        @if (selectedUserId) {
-            <app-tasks  [userId]="selectedUser.id" [name]="selectedUser.name" />
-        } @else {
-            <p id="fallback"> Select a user to see their tasks! </p>
-        }
+<main [class.solo-tareas]="isEncargado && loggedUser && !isSuperior" [class.solo-login]="!isAuthenticated">
+    @if (!isAuthenticated) {
+        <div id="login-wrapper">
+            <app-login (login)="onLogin($event)"></app-login>
+        </div>
     } @else {
-        <p style="color: red; font-weight: bold;">{{ errorMsg }}</p>
+        @if (!errorMsg) {
+            @if (isSuperior) {
+                <ul id="users">
+                    @for (user of filteredUsers; track user.id) {
+                        <li>
+                            <app-user [user]="user" [userSelected]="user.id === selectedUserId" 
+                                (select)="onSelectUser($event)" />
+                        </li>
+                    }
+                </ul>
+                @if (selectedUserId && selectedUser) {
+                    <app-tasks  [userId]="selectedUser.id!" [name]="selectedUser.name!" [isEncargado]="false" />
+                } @else {
+                    <p id="fallback"> Selecciona un encargado para ver sus tareas </p>
+                }
+            } @else if (isEncargado && loggedUser) {
+                <app-tasks [userId]="loggedUser.id!" [name]="loggedUser.name!" [isEncargado]="true" />
+            }
+        } @else {
+            <p style="color: red; font-weight: bold;">{{ errorMsg }}</p>
+        }
     }
 </main>

@@ -1,20 +1,42 @@
+
 @if (isAddingTask) {
     <app-newTask (cancel)="onCancelAddTask()" (add)="onAddTask($event)"/>
+}
+@if (editingTask) {
+    <app-newTask [task]="editingTask" (cancel)="onCancelEditTask()" (add)="onEditTask($event)"/>
 }
 
 <section id="tasks">
     <header>
-        <h2>{{name}}`s Tasks</h2>
-        <menu>
+        <h2>{{name}}'s Tasks</h2>
+        <menu *ngIf="!isEncargado">
             <button (click)="onStartAddTask()">Add Task</button>
         </menu>
     </header>
 
     <ul>
-        <li>
-            <!-- Aquí puedes mostrar las tareas reales obtenidas desde Google Sheets -->
-            <span style="color: #aaa;">(Aquí se mostrarán las tareas guardadas en la hoja de cálculo)</span>
-        </li>
+        @if (loading) {
+            <li><span style="color: #aaa;">Cargando tareas...</span></li>
+        } @else if (tasks.length === 0) {
+            <li><span style="color: #aaa;">No hay tareas para este usuario.</span></li>
+        } @else {
+            @for (task of tasks; track task.descripcion) {
+                <li class="task-card">
+                    <div class="task-card-content">
+                        <div class="task-card-header">
+                            <strong>{{task.tipo_tarea}}</strong>
+                        </div>
+                        <div class="task-card-desc">{{task.descripcion}}</div>
+                        <div class="task-card-meta">
+                            <span>Invernadero: <b>{{task.invernadero}}</b></span>
+                            <span>Estimación: <b>{{task.estimacion_horas}}h</b></span>
+                            <span>Fecha límite: <b>{{task.fecha_limite}}</b></span>
+                        </div>
+                        <button *ngIf="!isEncargado" class="edit-btn" (click)="onStartEditTask(task)">Editar</button>
+                    </div>
+                </li>
+            }
+        }
     </ul>
 </section>
 

@@ -1,27 +1,73 @@
-import { Component, computed, Input, Output, EventEmitter, output } from '@angular/core';
-import { TaskComponent } from "./task/task.component";
+import { Component, Input, OnInit, OnChanges } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { TaskService, Task } from './task.service';
+import { TaskComponent } from './task/task.component';
 import { newTaskComponent } from './newTask/newTask.component';
-import { Task } from './task/task.model';
-import { TaskService } from './task.service';
 
 @Component({
   selector: 'app-tasks',
   standalone: true,
-  imports: [TaskComponent, newTaskComponent],
+  imports: [CommonModule, newTaskComponent],
   templateUrl: './tasks.component.html',
   styleUrls: ['./tasks.component.css']
 })
+export class TasksComponent implements OnInit, OnChanges {
+  @Input() isEncargado: boolean = false;
+  @Input() name?: string;
+  @Input() userId!: string;
 
-export class TasksComponent {
-  @Input({required: true}) name? : string;
-  @Input({required: true}) userId!: string;
   isAddingTask = false;
-  
+  tasks: Task[] = [];
+  loading = true;
+  editingTask: Task | null = null;
+
   constructor(private taskService: TaskService) {}
 
-  // Aquí podrías implementar la recarga de tareas desde Google Sheets si lo deseas
+  ngOnInit() {
+    this.loadTasks();
+  }
 
+  ngOnChanges() {
+    this.loadTasks();
+  }
 
+  loadTasks() {
+    this.loading = true;
+    this.taskService.getTasks().subscribe({
+      next: (tasks) => {
+        this.tasks = tasks.filter(t => t.encargado_id === this.userId);
+        this.loading = false;
+      },
+      error: () => {
+        this.tasks = [];
+        this.loading = false;
+      }
+    });
+  }
+
+  onStartEditTask(task: Task) {
+    this.editingTask = { ...task };
+  }
+
+  onCancelEditTask() {
+    this.editingTask = null;
+  }
+
+  onEditTask(updatedTask: any) {
+    if (!this.editingTask) return;
+    this.taskService.updateTask(this.editingTask.id, updatedTask).subscribe({
+      next: () => {
+        this.editingTask = null;
+        this.loadTasks();
+      },
+      error: (err) => {
+        if (err.status === 200) {
+          this.editingTask = null;
+          this.loadTasks();
+        }
+      }
+    });
+  }
 
   onStartAddTask() {
     this.isAddingTask = true;
@@ -35,10 +81,13 @@ export class TasksComponent {
     this.taskService.addTask(taskData).subscribe({
       next: () => {
         this.isAddingTask = false;
-        alert('Tarea guardada correctamente');
+        this.loadTasks();
       },
-      error: () => {
-        alert('Error al guardar la tarea');
+      error: (err) => {
+        if (err.status === 200) {
+          this.isAddingTask = false;
+          this.loadTasks();
+        }
       }
     });
   }
