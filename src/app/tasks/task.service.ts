@@ -3,13 +3,11 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 
-// Reemplaza esta URL por la de tu Apps Script Web App
-const TASKS_WEBAPP_URL = 'TU_URL_WEB_APP';
 
 export interface Task {
   invernadero: string;
   tipo_tarea: string;
-  estimacion_horas: string;
+  estimacion_horas: number;
   fecha_limite: string;
   encargado_id: string;
   descripcion: string;
@@ -28,9 +26,12 @@ export class TaskService {
     );
   }
 
-  addTask(task: Task) {
-    return this.http.post('https://script.google.com/macros/s/AKfycbzGCVEH8OisazCNYGF3u2CZKrArzjNICAxrhGz8sNV9teI6w8PIDY0owIyTGI0lBCzNhg/exec', task);
+ addTask(task: Task) {
+  if (!task.invernadero || !task.tipo_tarea || isNaN(task.estimacion_horas)) {
+    console.error('Datos de tarea inválidos:', task);
   }
+  return this.http.post('/api-tareas', task);
+ }
 
   private parseCSV(csv: string): Task[] {
     const lines = csv.split('\n');

@@ -11,11 +11,10 @@
     </header>
 
     <ul>
-        @for (task of selectedUserTasks; track task.id) {
-            <li>
-                <app-task [task]="task" (complete)="onCompleteTask($event)"/>
-            </li>
-        }
+        <li>
+            <!-- Aquí puedes mostrar las tareas reales obtenidas desde Google Sheets -->
+            <span style="color: #aaa;">(Aquí se mostrarán las tareas guardadas en la hoja de cálculo)</span>
+        </li>
     </ul>
 </section>
 

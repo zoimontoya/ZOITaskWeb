@@ -1,0 +1,10 @@
+{
+  "/api-tareas": {
+    "target": "https://script.google.com",
+    "secure": true,
+    "changeOrigin": true,
+    "pathRewrite": {
+      "^/api-tareas": "/macros/s/AKfycbz7psUkso-JC5-ukzH6rF58NvzXIATLsBcGMD6yaatuXQAQGYcVPcRrS67mFZN3mE29nA/exec"
+    }
+  }
+}
