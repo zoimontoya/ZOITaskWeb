@@ -42,4 +42,5 @@ testem.log
 Thumbs.db
 
 # Google Service Account Key
-service-account.json
+backend/service-account.json
+backend/service-account.json
