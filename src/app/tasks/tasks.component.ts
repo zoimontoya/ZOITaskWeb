@@ -1,3 +1,6 @@
+// ...existing code...
+// ...existing code...
+// ...existing code...
 import { Component, Input, OnInit, OnChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TaskService, Task } from './task.service';
@@ -12,6 +15,38 @@ import { newTaskComponent } from './newTask/newTask.component';
   styleUrls: ['./tasks.component.css']
 })
 export class TasksComponent implements OnInit, OnChanges {
+  // Recarga la lista de tareas hasta que el cambio se refleje o se agoten los intentos
+  pollForTaskListChange(predicate: () => boolean, maxAttempts = 5, delayMs = 1000) {
+    let attempts = 0;
+    const poll = () => {
+      this.loadTasks();
+      attempts++;
+      setTimeout(() => {
+        if (!predicate() && attempts < maxAttempts) {
+          poll();
+        }
+      }, delayMs);
+    };
+    poll();
+  }
+
+  onDeleteTask(task: Task) {
+    this.taskService.deleteTask(task.id).subscribe({
+      next: () => {
+        // Reintenta recargar hasta que la tarea desaparezca de la lista
+        this.pollForTaskListChange(() => !this.tasks.some(t => t.id === task.id));
+      },
+      error: () => {
+        this.pollForTaskListChange(() => !this.tasks.some(t => t.id === task.id));
+      }
+    });
+  }
+
+  onConfirmDeleteTask(task: Task) {
+    if (confirm(`¿Seguro que quieres eliminar la tarea "${task.tipo_tarea}" de invernadero ${task.invernadero}?`)) {
+      this.onDeleteTask(task);
+    }
+  }
   @Input() isEncargado: boolean = false;
   @Input() name?: string;
   @Input() userId!: string;
@@ -55,15 +90,32 @@ export class TasksComponent implements OnInit, OnChanges {
 
   onEditTask(updatedTask: any) {
     if (!this.editingTask) return;
-    this.taskService.updateTask(this.editingTask.id, updatedTask).subscribe({
-      next: () => {
+    // Si updatedTask es un array, toma la primera tarea (edición)
+    const tarea = Array.isArray(updatedTask) ? updatedTask[0] : updatedTask;
+    const id = tarea.id || this.editingTask.id;
+    this.taskService.updateTask(id, tarea).subscribe({
+      next: (res: any) => {
         this.editingTask = null;
-        this.loadTasks();
+        // Reintenta recargar hasta que la tarea editada tenga los nuevos datos
+        this.pollForTaskListChange(() => {
+          const t = this.tasks.find(t => t.id === id);
+          return !!(t && t.tipo_tarea === tarea.tipo_tarea && t.descripcion === tarea.descripcion);
+        });
       },
       error: (err) => {
         if (err.status === 200) {
           this.editingTask = null;
-          this.loadTasks();
+          this.pollForTaskListChange(() => {
+            const t = this.tasks.find(t => t.id === id);
+            return !!(t && t.tipo_tarea === tarea.tipo_tarea && t.descripcion === tarea.descripcion);
+          });
+        } else {
+          alert('No se pudo editar la tarea. Puede que ya no exista.');
+          this.editingTask = null;
+          this.pollForTaskListChange(() => {
+            const t = this.tasks.find(t => t.id === id);
+            return !!(t && t.tipo_tarea === tarea.tipo_tarea && t.descripcion === tarea.descripcion);
+          });
         }
       }
     });
@@ -78,6 +130,7 @@ export class TasksComponent implements OnInit, OnChanges {
   }
 
   onAddTask(taskData: any) {
+    // taskData puede ser un array de tareas o una sola tarea
     this.taskService.addTask(taskData).subscribe({
       next: () => {
         this.isAddingTask = false;

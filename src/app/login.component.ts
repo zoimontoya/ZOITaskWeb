@@ -25,16 +25,16 @@ import { FormsModule } from '@angular/forms';
     /* .login-outer eliminado, ahora el wrapper lo pone app.component.html */
     .login-form {
       width: 100%;
-      background: #433352;
+      background: #335237ff;
       padding: 3rem 2.5rem;
       border-radius: 16px;
-      box-shadow: 0 2px 16px rgba(0,0,0,0.4);
+      box-shadow: 0 2px 16px rgba(0, 0, 0, 0.4);
       display: flex;
       flex-direction: column;
       align-items: center;
     }
     .login-form h2 {
-      color: #d0c2e1;
+      color: #c2e1c6ff;
       font-size: 2.2rem;
       margin-bottom: 2rem;
     }
@@ -43,7 +43,7 @@ import { FormsModule } from '@angular/forms';
       width: 100%;
     }
     .login-field label {
-      color: #ab9ac0;
+      color: #9ac0a0ff;
       font-weight: bold;
       font-size: 1.1rem;
     }
@@ -51,21 +51,21 @@ import { FormsModule } from '@angular/forms';
       width: 100%;
       padding: 0.8rem;
       border-radius: 6px;
-      border: 1.5px solid #ab9ac0;
-      background: #d0c2e1;
+      border: 1.5px solid #9ac09cff;
+      background: #c3e1c2ff;
       font-size: 1.1rem;
       margin-top: 0.3rem;
     }
     .login-error {
-      color: #ffb3b3;
+      color: #b6ffb3ff;
       margin-bottom: 1.5rem;
       font-size: 1.1rem;
       width: 100%;
       text-align: center;
     }
     .login-form button {
-      background: #9c73ca;
-      color: #fff;
+      background: #73ca7aff;
+      color: #ffffffff;
       border: none;
       border-radius: 6px;
       padding: 0.8rem 2.5rem;

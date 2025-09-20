@@ -3,33 +3,45 @@
   <h2>{{ task ? 'Editar Tarea' : 'Nueva Tarea' }}</h2>
   <form (ngSubmit)="onSubmit()">
     <p>
-      <label for="greenhouse">Invernadero</label>
-      <select id="greenhouse" name="greenhouse" [(ngModel)]="selectedGreenhouse" required>
-        <option value="" disabled>Selecciona un invernadero</option>
-        <option *ngFor="let g of greenhouses" [value]="g.nombre">{{ g.nombre }}</option>
-      </select>
+      <label for="greenhouse-select">Invernaderos</label>
+      <mat-form-field appearance="fill" style="width: 100%;">
+        <mat-select id="greenhouse-select" [(ngModel)]="selectedGreenhouses" name="selectedGreenhouses" multiple placeholder="Selecciona invernaderos">
+          <mat-option *ngFor="let g of greenhouses" [value]="g.nombre">
+            {{ g.nombre }}
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
     </p>
     <p>
       <label for="taskType">Tipo de tarea</label>
-      <select id="taskType" name="taskType" [(ngModel)]="selectedTaskType" required>
-        <option value="" disabled>Selecciona un tipo</option>
-        <option *ngFor="let t of taskTypes" [value]="t.tipo">{{ t.tipo }}</option>
-      </select>
+      <mat-form-field appearance="fill" style="width: 100%;">
+        <mat-select id="taskType" name="taskType" [(ngModel)]="selectedTaskType" required placeholder="Selecciona un tipo">
+          <mat-option value="" disabled>Selecciona un tipo</mat-option>
+          <mat-option *ngFor="let t of taskTypes" [value]="t.tipo">{{ t.tipo }}</mat-option>
+        </mat-select>
+      </mat-form-field>
     </p>
     <p>
       <label for="estimation">Estimación (horas)</label>
       <input type="number" id="estimation" name="estimation" [(ngModel)]="estimation" min="0" required />
     </p>
-    <p>
-      <label for="due-date">Fecha límite</label>
-      <input type="date" id="due-date" name="dueDate" [(ngModel)]="dueDate" required />
-    </p>
+    <div *ngIf="selectedGreenhouses.length > 0">
+      <label>Fechas límite por invernadero:</label>
+      <div *ngFor="let g of selectedGreenhouses">
+        <label>
+          {{ g }}:
+          <input type="date" [(ngModel)]="dueDates[g]" name="dueDate_{{g}}" required />
+        </label>
+      </div>
+    </div>
     <p>
       <label for="encargado">Encargado</label>
-      <select id="encargado" name="encargado" [(ngModel)]="selectedEncargado" required>
-        <option value="" disabled>Selecciona un encargado</option>
-        <option *ngFor="let e of encargados" [value]="e.id">{{ e.name }}</option>
-      </select>
+      <mat-form-field appearance="fill" style="width: 100%;">
+        <mat-select id="encargado" name="encargado" [(ngModel)]="selectedEncargado" required placeholder="Selecciona un encargado">
+          <mat-option value="" disabled>Selecciona un encargado</mat-option>
+          <mat-option *ngFor="let e of encargados" [value]="e.id">{{ e.name }}</mat-option>
+        </mat-select>
+      </mat-form-field>
     </p>
     <p>
       <label for="description">Descripción</label>
