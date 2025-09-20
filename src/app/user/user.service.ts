@@ -8,10 +8,10 @@ export class UserService {
 
   constructor(private http: HttpClient) {}
 
-  login(usuario: string, password: string): Observable<{ success: boolean; usuario?: string; rol?: string; name?: string; error?: string }> {
-    return this.http.post<{ success: boolean; usuario?: string; rol?: string; name?: string; error?: string }>(
+  login(id: string, password: string): Observable<{ success: boolean; id?: string; rol?: string; name?: string; error?: string }> {
+    return this.http.post<{ success: boolean; id?: string; rol?: string; name?: string; error?: string }>(
       `${this.apiUrl}/login`,
-      { usuario, password }
+      { id, password }
     );
   }
 }

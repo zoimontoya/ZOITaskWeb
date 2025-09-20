@@ -20,40 +20,43 @@ export interface Task {
 
 @Injectable({ providedIn: 'root' })
 export class TaskService {
-  // URL del endpoint Apps Script que devuelve las tareas en JSON
-  private jsonUrl = environment.apiBaseUrl; // Usa tu URL de Apps Script aquí
+
+  // URL del backend Node.js para todas las operaciones
+  private backendUrl = environment.apiBaseUrl; // http://localhost:3000 o tu backend
 
   updateTask(id: string, task: Partial<Task>) {
     // Usar POST para edición, añadiendo action: 'update' y el id como string
-    return this.http.post(environment.apiBaseUrl, { ...task, id: String(id), action: 'update' });
+    return this.http.post(this.backendUrl + '/tasks', { ...task, id: String(id), action: 'update' });
   }
 
   deleteTask(id: string) {
-    // Enviar petición de borrado por id como string
-    return this.http.post(environment.apiBaseUrl, { action: 'delete', id: String(id) });
+    // Enviar petición de borrado por id como string, forzando Content-Type JSON
+    return this.http.post(
+      this.backendUrl + '/tasks',
+      { action: 'delete', id: String(id) },
+      { headers: { 'Content-Type': 'application/json' } }
+    );
   }
 
   constructor(private http: HttpClient) {}
 
+
   getTasks(): Observable<Task[]> {
-    return this.http.get<Task[]>(this.jsonUrl).pipe(
+    // Leer tareas desde el backend Node.js
+    return this.http.get<Task[]>(this.backendUrl + '/tasks').pipe(
       map(tasks => tasks.map(t => ({ ...t, id: String(t.id) })))
     );
   }
 
- addTask(tasks: Task[] | Task) {
-  if (Array.isArray(tasks) && tasks.length === 1) {
-    // Si es un array de una sola tarea, envía como objeto plano
-    tasks = tasks[0];
+
+  addTask(tasks: Task[] | Task) {
+    // Siempre enviar al backend Node.js
+    if (Array.isArray(tasks)) {
+      return this.http.post(this.backendUrl + '/tasks', { tareas: tasks });
+    } else {
+      return this.http.post(this.backendUrl + '/tasks', { tareas: [tasks] });
+    }
   }
-  if (Array.isArray(tasks)) {
-    // Enviar array de tareas (creación múltiple)
-    return this.http.post(environment.apiBaseUrl, { tareas: tasks });
-  } else {
-    // Enviar objeto plano (alta nueva)
-    return this.http.post(environment.apiBaseUrl, tasks);
-  }
- }
 
   // Ya no se necesita parseCSV, los datos llegan en JSON
 }

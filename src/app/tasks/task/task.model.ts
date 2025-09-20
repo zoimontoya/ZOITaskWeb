@@ -1,13 +1,18 @@
 export interface Task {
   id: string;
-  userId: string;
-  title: string;
-  summary: string;
-  dueDate: string;
+  invernadero: string;
+  tipo_tarea: string;
+  estimacion_horas: number;
+  fecha_limite: string;
+  encargado_id: string;
+  descripcion: string;
 }
 
 export interface NewTask {
-  title: string;
-  summary: string;
-  date: string;
+  invernadero: string;
+  tipo_tarea: string;
+  estimacion_horas: number;
+  fecha_limite: string;
+  encargado_id: string;
+  descripcion: string;
 }

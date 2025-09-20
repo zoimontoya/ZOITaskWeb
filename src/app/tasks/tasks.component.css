@@ -1,3 +1,162 @@
+/* Flex para header pegado en encargados */
+.header-flex {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+}
+.filter-pegado {
+  margin-right: 0.2em;
+  margin-left: 0;
+  position: relative;
+  left: 0;
+  right: auto;
+  transform: none;
+}
+@media (max-width: 600px) {
+  .header-flex {
+    flex-direction: row;
+    gap: 0.2em;
+  }
+  .filter-pegado {
+    margin-right: 0.1em;
+    margin-left: 0;
+    left: 0;
+    right: auto;
+    position: relative;
+    transform: none;
+    min-width: 0;
+    max-width: 40vw;
+  }
+}
+@media (max-width: 600px) {
+  .filter-dropdown.encargado-mobile {
+    margin-right: auto;
+    margin-left: 0.5em;
+    left: 0;
+    right: auto;
+    position: relative;
+    transform: translateX(-20%);
+  }
+}
+/* Modal de confirmación de borrado */
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.35);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.modal-confirm {
+  background: #2c542c;
+  border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.18);
+  padding: 2.2em 2.5em 1.5em 2.5em;
+  min-width: 320px;
+  max-width: 90vw;
+  color: #d2f7d4;
+  text-align: center;
+}
+.modal-confirm h3 {
+  margin-top: 0;
+  margin-bottom: 0.7em;
+  font-size: 1.15em;
+  color: #fff;
+}
+.modal-confirm p {
+  margin-bottom: 1.2em;
+  color: #b6e6b6;
+}
+.modal-actions {
+  display: flex;
+  gap: 1em;
+  justify-content: center;
+}
+.modal-confirm .task-action-btn {
+  min-width: 110px;
+  font-size: 1em;
+}
+/* Acciones del header alineadas a la derecha */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 1em;
+  margin-left: auto;
+}
+.filter-dropdown {
+  position: relative;
+}
+.filter-menu {
+  z-index: 100;
+}
+.filter-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 99;
+  background: transparent;
+}
+/* Dropdown de filtro/ordenación */
+.filter-dropdown {
+  position: relative;
+  display: inline-block;
+}
+/* Unificar color de texto con 'Añadir tarea' */
+.filter-btn {
+  background-color: #65dd65;
+  color: #3b5039;
+  border-radius: 4px;
+  border: none;
+  padding: 0.35rem 0.8rem;
+  font-size: 0.9rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.filter-btn:hover, .filter-btn:active {
+  background-color: #418041;
+}
+.filter-menu {
+  position: absolute;
+  top: 110%;
+  left: 0;
+  background: #2c542c;
+  border: 1.5px solid #54b64b;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.13);
+  padding: 1em 1.2em;
+  min-width: 220px;
+  z-index: 10;
+  color: #d2f7d4;
+}
+.filter-group {
+  margin-bottom: 1em;
+}
+.filter-group label {
+  display: block;
+  margin-bottom: 0.3em;
+  color: #b6e6b6;
+  font-size: 0.95em;
+}
+.filter-menu select {
+  width: 100%;
+  padding: 0.3em 0.5em;
+  border-radius: 4px;
+  border: 1px solid #54b64b;
+  background: #386638;
+  color: #d2f7d4;
+  font-size: 0.97em;
+  margin-bottom: 0.5em;
+}
+.filter-menu button {
+  margin-top: 0.5em;
+  width: 100%;
+}
+.filter-dropdown.open .filter-menu {
+  display: block;
+}
 /* Card visual para cada tarea */
 .task-card {
   background: #386638;
@@ -68,7 +227,8 @@ menu {
   padding: 0;
 }
 
-menu button {
+
+menu button, .task-action-btn {
   font: inherit;
   cursor: pointer;
   background-color: #65dd65;
@@ -76,11 +236,40 @@ menu button {
   border: none;
   padding: 0.35rem 0.8rem;
   font-size: 0.9rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  transition: background 0.15s, box-shadow 0.15s;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.07);
+  margin-right: 0.5em;
 }
 
-menu button:hover,
-menu button:active {
-  background-color: #65dd65
+menu button:hover, menu button:active,
+.task-action-btn:hover, .task-action-btn:active {
+  background-color: #54b64b;
+  color: #fff;
+}
+
+.task-action-btn.delete-btn {
+  background-color: #e74c3c;
+  color: #fff;
+}
+.task-action-btn.delete-btn:hover, .task-action-btn.delete-btn:active {
+  background-color: #c0392b;
+}
+
+.task-action-btn.edit-btn {
+  background-color: #f1c40f;
+  color: #333;
+}
+.task-action-btn.edit-btn:hover, .task-action-btn.edit-btn:active {
+  background-color: #b59b0b;
+  color: #fff;
+}
+
+.task-action-btn .icon {
+  font-size: 1.1em;
+  margin-right: 0.2em;
 }
 
 ul {

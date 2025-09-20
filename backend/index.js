@@ -137,14 +137,92 @@ app.post('/tasks', async (req, res) => {
   try {
     const client = await auth.getClient();
     const sheets = google.sheets({ version: 'v4', auth: client });
-    const tareas = req.body.tareas;
 
-    if (!Array.isArray(tareas) || tareas.length === 0) {
-      console.log('No hay tareas para crear');
-      return res.status(400).json({ error: 'No hay tareas para crear.' });
+    // UPDATE (edit task)
+    if (req.body && req.body.action === 'update' && req.body.id) {
+      const idToUpdate = String(req.body.id);
+      const spreadsheetMeta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
+      const tareasSheet = spreadsheetMeta.data.sheets.find(s =>
+        s.properties && (s.properties.title === 'Tareas' || s.properties.title === 'tareas')
+      );
+      if (!tareasSheet) {
+        return res.status(500).json({ error: 'No se encontró la hoja "Tareas" en el spreadsheet.' });
+      }
+      const response = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: tareasSheet.properties.title,
+      });
+      const rows = response.data.values || [];
+      const rowIndex = rows.findIndex((row, idx) => idx > 0 && String(row[0]) === idToUpdate);
+      if (rowIndex === -1) {
+        return res.status(404).json({ error: 'Tarea no encontrada' });
+      }
+      const updatedRow = [
+        idToUpdate,
+        req.body.invernadero,
+        req.body.tipo_tarea,
+        Number(req.body.estimacion_horas) || 0,
+        req.body.fecha_limite,
+        req.body.encargado_id,
+        req.body.descripcion
+      ];
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `${tareasSheet.properties.title}!A${rowIndex + 1}:G${rowIndex + 1}`,
+        valueInputOption: 'RAW',
+        resource: { values: [updatedRow] }
+      });
+      console.log('Tarea actualizada:', idToUpdate);
+      return res.json({ result: 'success', updated: idToUpdate });
     }
 
-    // Obtener el último ID actual
+    // DELETE (delete task)
+    if (req.body && req.body.action === 'delete' && req.body.id) {
+      const idToDelete = String(req.body.id);
+      const spreadsheetMeta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
+      const tareasSheet = spreadsheetMeta.data.sheets.find(s =>
+        s.properties && (s.properties.title === 'Tareas' || s.properties.title === 'tareas')
+      );
+      if (!tareasSheet) {
+        return res.status(500).json({ error: 'No se encontró la hoja "Tareas" en el spreadsheet.' });
+      }
+      const tareasSheetId = tareasSheet.properties.sheetId;
+      const response = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: tareasSheet.properties.title,
+      });
+      const rows = response.data.values || [];
+      const rowIndex = rows.findIndex((row, idx) => idx > 0 && String(row[0]) === idToDelete);
+      if (rowIndex === -1) {
+        return res.status(404).json({ error: 'Tarea no encontrada' });
+      }
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId: SPREADSHEET_ID,
+        resource: {
+          requests: [
+            {
+              deleteDimension: {
+                range: {
+                  sheetId: tareasSheetId,
+                  dimension: 'ROWS',
+                  startIndex: rowIndex,
+                  endIndex: rowIndex + 1
+                }
+              }
+            }
+          ]
+        }
+      });
+      console.log('Tarea borrada:', idToDelete);
+      return res.json({ result: 'success', deleted: idToDelete });
+    }
+
+    // CREATE (default: batch create)
+    const tareas = req.body.tareas;
+    if (!Array.isArray(tareas) || tareas.length === 0) {
+      console.log('No hay tareas para crear. Body recibido:', req.body);
+      return res.status(400).json({ error: 'No hay tareas para crear.', body: req.body });
+    }
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
       range: 'tareas',
@@ -157,8 +235,6 @@ app.post('/tasks', async (req, res) => {
         if (!isNaN(idValue) && idValue > lastId) lastId = idValue;
       }
     }
-
-    // Preparar nuevas filas
     const newRows = [];
     for (let i = 0; i < tareas.length; i++) {
       const tarea = tareas[i];
@@ -173,8 +249,6 @@ app.post('/tasks', async (req, res) => {
         tarea.descripcion
       ]);
     }
-
-    // Insertar en la hoja
     await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_ID,
       range: 'tareas',
@@ -182,19 +256,21 @@ app.post('/tasks', async (req, res) => {
       insertDataOption: 'INSERT_ROWS',
       resource: { values: newRows }
     });
-
     console.log('Tareas creadas:', newRows.map(r => r[0]));
-    res.json({ result: 'success', ids: newRows.map(r => r[0]) });
+    return res.json({ result: 'success', ids: newRows.map(r => r[0]) });
   } catch (err) {
     console.error('Error en /tasks (POST):', err);
     res.status(500).json({ error: err.message });
   }
 });
 
+// Arranque del servidor
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Backend escuchando en http://localhost:${PORT}`);
+  console.log(`Servidor escuchando en puerto ${PORT}`);
 });
+
+
 
 
 
