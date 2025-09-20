@@ -33,11 +33,10 @@ export class TasksComponent implements OnInit, OnChanges {
   onDeleteTask(task: Task) {
     this.taskService.deleteTask(task.id).subscribe({
       next: () => {
-        // Reintenta recargar hasta que la tarea desaparezca de la lista
-        this.pollForTaskListChange(() => !this.tasks.some(t => t.id === task.id));
+        this.loadTasks();
       },
       error: () => {
-        this.pollForTaskListChange(() => !this.tasks.some(t => t.id === task.id));
+        this.loadTasks();
       }
     });
   }

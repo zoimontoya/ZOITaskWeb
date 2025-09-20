@@ -5,7 +5,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { GreenhouseService, Greenhouse } from '../greenhouse.service';
 import { TaskTypeService, TaskType } from '../task-type.service';
-import { UserService } from '../../user/user.service';
+import { HttpClient } from '@angular/common/http';
 import { User } from '../../user/user.model';
 
 @Component({
@@ -37,8 +37,9 @@ export class newTaskComponent implements OnInit, OnChanges {
     this.taskTypeService.getTaskTypes().subscribe(data => {
       this.taskTypes = data;
     });
-    this.userService.getUsers().subscribe(users => {
-      this.encargados = users.filter((u: any) => !u.rol || u.rol.toLowerCase() === 'encargado');
+    // Obtener encargados desde el backend
+    this.http.get<User[]>('http://localhost:3000/encargados').subscribe(encargados => {
+      this.encargados = encargados;
     });
     this.initFormFromTask();
   }
@@ -52,7 +53,7 @@ export class newTaskComponent implements OnInit, OnChanges {
   constructor(
     private greenhouseService: GreenhouseService,
     private taskTypeService: TaskTypeService,
-    private userService: UserService
+    private http: HttpClient
   ) {}
 
   initFormFromTask() {

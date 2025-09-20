@@ -6,6 +6,7 @@ import { TasksComponent } from './tasks/tasks.component';
 import { UserService } from './user/user.service';
 import { User } from './user/user.model';
 import { LoginComponent } from './login.component';
+import { HttpClient } from '@angular/common/http';
 
 @Component({
   selector: 'app-root',
@@ -22,18 +23,7 @@ export class AppComponent {
   isAuthenticated = false;
   loggedUser?: User;
 
-  constructor(private userService: UserService) {
-    this.userService.getUsers().subscribe({
-      next: users => {
-        this.users = users;
-        this.errorMsg = null;
-      },
-      error: err => {
-        this.errorMsg = 'No se pudieron cargar los usuarios. Verifica la hoja de cálculo.';
-        this.users = [];
-      }
-    });
-  }
+  constructor(private userService: UserService, private http: HttpClient) {}
 
 
   get isSuperior() {
@@ -46,10 +36,8 @@ export class AppComponent {
 
   get filteredUsers() {
     if (this.isSuperior) {
-      // Solo mostrar encargados
-      return this.users.filter(u => (u as any).rol && (u as any).rol.toLowerCase() === 'encargado');
+      return this.users;
     }
-    // Si es encargado, no mostrar lista
     return [];
   }
 
@@ -68,17 +56,33 @@ export class AppComponent {
   }
 
   onLogin({username, password}: {username: string, password: string}) {
-    // Buscar usuario por id y validar contraseña (la columna debe llamarse 'password' en la hoja)
-    const user = this.users.find(u => u.id === username);
-    if (user && (user as any).password === password) {
-      this.isAuthenticated = true;
-      this.loggedUser = user;
-    } else {
-      setTimeout(() => {
-        const loginCmp = document.querySelector('app-login') as any;
-        if (loginCmp && loginCmp.setError) loginCmp.setError('Usuario o contraseña incorrectos');
-      });
-    }
+    this.userService.login(username, password).subscribe({
+      next: res => {
+        if (res.success) {
+          this.isAuthenticated = true;
+          this.loggedUser = { id: username, name: res.name || username, rol: res.rol };
+          if (res.rol && res.rol.toLowerCase() === 'superior') {
+            // Cargar encargados desde backend
+            this.http.get<User[]>('http://localhost:3000/encargados').subscribe(encargados => {
+              this.users = encargados;
+            });
+          } else {
+            this.users = [];
+          }
+        } else {
+          setTimeout(() => {
+            const loginCmp = document.querySelector('app-login') as any;
+            if (loginCmp && loginCmp.setError) loginCmp.setError('Usuario o contraseña incorrectos');
+          });
+        }
+      },
+      error: err => {
+        setTimeout(() => {
+          const loginCmp = document.querySelector('app-login') as any;
+          if (loginCmp && loginCmp.setError) loginCmp.setError('Error de red o backend');
+        });
+      }
+    });
   }
 
 
