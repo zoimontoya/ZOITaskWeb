@@ -267,6 +267,22 @@ menu button:hover, menu button:active,
   color: #fff;
 }
 
+.task-action-btn.accept-btn {
+  background-color: #27ae60;
+  color: #fff;
+}
+.task-action-btn.accept-btn:hover, .task-action-btn.accept-btn:active {
+  background-color: #229954;
+}
+
+.task-action-btn.complete-btn {
+  background-color: #8e44ad;
+  color: #fff;
+}
+.task-action-btn.complete-btn:hover, .task-action-btn.complete-btn:active {
+  background-color: #6c3483;
+}
+
 .task-action-btn .icon {
   font-size: 1.1em;
   margin-right: 0.2em;

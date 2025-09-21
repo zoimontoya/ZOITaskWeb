@@ -62,6 +62,10 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
 
   applyFilters() {
     let filtered = [...this.tasks];
+    console.log('DEBUG applyFilters - tasks originales:', this.tasks.length);
+    console.log('DEBUG applyFilters - isEncargado:', this.isEncargado);
+    console.log('DEBUG applyFilters - userId:', this.userId);
+    
     if (this.selectedInvernadero) {
       filtered = filtered.filter(t => t.invernadero === this.selectedInvernadero);
     }
@@ -74,6 +78,8 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
       filtered = filtered.sort((a, b) => (b.fecha_limite || '').localeCompare(a.fecha_limite || ''));
     }
     this.filteredTasks = filtered;
+    console.log('DEBUG applyFilters - filteredTasks final:', this.filteredTasks.length);
+    console.log('DEBUG applyFilters - primeras tareas:', this.filteredTasks.slice(0, 2));
   }
 
   resetFilters() {
@@ -201,7 +207,18 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   }
 
   onAddTask(taskData: any) {
-    this.taskService.addTask(taskData).subscribe({
+    // taskData es un array de tareas. Agregar nombre_superior a cada una
+    const tareasConSuperior = Array.isArray(taskData) 
+      ? taskData.map(tarea => ({
+          ...tarea,
+          nombre_superior: this.name || ''
+        }))
+      : [{
+          ...taskData,
+          nombre_superior: this.name || ''
+        }];
+    
+    this.taskService.addTask(tareasConSuperior).subscribe({
       next: () => {
         this.isAddingTask = false;
         this.loadTasks();
@@ -211,6 +228,32 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
           this.isAddingTask = false;
           this.loadTasks();
         }
+      }
+    });
+  }
+
+  onAcceptTask(task: Task) {
+    this.taskService.acceptTask(task.id).subscribe({
+      next: () => {
+        console.log('Tarea aceptada correctamente');
+        this.loadTasks(); // Recargar para ver cambios
+      },
+      error: (err) => {
+        console.error('Error al aceptar tarea:', err);
+        alert('Error al aceptar la tarea. Inténtalo de nuevo.');
+      }
+    });
+  }
+
+  onCompleteTask(task: Task) {
+    this.taskService.completeTask(task.id).subscribe({
+      next: () => {
+        console.log('Tarea completada correctamente');
+        this.loadTasks(); // Recargar para ver cambios
+      },
+      error: (err) => {
+        console.error('Error al completar tarea:', err);
+        alert('Error al completar la tarea. Inténtalo de nuevo.');
       }
     });
   }

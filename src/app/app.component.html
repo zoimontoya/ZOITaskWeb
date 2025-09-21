@@ -20,8 +20,8 @@
                         </li>
                     }
                 </ul>
-                @if (selectedUserId && selectedUser) {
-                    <app-tasks  [userId]="selectedUser.id!" [name]="selectedUser.name!" [isEncargado]="false" />
+                @if (selectedUserId && selectedUser && loggedUser) {
+                    <app-tasks  [userId]="selectedUser.id!" [name]="loggedUser.name!" [isEncargado]="false" />
                 } @else {
                     <p id="fallback"> Selecciona un encargado para ver sus tareas </p>
                 }

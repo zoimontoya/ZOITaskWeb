@@ -13,6 +13,12 @@ export interface Task {
   fecha_limite: string;
   encargado_id: string;
   descripcion: string;
+  nombre_superior: string;
+  fecha_inicio: string;
+  fecha_fin: string;
+  desarrollo_actual: string;
+  dimension_total: string;
+  proceso: string;
 }
 
 
@@ -59,4 +65,12 @@ export class TaskService {
   }
 
   // Ya no se necesita parseCSV, los datos llegan en JSON
+
+  acceptTask(taskId: number | string): Observable<any> {
+    return this.http.post(`${this.backendUrl}/tasks/${taskId}/accept`, {});
+  }
+
+  completeTask(taskId: number | string): Observable<any> {
+    return this.http.post(`${this.backendUrl}/tasks/${taskId}/complete`, {});
+  }
 }

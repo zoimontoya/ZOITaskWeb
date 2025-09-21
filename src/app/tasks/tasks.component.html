@@ -92,6 +92,22 @@
                     <span>Invernadero: <b>{{task.invernadero}}</b></span>
                     <span>Estimación: <b>{{task.estimacion_horas}}h</b></span>
                     <span>Fecha límite: <b>{{task.fecha_limite}}</b></span>
+                    <span *ngIf="task.proceso">Estado: <b>{{task.proceso}}</b></span>
+                    <span *ngIf="task.fecha_inicio">Iniciada: <b>{{task.fecha_inicio}}</b></span>
+                    <span *ngIf="task.fecha_fin">Terminada: <b>{{task.fecha_fin}}</b></span>
+                    <span *ngIf="task.dimension_total">Dimensión: <b>{{task.dimension_total}}</b></span>
+                </div>
+                <div *ngIf="isEncargado" class="task-actions">
+                    <button *ngIf="task.proceso === 'No iniciado'" 
+                            class="task-action-btn accept-btn" 
+                            (click)="onAcceptTask(task)">
+                        <span class="icon">✅</span> Aceptar tarea
+                    </button>
+                    <button *ngIf="task.proceso === 'Iniciada'" 
+                            class="task-action-btn complete-btn" 
+                            (click)="onCompleteTask(task)">
+                        <span class="icon">🏁</span> Terminar tarea
+                    </button>
                 </div>
                 <div *ngIf="!isEncargado" class="task-actions">
                     <button class="task-action-btn delete-btn" (click)="onConfirmDeleteTask(task)"><span class="icon">🗑️</span> Eliminar</button>
@@ -201,6 +217,22 @@
                 <span>Invernadero: <b>{{task.invernadero}}</b></span>
                 <span>Estimación: <b>{{task.estimacion_horas}}h</b></span>
                 <span>Fecha límite: <b>{{task.fecha_limite}}</b></span>
+                <span *ngIf="task.proceso">Estado: <b>{{task.proceso}}</b></span>
+                <span *ngIf="task.fecha_inicio">Iniciada: <b>{{task.fecha_inicio}}</b></span>
+                <span *ngIf="task.fecha_fin">Terminada: <b>{{task.fecha_fin}}</b></span>
+                <span *ngIf="task.dimension_total">Dimensión: <b>{{task.dimension_total}}</b></span>
+            </div>
+            <div *ngIf="isEncargado" class="task-actions">
+                <button *ngIf="task.proceso === 'No iniciado'" 
+                        class="task-action-btn accept-btn" 
+                        (click)="onAcceptTask(task)">
+                    <span class="icon">✅</span> Aceptar tarea
+                </button>
+                <button *ngIf="task.proceso === 'Iniciada'" 
+                        class="task-action-btn complete-btn" 
+                        (click)="onCompleteTask(task)">
+                    <span class="icon">🏁</span> Terminar tarea
+                </button>
             </div>
             <div *ngIf="!isEncargado" class="task-actions">
                 <button class="task-action-btn delete-btn" (click)="onConfirmDeleteTask(task)"><span class="icon">🗑️</span> Eliminar</button>

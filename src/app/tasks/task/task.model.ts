@@ -6,6 +6,12 @@ export interface Task {
   fecha_limite: string;
   encargado_id: string;
   descripcion: string;
+  nombre_superior: string;
+  fecha_inicio: string;
+  fecha_fin: string;
+  desarrollo_actual: string;
+  dimension_total: string;
+  proceso: string;
 }
 
 export interface NewTask {
@@ -15,4 +21,8 @@ export interface NewTask {
   fecha_limite: string;
   encargado_id: string;
   descripcion: string;
+  nombre_superior: string;
+  desarrollo_actual: string;
+  dimension_total: string;
+  proceso: string;
 }
