@@ -53,7 +53,7 @@
             <button 
                 class="task-action-btn update-btn" 
                 (click)="onUpdateProgressOnly()"
-                [disabled]="progressValue === (taskToComplete?.progreso || 0)">
+                [disabled]="progressValue === (taskToComplete?.progreso || 0) || progressValue === 100">
                 📊 Actualizar progreso
             </button>
             <button 
