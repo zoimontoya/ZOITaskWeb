@@ -81,27 +81,27 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
       console.log(`  Tarea ${t.id}: proceso="${t.proceso}", progreso="${t.progreso}"`);
     });
     
-    // Filtrar por estado seleccionado
+    // Filtrar por estado seleccionado (usando solo el campo progreso)
     switch (this.selectedEstado) {
       case 'sin-iniciar':
-        filtered = filtered.filter(t => t.proceso === 'No iniciado');
+        filtered = filtered.filter(t => t.progreso === 'No iniciado');
         break;
       case 'en-progreso':
         // Mostrar tareas que estén iniciadas O que tengan progreso numérico
         filtered = filtered.filter(t => {
-          const esIniciada = t.proceso === 'Iniciada';
+          const esIniciada = t.progreso === 'Iniciada';
           const tieneProgreso = t.progreso && !isNaN(Number(t.progreso)) && Number(t.progreso) > 0;
           const resultado = esIniciada || tieneProgreso;
           
           if (resultado) {
-            console.log(`DEBUG: Tarea incluida en "en-progreso" - ID: ${t.id}, proceso: "${t.proceso}", progreso: "${t.progreso}", esIniciada: ${esIniciada}, tieneProgreso: ${tieneProgreso}`);
+            console.log(`DEBUG: Tarea incluida en "en-progreso" - ID: ${t.id}, progreso: "${t.progreso}", esIniciada: ${esIniciada}, tieneProgreso: ${tieneProgreso}`);
           }
           
           return resultado;
         });
         break;
       case 'terminadas':
-        filtered = filtered.filter(t => t.proceso === 'Terminada');
+        filtered = filtered.filter(t => t.progreso === 'Terminada');
         break;
     }
     
@@ -404,5 +404,13 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
 
   trackById(index: number, item: Task) {
     return item.id;
+  }
+
+  isNumber(value: any): boolean {
+    return !isNaN(Number(value));
+  }
+
+  toNumber(value: any): number {
+    return Number(value);
   }
 }
