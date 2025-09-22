@@ -2,6 +2,7 @@ import { Component, Input, OnInit, OnDestroy, OnChanges } from '@angular/core';
 import { TasksService } from './tasks.service';
 import { Task } from './task/task.model';
 import { GreenhouseService, Greenhouse } from './greenhouse.service';
+import { UserService } from '../user/user.service';
 
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
@@ -31,6 +32,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   invernaderos: string[] = [];
   tiposTarea: string[] = [];
   encargados: string[] = []; // Nueva: lista de encargados
+  encargadosMap: { [id: string]: string } = {}; // Nuevo: mapeo de ID a nombre
   loading = true;
   editingTask: Task | null = null;
   showDeleteModal = false;
@@ -40,7 +42,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   progressValue = 0;
   greenhouses: Greenhouse[] = [];
 
-  constructor(private taskService: TasksService, private greenhouseService: GreenhouseService) {}
+  constructor(private taskService: TasksService, private greenhouseService: GreenhouseService, private userService: UserService) {}
 
   ngOnInit() {
     this.loadTasks();
@@ -112,7 +114,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
       filtered = filtered.filter(t => t.tipo_tarea === this.selectedTipo);
     }
     if (this.selectedEncargado) {
-      filtered = filtered.filter(t => t.encargado_id === this.selectedEncargado);
+      filtered = filtered.filter(t => (t.encargado_nombre || t.encargado_id) === this.selectedEncargado);
     }
     if (this.selectedFechaOrden === 'asc') {
       filtered = filtered.sort((a, b) => (a.fecha_limite || '').localeCompare(b.fecha_limite || ''));
@@ -158,14 +160,81 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
         this.invernaderos = Array.from(new Set(this.tasks.map(t => t.invernadero).filter(Boolean)));
         this.tiposTarea = Array.from(new Set(this.tasks.map(t => t.tipo_tarea).filter(Boolean)));
         this.encargados = Array.from(new Set(this.tasks.map(t => t.encargado_id).filter(Boolean)));
-        this.applyFilters();
-        this.loading = false;
+        
+        // Cargar nombres de encargados para supervisores
+        if (!this.isEncargado) {
+          this.loadEncargadosNames();
+        } else {
+          this.applyFilters();
+          this.loading = false;
+        }
       },
       error: () => {
         this.tasks = [];
         this.filteredTasks = [];
         this.loading = false;
       }
+    });
+  }
+
+  loadEncargadosNames() {
+    const uniqueEncargadoIds = Array.from(new Set(this.tasks.map(t => t.encargado_id).filter(Boolean)));
+    let loadedCount = 0;
+    
+    if (uniqueEncargadoIds.length === 0) {
+      this.applyFilters();
+      this.loading = false;
+      return;
+    }
+    
+    uniqueEncargadoIds.forEach(encargadoId => {
+      this.userService.getUserById(encargadoId).subscribe({
+        next: (response) => {
+          if (response.success && response.user) {
+            this.encargadosMap[encargadoId] = response.user.name;
+            
+            // Actualizar las tareas con el nombre del encargado
+            this.tasks.forEach(task => {
+              if (task.encargado_id === encargadoId) {
+                task.encargado_nombre = response.user!.name;
+              }
+            });
+          } else {
+            // Si no se encuentra el usuario, usar el ID como nombre
+            this.encargadosMap[encargadoId] = encargadoId;
+            this.tasks.forEach(task => {
+              if (task.encargado_id === encargadoId) {
+                task.encargado_nombre = encargadoId;
+              }
+            });
+          }
+          
+          loadedCount++;
+          if (loadedCount === uniqueEncargadoIds.length) {
+            // Actualizar la lista de encargados para el filtro con los nombres
+            this.encargados = Array.from(new Set(Object.values(this.encargadosMap)));
+            this.applyFilters();
+            this.loading = false;
+          }
+        },
+        error: () => {
+          // En caso de error, usar el ID como nombre
+          this.encargadosMap[encargadoId] = encargadoId;
+          this.tasks.forEach(task => {
+            if (task.encargado_id === encargadoId) {
+              task.encargado_nombre = encargadoId;
+            }
+          });
+          
+          loadedCount++;
+          if (loadedCount === uniqueEncargadoIds.length) {
+            // Actualizar la lista de encargados para el filtro con los nombres
+            this.encargados = Array.from(new Set(Object.values(this.encargadosMap)));
+            this.applyFilters();
+            this.loading = false;
+          }
+        }
+      });
     });
   }
 

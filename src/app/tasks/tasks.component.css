@@ -395,7 +395,7 @@
 #tasks {
   padding: 1rem;
   border-radius: 8px;
-  max-height: 60vh;
+  max-height: 85vh;
   overflow: auto;
   background-color: #2c542c;
   width: 90%;
@@ -507,7 +507,7 @@ ul {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  max-height: 50vh;
+  max-height: 75vh;
   overflow: auto;
 }
 

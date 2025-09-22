@@ -14,4 +14,10 @@ export class UserService {
       { id, password }
     );
   }
+
+  getUserById(id: string): Observable<{ success: boolean; user?: { id: string; name: string; rol?: string }; error?: string }> {
+    return this.http.get<{ success: boolean; user?: { id: string; name: string; rol?: string }; error?: string }>(
+      `${this.apiUrl}/user/${id}`
+    );
+  }
 }

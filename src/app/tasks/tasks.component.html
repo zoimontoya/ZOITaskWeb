@@ -188,6 +188,7 @@
                     <span>Invernadero: <b>{{task.invernadero}}</b></span>
                     <span>Estimación: <b>{{task.estimacion_horas}}h</b></span>
                     <span>Fecha límite: <b>{{task.fecha_limite}}</b></span>
+                    <span *ngIf="!isEncargado && task.encargado_nombre">Encargado: <b>{{task.encargado_nombre}}</b></span>
                     <span *ngIf="task.progreso">
                         Estado: <b>{{task.progreso}}<span *ngIf="isNumber(task.progreso)">%</span></b>
                     </span>

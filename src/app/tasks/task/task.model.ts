@@ -5,6 +5,7 @@ export interface Task {
   estimacion_horas: number;
   fecha_limite: string;
   encargado_id: string;
+  encargado_nombre?: string; // Nuevo campo para el nombre del encargado
   descripcion: string;
   nombre_superior: string;
   fecha_inicio: string;

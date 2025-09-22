@@ -259,6 +259,57 @@ app.post('/login', async (req, res) => {
   }
 });
 
+// Endpoint para obtener información de un usuario por ID
+app.get('/user/:id', async (req, res) => {
+  const { id } = req.params;
+  console.log('Obteniendo información del usuario:', id);
+  
+  if (!id) {
+    return res.status(400).json({ success: false, error: 'ID de usuario requerido' });
+  }
+
+  try {
+    const client = await auth.getClient();
+    const sheets = google.sheets({ version: 'v4', auth: client });
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: 'Usuarios',
+    });
+
+    const rows = response.data.values;
+    if (!rows || rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'No hay usuarios en la hoja' });
+    }
+
+    const headers = rows[0];
+    const idxId = headers.findIndex(h => h.toLowerCase() === 'id');
+    const idxName = headers.findIndex(h => h.toLowerCase() === 'name');
+    const idxRol = headers.findIndex(h => h.toLowerCase() === 'rol');
+
+    if (idxId === -1) {
+      return res.status(500).json({ success: false, error: 'Falta columna id en la hoja Usuarios' });
+    }
+
+    const userRow = rows.slice(1).find(row => String(row[idxId]) === String(id));
+
+    if (userRow) {
+      const userData = {
+        id: userRow[idxId],
+        name: idxName !== -1 ? userRow[idxName] : id,
+        rol: idxRol !== -1 ? userRow[idxRol] : undefined
+      };
+      console.log('Usuario encontrado:', userData);
+      return res.json({ success: true, user: userData });
+    } else {
+      console.log('Usuario no encontrado:', id);
+      return res.status(404).json({ success: false, error: 'Usuario no encontrado' });
+    }
+  } catch (err) {
+    console.error('Error al obtener usuario:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // Endpoint para crear varias tareas a la vez
 app.post('/tasks', async (req, res) => {
   try {
