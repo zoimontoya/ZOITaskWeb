@@ -176,12 +176,20 @@ app.get('/tasks', async (req, res) => {
     }
     
     const headers = rows[0];
+    console.log('=== DEBUG HEADERS DE TAREAS ===');
+    console.log('Headers encontrados:', headers);
+    console.log('Posición 12 (columna M):', headers[12]);
+    console.log('===============================');
+    
     const tasks = rows.slice(1).map(row => {
       const obj = {};
       headers.forEach((h, i) => obj[h] = row[i] || '');
       
+      // DEBUG: Buscar diferentes nombres posibles para la columna de estado
+      const estadoPosible = obj.proceso || obj.progreso || obj.estado || obj.Proceso || obj.Progreso || obj.Estado || '';
+      
       // Asegurar que tenga todos los campos necesarios con valores por defecto
-      obj.proceso = obj.proceso || 'No iniciado';
+      obj.proceso = estadoPosible || 'No iniciado';
       obj.nombre_superior = obj.nombre_superior || '';
       obj.fecha_inicio = obj.fecha_inicio || '';
       obj.fecha_fin = obj.fecha_fin || '';
@@ -299,6 +307,65 @@ app.post('/tasks', async (req, res) => {
       });
       console.log('Tarea actualizada:', idToUpdate);
       return res.json({ result: 'success', updated: idToUpdate });
+    }
+
+    // UPDATE PROGRESS (update progress percentage and hectares)
+    if (req.body && req.body.action === 'update-progress' && req.body.id) {
+      const idToUpdate = String(req.body.id);
+      const spreadsheetMeta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
+      const tareasSheet = spreadsheetMeta.data.sheets.find(s =>
+        s.properties && (s.properties.title === 'Tareas' || s.properties.title === 'tareas')
+      );
+      if (!tareasSheet) {
+        return res.status(500).json({ error: 'No se encontró la hoja "Tareas" en el spreadsheet.' });
+      }
+      const response = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: tareasSheet.properties.title,
+      });
+      const rows = response.data.values || [];
+      const headers = rows[0] || [];
+      const rowIndex = rows.findIndex((row, idx) => idx > 0 && String(row[0]) === idToUpdate);
+      if (rowIndex === -1) {
+        return res.status(404).json({ error: 'Tarea no encontrada' });
+      }
+
+      // Buscar índices de las columnas
+      const desarrolloActualIndex = headers.findIndex(h => h.toLowerCase().includes('desarrollo_actual') || h.toLowerCase() === 'desarrollo_actual');
+      const progresoIndex = headers.findIndex(h => h.toLowerCase() === 'progreso');
+      
+      console.log('Índices encontrados:', { desarrolloActualIndex, progresoIndex });
+      console.log('Headers:', headers);
+
+      // Actualizar desarrollo_actual (hectáreas) - columna K por defecto si no se encuentra
+      const desarrolloCol = desarrolloActualIndex >= 0 ? desarrolloActualIndex : 10;
+      const desarrolloColLetter = String.fromCharCode(65 + desarrolloCol); // Convertir a letra (A=0, B=1, etc.)
+      
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `${tareasSheet.properties.title}!${desarrolloColLetter}${rowIndex + 1}`,
+        valueInputOption: 'RAW',
+        resource: { values: [[Number(req.body.desarrollo_actual) || 0]] }
+      });
+
+      // Actualizar progreso (porcentaje) si existe la columna
+      if (progresoIndex >= 0) {
+        const progresoColLetter = String.fromCharCode(65 + progresoIndex);
+        await sheets.spreadsheets.values.update({
+          spreadsheetId: SPREADSHEET_ID,
+          range: `${tareasSheet.properties.title}!${progresoColLetter}${rowIndex + 1}`,
+          valueInputOption: 'RAW',
+          resource: { values: [[Number(req.body.progreso) || 0]] }
+        });
+      }
+
+      console.log('Progreso actualizado para tarea:', idToUpdate, 'porcentaje:', req.body.progreso, 'hectáreas:', req.body.desarrollo_actual);
+      return res.json({ 
+        result: 'success', 
+        updated: idToUpdate, 
+        progress: req.body.progreso, 
+        hectares: req.body.desarrollo_actual 
+      });
     }
 
     // DELETE (delete task)
@@ -500,7 +567,7 @@ app.post('/tasks/:id/complete', async (req, res) => {
     
     // Actualizar fecha_fin (columna J) y proceso (columna M)
     currentRow[9] = today; // fecha_fin
-    currentRow[12] = 'Completada'; // proceso
+    currentRow[12] = 'Terminada'; // proceso
     
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,

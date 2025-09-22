@@ -1,4 +1,6 @@
 import { Injectable } from "@angular/core";
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
 import { NewTask } from "./task/task.model";
 
 @Injectable({
@@ -6,48 +8,69 @@ import { NewTask } from "./task/task.model";
 })
 
 export class TasksService {
-  private dummyTasks = [
-    {
-      id: 't1',
-      userId: 'u1',
-      title: 'Master Angular',
-      summary:
-        'Learn all the basic and advanced features of Angular & how to apply them.',
-      dueDate: '2025-12-31',
-    },
-    {
-      id: 't2',
-      userId: 'u3',
-      title: 'Build first prototype',
-      summary: 'Build a first prototype of the online shop website',
-      dueDate: '2024-05-31',
-    },
-    {
-      id: 't3',
-      userId: 'u3',
-      title: 'Prepare issue template',
-      summary:
-        'Prepare and describe an issue template which will help with project management',
-      dueDate: '2024-06-15',
-    },
-  ];
+  private apiUrl = 'http://localhost:3000';
 
-  getUserTasks(userId: string) {
-    return this.dummyTasks.filter((task) => task.userId === userId);
+  constructor(private http: HttpClient) {}
+
+  // Obtener todas las tareas
+  getTasks(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.apiUrl}/tasks`);
   }
 
-  addTask(taskData: NewTask, userId: string) {
-     this.dummyTasks.unshift({
-      id: new Date().getTime().toString(),
-      userId: userId,
-      title: taskData.title,
-      summary: taskData.summary,
-      dueDate: taskData.date
+  // Agregar nueva tarea
+  addTask(taskData: any): Observable<any> {
+    // El backend espera que las tareas estén en una propiedad 'tareas'
+    const payload = {
+      tareas: Array.isArray(taskData) ? taskData : [taskData]
+    };
+    return this.http.post<any>(`${this.apiUrl}/tasks`, payload);
+  }
+
+  // Aceptar tarea (cambiar estado a "Iniciada")
+  acceptTask(taskId: string): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/tasks/${taskId}/accept`, {});
+  }
+
+  // Completar tarea (cambiar estado a "Terminada")
+  completeTask(taskId: string): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/tasks/${taskId}/complete`, {});
+  }
+
+  // Actualizar solo el progreso de la tarea (sin cambiar estado)
+  updateTaskProgress(taskId: string, progress: number, hectareas: number): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/tasks`, { 
+      action: 'update-progress', 
+      id: taskId,
+      progreso: progress,
+      desarrollo_actual: hectareas
     });
   }
 
-  removeTask(taskId: string) {
-    this.dummyTasks = this.dummyTasks.filter((task) => task.id !== taskId);
+  // Eliminar tarea
+  deleteTask(taskId: string): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/tasks`, { 
+      action: 'delete', 
+      id: taskId 
+    });
   }
 
+  // Actualizar tarea
+  updateTask(taskId: string, taskData: any): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/tasks`, { 
+      action: 'update', 
+      id: taskId,
+      ...taskData 
+    });
+  }
+
+  // Métodos legacy mantenidos por compatibilidad (pero ahora usan la API)
+  getUserTasks(userId: string): Observable<any[]> {
+    // Ahora obtenemos todas las tareas y filtramos en el frontend
+    return this.getTasks();
+  }
+
+  removeTask(taskId: string): Observable<any> {
+    // Implementar endpoint DELETE si es necesario
+    return this.http.delete<any>(`${this.apiUrl}/tasks/${taskId}`);
+  }
 }

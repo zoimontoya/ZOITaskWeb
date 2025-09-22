@@ -100,13 +100,19 @@ export class newTaskComponent implements OnInit, OnChanges {
     const tareas = this.selectedGreenhouses.map(g => {
       let estimationNum = Number(this.estimation);
       if (isNaN(estimationNum)) estimationNum = 0;
+      
+      // Obtener las dimensiones del invernadero seleccionado
+      const greenhouse = this.greenhouses.find(gh => gh.nombre === g);
+      const dimensionTotal = greenhouse?.dimensiones || '';
+      
       const data: any = {
         invernadero: g,
         tipo_tarea: this.selectedTaskType,
         estimacion_horas: estimationNum,
         fecha_limite: this.dueDates[g],
         encargado_id: this.selectedEncargado,
-        descripcion: this.description
+        descripcion: this.description,
+        dimension_total: dimensionTotal
       };
       if (this.task && this.task.id) {
         data.id = this.task.id;

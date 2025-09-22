@@ -1,6 +1,7 @@
 import { Component, Input, OnInit, OnDestroy, OnChanges } from '@angular/core';
-import { TaskService } from './task.service';
+import { TasksService } from './tasks.service';
 import { Task } from './task/task.model';
+import { GreenhouseService, Greenhouse } from './greenhouse.service';
 
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
@@ -25,17 +26,25 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   selectedInvernadero: string = '';
   selectedTipo: string = '';
   selectedFechaOrden: string = 'desc';
+  selectedEstado: string = 'sin-iniciar'; // Nuevo: estado seleccionado por defecto
+  selectedEncargado: string = ''; // Nuevo: encargado seleccionado
   invernaderos: string[] = [];
   tiposTarea: string[] = [];
+  encargados: string[] = []; // Nueva: lista de encargados
   loading = true;
   editingTask: Task | null = null;
   showDeleteModal = false;
   taskToDelete: Task | null = null;
+  showCompleteModal = false;
+  taskToComplete: Task | null = null;
+  progressValue = 0;
+  greenhouses: Greenhouse[] = [];
 
-  constructor(private taskService: TaskService) {}
+  constructor(private taskService: TasksService, private greenhouseService: GreenhouseService) {}
 
   ngOnInit() {
     this.loadTasks();
+    this.greenhouseService.getGreenhouses().subscribe(data => this.greenhouses = data);
     document.addEventListener('mousedown', this.handleClickOutside);
   }
 
@@ -66,11 +75,44 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     console.log('DEBUG applyFilters - isEncargado:', this.isEncargado);
     console.log('DEBUG applyFilters - userId:', this.userId);
     
+    // Debug: Mostrar todas las tareas con sus estados y progresos
+    console.log('DEBUG: Todas las tareas y sus estados:');
+    this.tasks.forEach(t => {
+      console.log(`  Tarea ${t.id}: proceso="${t.proceso}", progreso="${t.progreso}"`);
+    });
+    
+    // Filtrar por estado seleccionado
+    switch (this.selectedEstado) {
+      case 'sin-iniciar':
+        filtered = filtered.filter(t => t.proceso === 'No iniciado');
+        break;
+      case 'en-progreso':
+        // Mostrar tareas que estén iniciadas O que tengan progreso numérico
+        filtered = filtered.filter(t => {
+          const esIniciada = t.proceso === 'Iniciada';
+          const tieneProgreso = t.progreso && !isNaN(Number(t.progreso)) && Number(t.progreso) > 0;
+          const resultado = esIniciada || tieneProgreso;
+          
+          if (resultado) {
+            console.log(`DEBUG: Tarea incluida en "en-progreso" - ID: ${t.id}, proceso: "${t.proceso}", progreso: "${t.progreso}", esIniciada: ${esIniciada}, tieneProgreso: ${tieneProgreso}`);
+          }
+          
+          return resultado;
+        });
+        break;
+      case 'terminadas':
+        filtered = filtered.filter(t => t.proceso === 'Terminada');
+        break;
+    }
+    
     if (this.selectedInvernadero) {
       filtered = filtered.filter(t => t.invernadero === this.selectedInvernadero);
     }
     if (this.selectedTipo) {
       filtered = filtered.filter(t => t.tipo_tarea === this.selectedTipo);
+    }
+    if (this.selectedEncargado) {
+      filtered = filtered.filter(t => t.encargado_id === this.selectedEncargado);
     }
     if (this.selectedFechaOrden === 'asc') {
       filtered = filtered.sort((a, b) => (a.fecha_limite || '').localeCompare(b.fecha_limite || ''));
@@ -85,7 +127,14 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   resetFilters() {
     this.selectedInvernadero = '';
     this.selectedTipo = '';
+    this.selectedEncargado = '';
     this.selectedFechaOrden = 'desc';
+    // No resetear selectedEstado para supervisores, mantener el estado activo
+    this.applyFilters();
+  }
+
+  setEstadoFilter(estado: string) {
+    this.selectedEstado = estado;
     this.applyFilters();
   }
 
@@ -96,15 +145,19 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
         // DEBUG: log userId y encargado_id de cada tarea
         console.log('userId recibido:', this.userId);
         console.log('Tareas recibidas:', tasks.map(t => t.encargado_id));
-        if (this.userId) {
+        
+        if (this.isEncargado && this.userId) {
+          // Para encargados: filtrar solo sus tareas
           const userIdNorm = String(this.userId).trim().toLowerCase();
           this.tasks = tasks.filter(t => String(t.encargado_id).trim().toLowerCase() === userIdNorm)
             .map(t => ({ ...t, id: String(t.id) }));
         } else {
+          // Para supervisores: mostrar todas las tareas
           this.tasks = tasks.map(t => ({ ...t, id: String(t.id) }));
         }
         this.invernaderos = Array.from(new Set(this.tasks.map(t => t.invernadero).filter(Boolean)));
         this.tiposTarea = Array.from(new Set(this.tasks.map(t => t.tipo_tarea).filter(Boolean)));
+        this.encargados = Array.from(new Set(this.tasks.map(t => t.encargado_id).filter(Boolean)));
         this.applyFilters();
         this.loading = false;
       },
@@ -171,12 +224,24 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     if (!this.editingTask) return;
     const tarea = Array.isArray(updatedTask) ? updatedTask[0] : updatedTask;
     const id = tarea.id || this.editingTask.id;
-    this.taskService.updateTask(id, tarea).subscribe({
+    
+    // Obtener las dimensiones del invernadero seleccionado
+    const greenhouse = this.greenhouses.find(gh => gh.nombre === tarea.invernadero);
+    const dimensionTotal = greenhouse?.dimensiones || '';
+    
+    // Asegurar que se incluyan nombre_superior y dimension_total
+    const tareaCompleta = {
+      ...tarea,
+      nombre_superior: this.name || '',
+      dimension_total: dimensionTotal
+    };
+    
+    this.taskService.updateTask(id, tareaCompleta).subscribe({
       next: (res: any) => {
         this.editingTask = null;
         this.pollForTaskListChange(() => {
           const t = this.tasks.find(t => t.id === id);
-          return !!(t && t.tipo_tarea === tarea.tipo_tarea && t.descripcion === tarea.descripcion);
+          return !!(t && t.tipo_tarea === tareaCompleta.tipo_tarea && t.descripcion === tareaCompleta.descripcion);
         });
       },
       error: (err) => {
@@ -184,14 +249,14 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
           this.editingTask = null;
           this.pollForTaskListChange(() => {
             const t = this.tasks.find(t => t.id === id);
-            return !!(t && t.tipo_tarea === tarea.tipo_tarea && t.descripcion === tarea.descripcion);
+            return !!(t && t.tipo_tarea === tareaCompleta.tipo_tarea && t.descripcion === tareaCompleta.descripcion);
           });
         } else {
           alert('No se pudo editar la tarea. Puede que ya no exista.');
           this.editingTask = null;
           this.pollForTaskListChange(() => {
             const t = this.tasks.find(t => t.id === id);
-            return !!(t && t.tipo_tarea === tarea.tipo_tarea && t.descripcion === tarea.descripcion);
+            return !!(t && t.tipo_tarea === tareaCompleta.tipo_tarea && t.descripcion === tareaCompleta.descripcion);
           });
         }
       }
@@ -245,16 +310,95 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     });
   }
 
-  onCompleteTask(task: Task) {
-    this.taskService.completeTask(task.id).subscribe({
-      next: () => {
-        console.log('Tarea completada correctamente');
-        this.loadTasks(); // Recargar para ver cambios
-      },
-      error: (err) => {
-        console.error('Error al completar tarea:', err);
-        alert('Error al completar la tarea. Inténtalo de nuevo.');
-      }
+  onOpenProgressModal(task: Task) {
+    this.taskToComplete = task;
+    this.progressValue = Number(task.progreso) || 0; // Usar el campo progreso para el porcentaje
+    this.showCompleteModal = true;
+  }
+
+  onUpdateProgressOnly() {
+    if (this.taskToComplete && this.progressValue !== (Number(this.taskToComplete.progreso) || 0)) {
+      // Calcular hectáreas basadas en el porcentaje
+      const totalHectares = parseFloat((this.taskToComplete.dimension_total || '0').replace(',', '.'));
+      const hectareasActuales = (totalHectares * this.progressValue) / 100;
+      
+      this.taskService.updateTaskProgress(this.taskToComplete.id, this.progressValue, hectareasActuales).subscribe({
+        next: () => {
+          console.log('Progreso actualizado correctamente');
+          this.showCompleteModal = false;
+          this.taskToComplete = null;
+          this.progressValue = 0;
+          this.loadTasks(); // Recargar para ver cambios
+        },
+        error: (err: any) => {
+          console.error('Error al actualizar progreso:', err);
+          alert('Error al actualizar el progreso. Inténtalo de nuevo.');
+        }
+      });
+    }
+  }
+
+  onConfirmCompleteTask() {
+    if (this.taskToComplete && this.progressValue === 100) {
+      // Calcular hectáreas para 100% de progreso
+      const totalHectares = parseFloat((this.taskToComplete.dimension_total || '0').replace(',', '.'));
+      const hectareasCompletas = totalHectares; // 100% = todas las hectáreas
+      
+      // Primero actualizar el progreso al 100% y las hectáreas
+      this.taskService.updateTaskProgress(this.taskToComplete.id, 100, hectareasCompletas).subscribe({
+        next: () => {
+          console.log('Progreso actualizado al 100%');
+          // Después completar la tarea (cambiar estado)
+          if (this.taskToComplete) {
+            this.taskService.completeTask(this.taskToComplete.id).subscribe({
+              next: () => {
+                console.log('Tarea completada correctamente');
+                this.showCompleteModal = false;
+                this.taskToComplete = null;
+                this.progressValue = 0;
+                this.loadTasks(); // Recargar para ver cambios
+              },
+              error: (err) => {
+                console.error('Error al completar tarea:', err);
+                alert('Error al completar la tarea. Inténtalo de nuevo.');
+              }
+            });
+          }
+        },
+        error: (err: any) => {
+          console.error('Error al actualizar progreso final:', err);
+          alert('Error al actualizar el progreso final. Inténtalo de nuevo.');
+        }
+      });
+    }
+  }
+
+  onCancelCompleteTask() {
+    this.showCompleteModal = false;
+    this.taskToComplete = null;
+    this.progressValue = 0;
+  }
+
+  onModalOverlayClick(event: MouseEvent) {
+    // Cerrar modal al hacer clic en el overlay (fuera del modal)
+    this.onCancelCompleteTask();
+  }
+
+  onDeleteModalOverlayClick(event: MouseEvent) {
+    // Cerrar modal de borrar al hacer clic en el overlay
+    this.cancelDeleteTask();
+  }
+
+  getHectaresFromProgress(): string {
+    if (!this.taskToComplete?.dimension_total) return '0';
+    
+    const totalHectares = parseFloat(this.taskToComplete.dimension_total.replace(',', '.'));
+    const currentHectares = (totalHectares * this.progressValue) / 100;
+    
+    // Formatear con comas como separador de miles si es necesario
+    return currentHectares.toLocaleString('es-ES', { 
+      minimumFractionDigits: 0, 
+      maximumFractionDigits: 3 
     });
   }
 

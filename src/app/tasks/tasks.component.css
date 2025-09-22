@@ -77,6 +77,202 @@
   min-width: 110px;
   font-size: 1em;
 }
+
+/* Estilos específicos para el modal de completar tarea */
+.complete-modal {
+  min-width: 400px;
+  max-width: 500px;
+}
+
+.progress-section {
+  margin: 1.5em 0;
+  text-align: left;
+}
+
+.progress-section label {
+  display: block;
+  margin-bottom: 0.8em;
+  font-weight: 600;
+  color: #121412;
+}
+
+.progress-container {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 1.2em;
+  border-radius: 8px;
+  margin-bottom: 0.8em;
+}
+
+.progress-slider {
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  background: #555;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  margin-bottom: 1em;
+}
+
+.progress-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #4a9;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.progress-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #4a9;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s ease;
+}
+
+.progress-slider.complete::-webkit-slider-thumb {
+  background: #28a745;
+  box-shadow: 0 0 8px rgba(40, 167, 69, 0.4);
+}
+
+.progress-slider.complete::-moz-range-thumb {
+  background: #28a745;
+  box-shadow: 0 0 8px rgba(40, 167, 69, 0.4);
+}
+
+.progress-display {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.progress-text {
+  font-size: 1.2em;
+  font-weight: bold;
+  color: #fff;
+}
+
+.progress-requirement {
+  font-size: 0.9em;
+  color: #ffc107;
+  font-weight: 600;
+}
+
+.progress-requirement.satisfied {
+  color: #28a745;
+}
+
+.hectares-display {
+  text-align: center;
+  margin-top: 0.8em;
+  padding: 0.5em;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+
+.hectares-text {
+  font-size: 1.1em;
+  font-weight: 600;
+  color: #4a9;
+}
+
+.dimension-info {
+  text-align: center;
+  color: #b6e6b6;
+  font-style: italic;
+}
+
+.complete-modal .modal-actions button:disabled {
+  background: #666;
+  color: #999;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Botones de filtro por estado para supervisores */
+.estado-filters {
+  display: flex;
+  gap: 1em;
+  margin: 1.5em 0;
+  padding: 0 1em;
+  justify-content: center;
+}
+
+.estado-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  padding: 0.8em 1.5em;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  background: #f8f9fa;
+  color: #495057;
+  font-weight: 600;
+  font-size: 1em;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 140px;
+  justify-content: center;
+}
+
+.estado-btn:hover {
+  background: #e9ecef;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.estado-btn.active {
+  background: #2c542c;
+  color: #fff;
+  border-color: #4a9;
+  box-shadow: 0 4px 16px rgba(44, 84, 44, 0.3);
+}
+
+.estado-icon {
+  font-size: 1.2em;
+}
+
+/* Responsive para móviles */
+@media (max-width: 600px) {
+  .estado-filters {
+    flex-direction: column;
+    gap: 0.5em;
+    padding: 0 0.5em;
+  }
+  
+  .estado-btn {
+    min-width: auto;
+    width: 100%;
+  }
+}
+
+/* Mensaje para tareas completadas */
+.task-completed-notice {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0.8em;
+  margin-top: 0.5em;
+}
+
+.completed-text {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  color: #6c757d;
+  font-size: 0.9em;
+  font-style: italic;
+  background: rgba(108, 117, 125, 0.1);
+  padding: 0.4em 0.8em;
+  border-radius: 6px;
+  border: 1px solid rgba(108, 117, 125, 0.2);
+}
 /* Acciones del header alineadas a la derecha */
 .header-actions {
   display: flex;
@@ -273,6 +469,22 @@ menu button:hover, menu button:active,
 }
 .task-action-btn.accept-btn:hover, .task-action-btn.accept-btn:active {
   background-color: #229954;
+}
+
+.task-action-btn.progress-btn {
+  background-color: #3498db;
+  color: #fff;
+}
+.task-action-btn.progress-btn:hover, .task-action-btn.progress-btn:active {
+  background-color: #2980b9;
+}
+
+.task-action-btn.update-btn {
+  background-color: #f39c12;
+  color: #fff;
+}
+.task-action-btn.update-btn:hover, .task-action-btn.update-btn:active {
+  background-color: #d68910;
 }
 
 .task-action-btn.complete-btn {

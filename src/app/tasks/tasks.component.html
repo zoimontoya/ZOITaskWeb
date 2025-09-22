@@ -1,8 +1,71 @@
 
 
+
 <app-newTask *ngIf="isAddingTask" (cancel)="onCancelAddTask()" (add)="onAddTask($event)"></app-newTask>
 <app-newTask *ngIf="editingTask" [task]="editingTask" (cancel)="onCancelEditTask()" (add)="onEditTask($event)"></app-newTask>
 
+<div *ngIf="showDeleteModal" class="modal-overlay" (click)="onDeleteModalOverlayClick($event)">
+    <div class="modal-confirm" (click)="$event.stopPropagation()">
+        <h3>¿Seguro que quieres eliminar esta tarea?</h3>
+        <p *ngIf="taskToDelete">
+            <b>{{taskToDelete.tipo_tarea}}</b> de invernadero <b>{{taskToDelete.invernadero}}</b>
+        </p>
+        <div class="modal-actions">
+            <button class="task-action-btn delete-btn" (click)="confirmDeleteTask()">Sí, eliminar</button>
+            <button class="task-action-btn" (click)="cancelDeleteTask()">Cancelar</button>
+        </div>
+    </div>
+</div>
+
+<div *ngIf="showCompleteModal" class="modal-overlay" (click)="onModalOverlayClick($event)">
+    <div class="modal-confirm complete-modal" (click)="$event.stopPropagation()">
+        <h3>Completar Tarea</h3>
+        <p *ngIf="taskToComplete">
+            <b>{{taskToComplete.tipo_tarea}}</b> de invernadero <b>{{taskToComplete.invernadero}}</b>
+        </p>
+        <div class="progress-section">
+            <label>Progreso completado (debe ser 100%):</label>
+            <div class="progress-container">
+                <input 
+                    type="range" 
+                    min="0" 
+                    max="100" 
+                    [(ngModel)]="progressValue"
+                    class="progress-slider"
+                    [class.complete]="progressValue === 100">
+                <div class="progress-display">
+                    <span class="progress-text">{{progressValue}}%</span>
+                    <span class="progress-requirement" [class.satisfied]="progressValue === 100">
+                        {{progressValue === 100 ? '✅ Completado' : '⚠️ Debe ser 100%'}}
+                    </span>
+                </div>
+                <div class="hectares-display" *ngIf="taskToComplete">
+                    <span class="hectares-text">
+                        {{getHectaresFromProgress()}} / {{taskToComplete.dimension_total}} hectáreas
+                    </span>
+                </div>
+            </div>
+            <div class="dimension-info" *ngIf="taskToComplete">
+                <small>Dimensión total: {{taskToComplete.dimension_total}}</small>
+            </div>
+        </div>
+        <div class="modal-actions">
+            <button 
+                class="task-action-btn update-btn" 
+                (click)="onUpdateProgressOnly()"
+                [disabled]="progressValue === (taskToComplete?.progreso || 0)">
+                📊 Actualizar progreso
+            </button>
+            <button 
+                class="task-action-btn complete-btn" 
+                (click)="onConfirmCompleteTask()"
+                [disabled]="progressValue !== 100">
+                🏁 Terminar tarea
+            </button>
+            <button class="task-action-btn" (click)="onCancelCompleteTask()">Cancelar</button>
+        </div>
+    </div>
+</div>
 
 <section id="tasks">
     <header>
@@ -37,11 +100,11 @@
                         <button class="task-action-btn" (click)="resetFilters()">Quitar filtros</button>
                     </div>
                 </div>
-                <h2 style="margin-left:0.5em;">Tareas de {{name}}</h2>
+                <h2 style="margin-left:0.5em;">Mis Tareas</h2>
             </div>
         </ng-container>
         <ng-template #superiorHeader>
-            <h2>Tareas de {{name}}</h2>
+            <h2>Gestión de Tareas</h2>
             <div class="header-actions">
                 <div *ngIf="!isAddingTask && !editingTask" class="filter-dropdown" [class.open]="showFilterMenu" tabindex="0">
                     <button class="task-action-btn filter-btn" (click)="toggleFilterMenu()" type="button">
@@ -63,6 +126,13 @@
                             </select>
                         </div>
                         <div class="filter-group">
+                            <label>Filtrar por encargado:</label>
+                            <select [(ngModel)]="selectedEncargado" (change)="applyFilters()">
+                                <option value="">Todos</option>
+                                <option *ngFor="let encargado of encargados" [value]="encargado">{{encargado}}</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
                             <label>Ordenar por fecha límite:</label>
                             <select [(ngModel)]="selectedFechaOrden" (change)="applyFilters()">
                                 <option value="desc">Más lejana primero</option>
@@ -79,6 +149,32 @@
         </ng-template>
     </header>
 
+    <!-- Botones de filtro por estado para ambos roles -->
+    <div class="estado-filters">
+        <button 
+            class="estado-btn" 
+            [class.active]="selectedEstado === 'sin-iniciar'"
+            (click)="setEstadoFilter('sin-iniciar')">
+            <span class="estado-icon">⏳</span>
+            <span *ngIf="isEncargado">Pendientes</span>
+            <span *ngIf="!isEncargado">Sin Iniciar</span>
+        </button>
+        <button 
+            class="estado-btn" 
+            [class.active]="selectedEstado === 'en-progreso'"
+            (click)="setEstadoFilter('en-progreso')">
+            <span class="estado-icon">🚀</span>
+            En Progreso
+        </button>
+        <button 
+            class="estado-btn" 
+            [class.active]="selectedEstado === 'terminadas'"
+            (click)="setEstadoFilter('terminadas')">
+            <span class="estado-icon">✅</span>
+            Terminadas
+        </button>
+    </div>
+
     <ul>
         <li *ngIf="loading"><span style="color: #aaa;">Cargando tareas...</span></li>
         <li *ngIf="!loading && tasks.length === 0"><span style="color: #aaa;">No hay tareas para este usuario.</span></li>
@@ -92,154 +188,36 @@
                     <span>Invernadero: <b>{{task.invernadero}}</b></span>
                     <span>Estimación: <b>{{task.estimacion_horas}}h</b></span>
                     <span>Fecha límite: <b>{{task.fecha_limite}}</b></span>
-                    <span *ngIf="task.proceso">Estado: <b>{{task.proceso}}</b></span>
+                    <span *ngIf="task.progreso || task.proceso">
+                        Estado: <b>{{task.progreso || task.proceso}}<span *ngIf="!isNaN(Number(task.progreso || task.proceso))">%</span></b>
+                    </span>
                     <span *ngIf="task.fecha_inicio">Iniciada: <b>{{task.fecha_inicio}}</b></span>
                     <span *ngIf="task.fecha_fin">Terminada: <b>{{task.fecha_fin}}</b></span>
                     <span *ngIf="task.dimension_total">Dimensión: <b>{{task.dimension_total}}</b></span>
                 </div>
                 <div *ngIf="isEncargado" class="task-actions">
                     <button *ngIf="task.proceso === 'No iniciado'" 
-                            class="task-action-btn accept-btn" 
-                            (click)="onAcceptTask(task)">
+                                    class="task-action-btn accept-btn" 
+                                    (click)="onAcceptTask(task)">
                         <span class="icon">✅</span> Aceptar tarea
                     </button>
-                    <button *ngIf="task.proceso === 'Iniciada'" 
-                            class="task-action-btn complete-btn" 
-                            (click)="onCompleteTask(task)">
-                        <span class="icon">🏁</span> Terminar tarea
+                    <button *ngIf="task.proceso === 'Iniciada' || (!isNaN(Number(task.proceso)) && Number(task.proceso) >= 0)" 
+                                    class="task-action-btn progress-btn" 
+                                    (click)="onOpenProgressModal(task)">
+                        <span class="icon">📊</span> Actualizar progreso
                     </button>
                 </div>
-                <div *ngIf="!isEncargado" class="task-actions">
+                <div *ngIf="!isEncargado && task.proceso !== 'Terminada'" class="task-actions">
                     <button class="task-action-btn delete-btn" (click)="onConfirmDeleteTask(task)"><span class="icon">🗑️</span> Eliminar</button>
                     <button class="task-action-btn edit-btn" (click)="onStartEditTask(task)"><span class="icon">✏️</span> Editar</button>
+                </div>
+                <div *ngIf="!isEncargado && task.proceso === 'Terminada'" class="task-completed-notice">
+                    <span class="completed-text">
+                        <span class="icon">🔒</span> Tarea completada - No se puede modificar
+                    </span>
                 </div>
             </div>
         </li>
     </ul>
-
-        <div *ngIf="showDeleteModal" class="modal-overlay">
-            <div class="modal-confirm">
-                <h3>¿Seguro que quieres eliminar esta tarea?</h3>
-                <p *ngIf="taskToDelete">
-                    <b>{{taskToDelete.tipo_tarea}}</b> de invernadero <b>{{taskToDelete.invernadero}}</b>
-                </p>
-                <div class="modal-actions">
-                    <button class="task-action-btn delete-btn" (click)="confirmDeleteTask()">Sí, eliminar</button>
-                    <button class="task-action-btn" (click)="cancelDeleteTask()">Cancelar</button>
-                <!-- removed extra closing div -->
-            </div>
-        </div>
-        <header>
-            <ng-container *ngIf="isEncargado; else superiorHeader">
-                <div class="header-flex">
-                    <div *ngIf="!isAddingTask && !editingTask" class="filter-dropdown filter-pegado" [class.open]="showFilterMenu" tabindex="0">
-                        <button class="task-action-btn filter-btn" (click)="toggleFilterMenu()" type="button">
-                            <span class="icon">🔽</span> Filtrar/Ordenar
-                        </button>
-                        <div class="filter-menu" *ngIf="showFilterMenu">
-                            <div class="filter-group">
-                                <label>Filtrar por invernadero:</label>
-                                <select [(ngModel)]="selectedInvernadero" (change)="applyFilters()">
-                                    <option value="">Todos</option>
-                                    <option *ngFor="let inv of invernaderos" [value]="inv">{{inv}}</option>
-                                </select>
-                            </div>
-                            <div class="filter-group">
-                                <label>Filtrar por tipo:</label>
-                                <select [(ngModel)]="selectedTipo" (change)="applyFilters()">
-                                    <option value="">Todos</option>
-                                    <option *ngFor="let tipo of tiposTarea" [value]="tipo">{{tipo}}</option>
-                                </select>
-                            </div>
-                            <div class="filter-group">
-                                <label>Ordenar por fecha límite:</label>
-                                <select [(ngModel)]="selectedFechaOrden" (change)="applyFilters()">
-                                    <option value="desc">Más lejana primero</option>
-                                    <option value="asc">Más cercana primero</option>
-                                </select>
-                            </div>
-                            <button class="task-action-btn" (click)="resetFilters()">Quitar filtros</button>
-                        </div>
-                    </div>
-                    <h2 style="margin-left:0.5em;">Tareas de {{name}}</h2>
-                </div>
-            </ng-container>
-            <ng-template #superiorHeader>
-                <h2>Tareas de {{name}}</h2>
-                <div class="header-actions">
-                    <div *ngIf="!isAddingTask && !editingTask" class="filter-dropdown" [class.open]="showFilterMenu" tabindex="0">
-                        <button class="task-action-btn filter-btn" (click)="toggleFilterMenu()" type="button">
-                            <span class="icon">🔽</span> Filtrar/Ordenar
-                        </button>
-                        <div class="filter-menu" *ngIf="showFilterMenu">
-                            <div class="filter-group">
-                                <label>Filtrar por invernadero:</label>
-                                <select [(ngModel)]="selectedInvernadero" (change)="applyFilters()">
-                                    <option value="">Todos</option>
-                                    <option *ngFor="let inv of invernaderos" [value]="inv">{{inv}}</option>
-                                </select>
-                            </div>
-                            <div class="filter-group">
-                                <label>Filtrar por tipo:</label>
-                                <select [(ngModel)]="selectedTipo" (change)="applyFilters()">
-                                    <option value="">Todos</option>
-                                    <option *ngFor="let tipo of tiposTarea" [value]="tipo">{{tipo}}</option>
-                                </select>
-                            </div>
-                            <div class="filter-group">
-                                <label>Ordenar por fecha límite:</label>
-                                <select [(ngModel)]="selectedFechaOrden" (change)="applyFilters()">
-                                    <option value="desc">Más lejana primero</option>
-                                    <option value="asc">Más cercana primero</option>
-                                </select>
-                            </div>
-                            <button class="task-action-btn" (click)="resetFilters()">Quitar filtros</button>
-                        </div>
-                    </div>
-                    <menu *ngIf="!isEncargado">
-                        <button (click)="onStartAddTask()">Añadir tarea</button>
-                    </menu>
-                </div>
-            </ng-template>
-        </header>
-
-
-<ul>
-    <li *ngIf="loading"><span style="color: #aaa;">Cargando tareas...</span></li>
-    <li *ngIf="!loading && tasks.length === 0"><span style="color: #aaa;">No hay tareas para este usuario.</span></li>
-    <li *ngFor="let task of filteredTasks; trackBy: trackById" class="task-card" [hidden]="loading || tasks.length === 0">
-        <div class="task-card-content">
-            <div class="task-card-header">
-                <strong>{{task.tipo_tarea}}</strong>
-            </div>
-            <div class="task-card-desc">{{task.descripcion}}</div>
-            <div class="task-card-meta">
-                <span>Invernadero: <b>{{task.invernadero}}</b></span>
-                <span>Estimación: <b>{{task.estimacion_horas}}h</b></span>
-                <span>Fecha límite: <b>{{task.fecha_limite}}</b></span>
-                <span *ngIf="task.proceso">Estado: <b>{{task.proceso}}</b></span>
-                <span *ngIf="task.fecha_inicio">Iniciada: <b>{{task.fecha_inicio}}</b></span>
-                <span *ngIf="task.fecha_fin">Terminada: <b>{{task.fecha_fin}}</b></span>
-                <span *ngIf="task.dimension_total">Dimensión: <b>{{task.dimension_total}}</b></span>
-            </div>
-            <div *ngIf="isEncargado" class="task-actions">
-                <button *ngIf="task.proceso === 'No iniciado'" 
-                        class="task-action-btn accept-btn" 
-                        (click)="onAcceptTask(task)">
-                    <span class="icon">✅</span> Aceptar tarea
-                </button>
-                <button *ngIf="task.proceso === 'Iniciada'" 
-                        class="task-action-btn complete-btn" 
-                        (click)="onCompleteTask(task)">
-                    <span class="icon">🏁</span> Terminar tarea
-                </button>
-            </div>
-            <div *ngIf="!isEncargado" class="task-actions">
-                <button class="task-action-btn delete-btn" (click)="onConfirmDeleteTask(task)"><span class="icon">🗑️</span> Eliminar</button>
-                <button class="task-action-btn edit-btn" (click)="onStartEditTask(task)"><span class="icon">✏️</span> Editar</button>
-            </div>
-        </div>
-    </li>
-</ul>
-<!-- removed extra closing section tag if not needed -->
+</section>
 

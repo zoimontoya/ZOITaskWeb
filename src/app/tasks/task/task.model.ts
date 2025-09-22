@@ -12,6 +12,7 @@ export interface Task {
   desarrollo_actual: string;
   dimension_total: string;
   proceso: string;
+  progreso?: string; // Propiedad opcional para manejar ambos nombres de columna
 }
 
 export interface NewTask {

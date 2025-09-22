@@ -5,6 +5,7 @@ import { map } from 'rxjs/operators';
 
 export interface Greenhouse {
   nombre: string;
+  dimensiones: string;
 }
 
 @Injectable({ providedIn: 'root' })
