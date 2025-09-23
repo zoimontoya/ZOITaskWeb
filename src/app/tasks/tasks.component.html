@@ -186,7 +186,7 @@
                 <div class="task-card-desc">{{task.descripcion}}</div>
                 <div class="task-card-meta">
                     <span>Invernadero: <b>{{task.invernadero}}</b></span>
-                    <span>Estimación jornales: <b>{{task.estimacion_horas}}h</b></span>
+                    <span>Estimación jornales: <b>{{task.estimacion_horas}}</b></span>
                     <span>Fecha límite: <b>{{task.fecha_limite}}</b></span>
                     <span *ngIf="!isEncargado && task.encargado_nombre">Encargado: <b>{{task.encargado_nombre}}</b></span>
                     <span *ngIf="task.progreso">
@@ -194,7 +194,7 @@
                     </span>
                     <span *ngIf="task.fecha_inicio">Iniciada: <b>{{task.fecha_inicio}}</b></span>
                     <span *ngIf="task.fecha_fin">Terminada: <b>{{task.fecha_fin}}</b></span>
-                    <span *ngIf="task.dimension_total">Dimensión: <b>{{task.dimension_total}}</b></span>
+                    <span *ngIf="task.dimension_total">Dimensión: <b>{{task.dimension_total}} Ha</b></span>
                 </div>
                 <div *ngIf="isEncargado" class="task-actions">
                     <button *ngIf="task.progreso === 'No iniciado'" 
