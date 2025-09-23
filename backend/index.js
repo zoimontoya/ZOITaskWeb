@@ -21,13 +21,10 @@ async function getInvernaderosDimensions(client) {
   try {
     const sheets = google.sheets({ version: 'v4', auth: client });
     
-    // Intentar obtener todos los datos de la hoja
-    console.log('=== OBTENIENDO DIMENSIONES DE INVERNADEROS ===');
-    
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
       range: 'Invernaderos',
-      valueRenderOption: 'FORMATTED_VALUE',
+      valueRenderOption: 'UNFORMATTED_VALUE', // Mantener valores sin formato para precisión decimal
       dateTimeRenderOption: 'FORMATTED_STRING'
     });
     
@@ -37,9 +34,7 @@ async function getInvernaderosDimensions(client) {
       return {};
     }
     
-    console.log(`📊 Se encontraron ${rows.length} filas en total`);
     const headers = rows[0];
-    console.log('📋 Headers de Invernaderos:', headers);
     
     // Buscar columna de nombre del invernadero
     const nameIdx = headers.findIndex(h => 
@@ -63,11 +58,8 @@ async function getInvernaderosDimensions(client) {
       h && (h.toLowerCase().includes('dimension') || h.toLowerCase().includes('dimesion'))
     ) : dimensionIdx;
     
-    console.log(`🔍 Índices encontrados - nombre: ${nameIdx} (${headers[nameIdx]}), dimensiones: ${dimensionIdxAlt} (${headers[dimensionIdxAlt]})`);
-    
     if (nameIdx === -1 || dimensionIdxAlt === -1) {
       console.log('❌ No se encontraron las columnas necesarias');
-      console.log('📋 Headers disponibles:', headers);
       return {};
     }
     
@@ -75,8 +67,6 @@ async function getInvernaderosDimensions(client) {
     rows.slice(1).forEach((row, index) => {
       const nombreInvernadero = row[nameIdx];
       const valorDimension = row[dimensionIdxAlt];
-      
-      console.log(`Fila ${index + 2}: Nombre="${nombreInvernadero}", Valor bruto="${valorDimension}", Tipo: ${typeof valorDimension}`);
       
       if (nombreInvernadero && valorDimension !== undefined && valorDimension !== '') {
         // Intentar convertir el valor a número de diferentes maneras
@@ -90,18 +80,11 @@ async function getInvernaderosDimensions(client) {
           dimensionValue = parseFloat(cleanValue) || 0;
         }
         
-        dimensions[nombreInvernadero] = dimensionValue;
-        console.log(`  -> Resultado final: ${dimensionValue}`);
-      } else {
-        console.log(`  -> Saltado (falta nombre o valor)`);
+        if (dimensionValue > 0) {
+          dimensions[nombreInvernadero] = dimensionValue;
+        }
       }
     });
-    
-    console.log('✅ Mapa de dimensiones completo:');
-    Object.entries(dimensions).forEach(([nombre, dimension]) => {
-      console.log(`   "${nombre}" -> ${dimension}`);
-    });
-    console.log('=== FIN OBTENIENDO DIMENSIONES ===');
     
     return dimensions;
   } catch (err) {
@@ -109,6 +92,106 @@ async function getInvernaderosDimensions(client) {
     return {};
   }
 }
+
+// Endpoint para obtener invernaderos agrupados por cabezal
+app.get('/invernaderos', async (req, res) => {
+  try {
+    const client = await auth.getClient();
+    const sheets = google.sheets({ version: 'v4', auth: client });
+    
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: 'Invernaderos',
+      valueRenderOption: 'FORMATTED_VALUE',
+      dateTimeRenderOption: 'FORMATTED_STRING'
+    });
+    
+    const rows = response.data.values;
+    if (!rows || rows.length === 0) {
+      return res.json({ cabezales: [] });
+    }
+    
+    const headers = rows[0];
+    console.log('Headers de Invernaderos:', headers);
+    
+    // Buscar índices de columnas
+    const nameIdx = headers.findIndex(h => 
+      h && (h.toLowerCase().includes('nombre') || h.toLowerCase().includes('invernadero'))
+    );
+    const cabezalIdx = headers.findIndex(h => 
+      h && h.toLowerCase().includes('cabezal')
+    );
+    let dimensionIdx = headers.findIndex(h => 
+      h && h.toLowerCase().trim() === 'dimensiones'
+    );
+    if (dimensionIdx === -1) {
+      dimensionIdx = headers.findIndex(h => 
+        h && h.toLowerCase().trim() === 'dimesiones'
+      );
+    }
+    if (dimensionIdx === -1) {
+      dimensionIdx = headers.findIndex(h => 
+        h && (h.toLowerCase().includes('dimension') || h.toLowerCase().includes('dimesion'))
+      );
+    }
+    
+    if (nameIdx === -1) {
+      return res.status(500).json({ error: 'No se encontró la columna de nombre del invernadero' });
+    }
+    
+    console.log(`Índices: nombre=${nameIdx}, cabezal=${cabezalIdx}, dimensiones=${dimensionIdx}`);
+    
+    // Procesar datos y agrupar por cabezal
+    const cabezalesMap = new Map();
+    
+    rows.slice(1).forEach((row, index) => {
+      const nombreInvernadero = row[nameIdx];
+      const cabezal = cabezalIdx !== -1 ? row[cabezalIdx] : 'Sin Cabezal';
+      const valorDimension = dimensionIdx !== -1 ? row[dimensionIdx] : null;
+      
+      if (nombreInvernadero) {
+        // Procesar dimensión
+        let dimensionValue = 0;
+        if (valorDimension !== undefined && valorDimension !== '') {
+          if (typeof valorDimension === 'number') {
+            dimensionValue = valorDimension;
+          } else if (typeof valorDimension === 'string') {
+            const cleanValue = valorDimension.replace(/[^\d.-]/g, '');
+            dimensionValue = parseFloat(cleanValue) || 0;
+          }
+        }
+        
+        // Agrupar por cabezal
+        if (!cabezalesMap.has(cabezal)) {
+          cabezalesMap.set(cabezal, {
+            nombre: cabezal,
+            invernaderos: []
+          });
+        }
+        
+        cabezalesMap.get(cabezal).invernaderos.push({
+          nombre: nombreInvernadero,
+          dimension: dimensionValue
+        });
+      }
+    });
+    
+    // Convertir Map a array y ordenar
+    const cabezales = Array.from(cabezalesMap.values()).sort((a, b) => a.nombre.localeCompare(b.nombre));
+    
+    // Ordenar invernaderos dentro de cada cabezal
+    cabezales.forEach(cabezal => {
+      cabezal.invernaderos.sort((a, b) => a.nombre.localeCompare(b.nombre));
+    });
+    
+    console.log(`Invernaderos agrupados: ${cabezales.length} cabezales`);
+    res.json({ cabezales });
+    
+  } catch (err) {
+    console.error('Error en /invernaderos:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // Endpoint para obtener encargados
 app.get('/encargados', async (req, res) => {
@@ -167,6 +250,8 @@ app.get('/tasks', async (req, res) => {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
       range: tareasSheet.properties.title,
+      valueRenderOption: 'FORMATTED_VALUE', // Volver a formato original
+      dateTimeRenderOption: 'FORMATTED_STRING'
     });
     
     const rows = response.data.values;
@@ -176,10 +261,6 @@ app.get('/tasks', async (req, res) => {
     }
     
     const headers = rows[0];
-    console.log('=== DEBUG HEADERS DE TAREAS ===');
-    console.log('Headers encontrados:', headers);
-    console.log('Posición 12 (columna M):', headers[12]);
-    console.log('===============================');
     
     const tasks = rows.slice(1).map(row => {
       const obj = {};
@@ -199,8 +280,6 @@ app.get('/tasks', async (req, res) => {
       return obj;
     });
     
-    console.log('Tareas encontradas:', tasks.length);
-    console.log('Primeras 2 tareas con proceso:', tasks.slice(0, 2).map(t => ({ id: t.id, encargado_id: t.encargado_id, proceso: t.proceso })));
     res.json(tasks);
   } catch (err) {
     console.error('Error en /tasks:', err);
@@ -347,7 +426,7 @@ app.post('/tasks', async (req, res) => {
         req.body.fecha_inicio || '',
         req.body.fecha_fin || '',
         Number(req.body.desarrollo_actual) || 0,
-        Number(req.body.dimension_total) || 0,
+        req.body.dimension_total || '0', // CORRECCIÓN: Mantener como string para preservar decimales
         req.body.proceso || 'No iniciado'
       ];
       await sheets.spreadsheets.values.update({
@@ -499,10 +578,12 @@ app.post('/tasks', async (req, res) => {
     for (let i = 0; i < tareas.length; i++) {
       const tarea = tareas[i];
       tarea.id = ++lastId;
-      const dimensionTotal = dimensiones[tarea.invernadero] || 0;
+      
+      // Usar el dimension_total que viene del frontend (seleccionado por el usuario)
+      const dimensionTotalSeleccionada = Number(tarea.dimension_total) || 0;
+      
       console.log(`Creando tarea para invernadero "${tarea.invernadero}"`);
-      console.log(`Dimensión encontrada: ${dimensionTotal}`);
-      console.log(`Dimensiones disponibles:`, Object.keys(dimensiones));
+      console.log(`Dimensión seleccionada por el usuario: ${dimensionTotalSeleccionada} hectáreas`);
       
       newRows.push([
         tarea.id,
@@ -516,7 +597,7 @@ app.post('/tasks', async (req, res) => {
         '', // fecha_inicio (vacía al crear)
         '', // fecha_fin (vacía al crear)
         0,  // desarrollo_actual (inicia en 0)
-        dimensionTotal, // dimension_total (obtenida de Invernaderos)
+        dimensionTotalSeleccionada, // dimension_total (seleccionada por el usuario en la barra)
         'No iniciado' // proceso (por defecto)
       ]);
     }

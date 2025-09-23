@@ -294,15 +294,13 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     const tarea = Array.isArray(updatedTask) ? updatedTask[0] : updatedTask;
     const id = tarea.id || this.editingTask.id;
     
-    // Obtener las dimensiones del invernadero seleccionado
-    const greenhouse = this.greenhouses.find(gh => gh.nombre === tarea.invernadero);
-    const dimensionTotal = greenhouse?.dimensiones || '';
-    
-    // Asegurar que se incluyan nombre_superior y dimension_total
+    // CORRECCIÓN: Usar el dimension_total del formulario, no del invernadero
+    // El usuario puede haber editado el área de trabajo específica
     const tareaCompleta = {
       ...tarea,
       nombre_superior: this.name || '',
-      dimension_total: dimensionTotal
+      // Usar el dimension_total que viene del formulario de edición
+      dimension_total: tarea.dimension_total || this.editingTask.dimension_total || '0'
     };
     
     this.taskService.updateTask(id, tareaCompleta).subscribe({

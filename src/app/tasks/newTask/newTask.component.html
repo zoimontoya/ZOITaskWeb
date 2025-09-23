@@ -2,47 +2,125 @@
 <dialog open>
   <h2>{{ task ? 'Editar Tarea' : 'Nueva Tarea' }}</h2>
   <form (ngSubmit)="onSubmit()">
+    <!-- Usar el nuevo selector jerárquico -->
+    <app-invernadero-selector
+      [initialValue]="task?.invernadero || ''"
+      (selectionChange)="onInvernaderoSelectionChange($event)">
+    </app-invernadero-selector>
+    
+    <!-- Dropdown con buscador para tipo de tarea -->
+    <app-searchable-dropdown
+      label="Tipo de tarea"
+      [options]="taskTypeOptions"
+      [selectedValue]="selectedTaskType"
+      (selectionChange)="selectedTaskType = $event"
+      placeholder="Selecciona un tipo de tarea"
+      searchPlaceholder="Buscar tipo de tarea..."
+      [required]="true">
+    </app-searchable-dropdown>
+    
     <p>
-      <label for="greenhouse-select">Invernaderos</label>
-      <mat-form-field appearance="fill" style="width: 100%;">
-        <mat-select id="greenhouse-select" [(ngModel)]="selectedGreenhouses" name="selectedGreenhouses" multiple placeholder="Selecciona invernaderos">
-          <mat-option *ngFor="let g of greenhouses" [value]="g.nombre">
-            {{ g.nombre }}
-          </mat-option>
-        </mat-select>
-      </mat-form-field>
-    </p>
-    <p>
-      <label for="taskType">Tipo de tarea</label>
-      <mat-form-field appearance="fill" style="width: 100%;">
-        <mat-select id="taskType" name="taskType" [(ngModel)]="selectedTaskType" required placeholder="Selecciona un tipo">
-          <mat-option value="" disabled>Selecciona un tipo</mat-option>
-          <mat-option *ngFor="let t of taskTypes" [value]="t.tipo">{{ t.tipo }}</mat-option>
-        </mat-select>
-      </mat-form-field>
-    </p>
-    <p>
-      <label for="estimation">Estimación (horas)</label>
+      <label for="estimation">Estimación jornales</label>
       <input type="number" id="estimation" name="estimation" [(ngModel)]="estimation" min="0" required />
     </p>
-    <div *ngIf="selectedGreenhouses.length > 0">
+    
+    <!-- Toggle para modo de fechas (solo mostrar si hay invernaderos seleccionados) -->
+    <div *ngIf="getSelectedInvernaderos().length > 1" class="date-mode-toggle">
+      <label class="toggle-container">
+        <span class="toggle-label">Fecha límite:</span>
+        <div class="toggle-switch">
+          <input 
+            type="checkbox" 
+            [(ngModel)]="useSingleDate"
+            (change)="onDateModeToggle()"
+            class="toggle-input">
+          <span class="toggle-slider"></span>
+        </div>
+        <span class="toggle-description">
+          {{ useSingleDate ? 'Una fecha para todos' : 'Fecha individual por invernadero' }}
+        </span>
+      </label>
+    </div>
+    
+    <!-- Campo de fecha única (cuando useSingleDate es true) -->
+    <div *ngIf="getSelectedInvernaderos().length > 0 && useSingleDate" class="single-date-container">
+      <label for="singleDate">Fecha límite para todos los invernaderos:</label>
+      <input 
+        type="date" 
+        id="singleDate" 
+        name="singleDate" 
+        [(ngModel)]="singleDate" 
+        required 
+        class="single-date-input" />
+    </div>
+    
+    <!-- Fechas individuales por invernadero (cuando useSingleDate es false) -->
+    <div *ngIf="getSelectedInvernaderos().length > 0 && !useSingleDate">
       <label>Fechas límite por invernadero:</label>
-      <div *ngFor="let g of selectedGreenhouses">
+      <div *ngFor="let g of getSelectedInvernaderos()" class="date-input-row">
         <label>
           {{ g }}:
           <input type="date" [(ngModel)]="dueDates[g]" name="dueDate_{{g}}" required />
         </label>
       </div>
     </div>
-    <p>
-      <label for="encargado">Encargado</label>
-      <mat-form-field appearance="fill" style="width: 100%;">
-        <mat-select id="encargado" name="encargado" [(ngModel)]="selectedEncargado" required placeholder="Selecciona un encargado">
-          <mat-option value="" disabled>Selecciona un encargado</mat-option>
-          <mat-option *ngFor="let e of encargados" [value]="e.id">{{ e.name }}</mat-option>
-        </mat-select>
-      </mat-form-field>
-    </p>
+    
+    <!-- Selección de área de trabajo por invernadero -->
+    <div *ngIf="getSelectedInvernaderos().length > 0" class="working-areas-section">
+      <h4>Área de trabajo por invernadero:</h4>
+      <div *ngFor="let g of getSelectedInvernaderos()" class="working-area-item">
+        <div class="working-area-header">
+          <span class="invernadero-name">{{ g }}</span>
+          <span class="area-info">
+            {{ getCurrentAreaDisplay(g) }}Ha / {{ getMaxAreaDisplay(g) }}Ha
+            ({{ getAreaPercentage(g).toFixed(1) }}%)
+          </span>
+        </div>
+        
+        <div class="working-area-controls">
+          <!-- Barra de progreso/slider -->
+          <div class="area-slider-container">
+            <input 
+              type="range" 
+              class="area-slider"
+              [min]="0"
+              [max]="getMaxArea(g)"
+              [step]="0.01"
+              [value]="workingAreas[g] || 0"
+              (input)="updateWorkingArea(g, $event)"
+              [id]="'areaSlider_' + g">
+            <div class="slider-track-bg"></div>
+            <div class="slider-track-fill" 
+                 [style.width.%]="getAreaPercentage(g)"></div>
+          </div>
+          
+          <!-- Input numérico para ajuste fino -->
+          <div class="area-input-container">
+            <input 
+              type="number" 
+              class="area-input"
+              [min]="0"
+              [max]="getMaxArea(g)"
+              [step]="0.01"
+              [value]="workingAreas[g] || 0"
+              (input)="updateWorkingArea(g, $event)"
+              placeholder="Área">
+            <span class="area-unit">Ha</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Dropdown con buscador para encargado -->
+    <app-searchable-dropdown
+      label="Encargado"
+      [options]="encargadoOptions"
+      [selectedValue]="selectedEncargado"
+      (selectionChange)="selectedEncargado = $event"
+      placeholder="Selecciona un encargado"
+      searchPlaceholder="Buscar encargado..."
+      [required]="true">
+    </app-searchable-dropdown>
     <p>
       <label for="description">Descripción</label>
       <textarea id="description" rows="3" name="description" [(ngModel)]="description" required></textarea>
