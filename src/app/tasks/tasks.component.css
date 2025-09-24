@@ -188,6 +188,47 @@
   font-style: italic;
 }
 
+/* Estilos para el campo de jornales reales */
+.jornales-reales-section {
+  margin-top: 1.5em;
+  padding: 1em;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.jornales-reales-section label {
+  display: block;
+  margin-bottom: 0.5em;
+  font-weight: 600;
+  color: #121412;
+}
+
+.jornales-input {
+  width: 100%;
+  padding: 0.6em;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 1em;
+  background: #fff;
+  color: #333;
+  box-sizing: border-box;
+}
+
+.jornales-input:focus {
+  outline: none;
+  border-color: #4a9;
+  box-shadow: 0 0 0 2px rgba(68, 170, 153, 0.2);
+}
+
+.jornales-info {
+  display: block;
+  margin-top: 0.4em;
+  font-size: 0.85em;
+  color: #666;
+  font-style: italic;
+}
+
 .complete-modal .modal-actions button:disabled {
   background: #666;
   color: #999;

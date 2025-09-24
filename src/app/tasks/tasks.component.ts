@@ -40,6 +40,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   showCompleteModal = false;
   taskToComplete: Task | null = null;
   progressValue = 0;
+  jornalesRealesValue = 0; // Nuevo campo para jornales reales
   greenhouses: Greenhouse[] = [];
 
   constructor(private taskService: TasksService, private greenhouseService: GreenhouseService, private userService: UserService) {}
@@ -380,6 +381,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   onOpenProgressModal(task: Task) {
     this.taskToComplete = task;
     this.progressValue = Number(task.progreso) || 0; // Usar el campo progreso para el porcentaje
+    this.jornalesRealesValue = task.jornales_reales || 0; // Inicializar con valor actual o 0
     this.showCompleteModal = true;
   }
 
@@ -389,12 +391,13 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
       const totalHectares = parseFloat((this.taskToComplete.dimension_total || '0').replace(',', '.'));
       const hectareasActuales = (totalHectares * this.progressValue) / 100;
       
-      this.taskService.updateTaskProgress(this.taskToComplete.id, this.progressValue, hectareasActuales).subscribe({
+      this.taskService.updateTaskProgress(this.taskToComplete.id, this.progressValue, hectareasActuales, this.jornalesRealesValue).subscribe({
         next: () => {
           console.log('Progreso actualizado correctamente');
           this.showCompleteModal = false;
           this.taskToComplete = null;
           this.progressValue = 0;
+          this.jornalesRealesValue = 0; // Limpiar jornales reales
           this.loadTasks(); // Recargar para ver cambios
         },
         error: (err: any) => {
@@ -411,8 +414,8 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
       const totalHectares = parseFloat((this.taskToComplete.dimension_total || '0').replace(',', '.'));
       const hectareasCompletas = totalHectares; // 100% = todas las hectáreas
       
-      // Primero actualizar el progreso al 100% y las hectáreas
-      this.taskService.updateTaskProgress(this.taskToComplete.id, 100, hectareasCompletas).subscribe({
+      // Primero actualizar el progreso al 100%, las hectáreas y los jornales reales
+      this.taskService.updateTaskProgress(this.taskToComplete.id, 100, hectareasCompletas, this.jornalesRealesValue).subscribe({
         next: () => {
           console.log('Progreso actualizado al 100%');
           // Después completar la tarea (cambiar estado)
@@ -423,6 +426,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
                 this.showCompleteModal = false;
                 this.taskToComplete = null;
                 this.progressValue = 0;
+                this.jornalesRealesValue = 0; // Limpiar jornales reales
                 this.loadTasks(); // Recargar para ver cambios
               },
               error: (err) => {
@@ -444,6 +448,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     this.showCompleteModal = false;
     this.taskToComplete = null;
     this.progressValue = 0;
+    this.jornalesRealesValue = 0; // Limpiar jornales reales
   }
 
   onModalOverlayClick(event: MouseEvent) {

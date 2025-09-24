@@ -37,13 +37,20 @@ export class TasksService {
   }
 
   // Actualizar solo el progreso de la tarea (sin cambiar estado)
-  updateTaskProgress(taskId: string, progress: number, hectareas: number): Observable<any> {
-    return this.http.post<any>(`${this.apiUrl}/tasks`, { 
+  updateTaskProgress(taskId: string, progress: number, hectareas: number, jornalesReales?: number): Observable<any> {
+    const body: any = {
       action: 'update-progress', 
       id: taskId,
       progreso: progress,
       desarrollo_actual: hectareas
-    });
+    };
+    
+    // Solo incluir jornales_reales si se proporciona un valor
+    if (jornalesReales !== undefined) {
+      body.jornales_reales = jornalesReales;
+    }
+    
+    return this.http.post<any>(`${this.apiUrl}/tasks`, body);
   }
 
   // Eliminar tarea

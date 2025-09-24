@@ -415,23 +415,24 @@ app.post('/tasks', async (req, res) => {
         return res.status(404).json({ error: 'Tarea no encontrada' });
       }
       const updatedRow = [
-        idToUpdate,
-        req.body.invernadero,
-        req.body.tipo_tarea,
-        Number(req.body.estimacion_horas) || 0,
-        req.body.fecha_limite,
-        req.body.encargado_id,
-        req.body.descripcion,
-        req.body.nombre_superior || '',
-        req.body.fecha_inicio || '',
-        req.body.fecha_fin || '',
-        Number(req.body.desarrollo_actual) || 0,
-        req.body.dimension_total || '0', // CORRECCIÓN: Mantener como string para preservar decimales
-        req.body.proceso || 'No iniciado'
+        idToUpdate,                                    // A: id
+        req.body.invernadero,                          // B: invernadero
+        req.body.tipo_tarea,                           // C: tipo_tarea
+        Number(req.body.estimacion_horas) || 0,       // D: estimacion_horas
+        Number(req.body.jornales_reales) || 0,        // E: jornales_reales (NUEVO)
+        req.body.fecha_limite,                         // F: fecha_limite
+        req.body.encargado_id,                         // G: encargado_id
+        req.body.descripcion,                          // H: descripcion
+        req.body.nombre_superior || '',                // I: nombre_superior
+        req.body.fecha_inicio || '',                   // J: fecha_inicio
+        req.body.fecha_fin || '',                      // K: fecha_fin
+        Number(req.body.desarrollo_actual) || 0,      // L: desarrollo_actual
+        req.body.dimension_total || '0',               // M: dimension_total
+        req.body.proceso || 'No iniciado'              // N: proceso
       ];
       await sheets.spreadsheets.values.update({
         spreadsheetId: SPREADSHEET_ID,
-        range: `${tareasSheet.properties.title}!A${rowIndex + 1}:M${rowIndex + 1}`,
+        range: `${tareasSheet.properties.title}!A${rowIndex + 1}:N${rowIndex + 1}`, // Actualizado a columna N
         valueInputOption: 'RAW',
         resource: { values: [updatedRow] }
       });
@@ -461,15 +462,29 @@ app.post('/tasks', async (req, res) => {
       }
 
       // Buscar índices de las columnas
+      const jornalesRealesIndex = headers.findIndex(h => h.toLowerCase().includes('jornales_reales') || h.toLowerCase() === 'jornales_reales');
       const desarrolloActualIndex = headers.findIndex(h => h.toLowerCase().includes('desarrollo_actual') || h.toLowerCase() === 'desarrollo_actual');
       const progresoIndex = headers.findIndex(h => h.toLowerCase() === 'progreso');
       
-      console.log('Índices encontrados:', { desarrolloActualIndex, progresoIndex });
+      console.log('Índices encontrados:', { jornalesRealesIndex, desarrolloActualIndex, progresoIndex });
       console.log('Headers:', headers);
 
-      // Actualizar desarrollo_actual (hectáreas) - columna K por defecto si no se encuentra
-      const desarrolloCol = desarrolloActualIndex >= 0 ? desarrolloActualIndex : 10;
-      const desarrolloColLetter = String.fromCharCode(65 + desarrolloCol); // Convertir a letra (A=0, B=1, etc.)
+      // Actualizar jornales_reales (columna E por defecto si no se encuentra)
+      const jornalesCol = jornalesRealesIndex >= 0 ? jornalesRealesIndex : 4; // Columna E = índice 4
+      const jornalesColLetter = String.fromCharCode(65 + jornalesCol);
+      
+      if (req.body.jornales_reales !== undefined) {
+        await sheets.spreadsheets.values.update({
+          spreadsheetId: SPREADSHEET_ID,
+          range: `${tareasSheet.properties.title}!${jornalesColLetter}${rowIndex + 1}`,
+          valueInputOption: 'RAW',
+          resource: { values: [[Number(req.body.jornales_reales) || 0]] }
+        });
+      }
+
+      // Actualizar desarrollo_actual (hectáreas) - columna L por defecto si no se encuentra
+      const desarrolloCol = desarrolloActualIndex >= 0 ? desarrolloActualIndex : 11; // Ajustado por nueva columna
+      const desarrolloColLetter = String.fromCharCode(65 + desarrolloCol);
       
       await sheets.spreadsheets.values.update({
         spreadsheetId: SPREADSHEET_ID,
@@ -489,12 +504,13 @@ app.post('/tasks', async (req, res) => {
         });
       }
 
-      console.log('Progreso actualizado para tarea:', idToUpdate, 'porcentaje:', req.body.progreso, 'hectáreas:', req.body.desarrollo_actual);
+      console.log('Progreso actualizado para tarea:', idToUpdate, 'porcentaje:', req.body.progreso, 'hectáreas:', req.body.desarrollo_actual, 'jornales_reales:', req.body.jornales_reales);
       return res.json({ 
         result: 'success', 
         updated: idToUpdate, 
         progress: req.body.progreso, 
-        hectares: req.body.desarrollo_actual 
+        hectares: req.body.desarrollo_actual,
+        jornales_reales: req.body.jornales_reales
       });
     }
 
@@ -586,19 +602,20 @@ app.post('/tasks', async (req, res) => {
       console.log(`Dimensión seleccionada por el usuario: ${dimensionTotalSeleccionada} hectáreas`);
       
       newRows.push([
-        tarea.id,
-        tarea.invernadero,
-        tarea.tipo_tarea,
-        Number(tarea.estimacion_horas) || 0,
-        tarea.fecha_limite,
-        tarea.encargado_id,
-        tarea.descripcion,
-        tarea.nombre_superior || '',
-        '', // fecha_inicio (vacía al crear)
-        '', // fecha_fin (vacía al crear)
-        0,  // desarrollo_actual (inicia en 0)
-        dimensionTotalSeleccionada, // dimension_total (seleccionada por el usuario en la barra)
-        'No iniciado' // proceso (por defecto)
+        tarea.id,                                    // A: id
+        tarea.invernadero,                           // B: invernadero
+        tarea.tipo_tarea,                            // C: tipo_tarea
+        Number(tarea.estimacion_horas) || 0,        // D: estimacion_horas
+        0,                                           // E: jornales_reales (inicia en 0)
+        tarea.fecha_limite,                          // F: fecha_limite
+        tarea.encargado_id,                          // G: encargado_id
+        tarea.descripcion,                           // H: descripcion
+        tarea.nombre_superior || '',                 // I: nombre_superior
+        '',                                          // J: fecha_inicio (vacía al crear)
+        '',                                          // K: fecha_fin (vacía al crear)
+        0,                                           // L: desarrollo_actual (inicia en 0)
+        dimensionTotalSeleccionada,                  // M: dimension_total (seleccionada por el usuario)
+        'No iniciado'                                // N: proceso (por defecto)
       ]);
     }
     await sheets.spreadsheets.values.append({
@@ -647,13 +664,18 @@ app.post('/tasks/:id/accept', async (req, res) => {
     const currentRow = rows[rowIndex];
     const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
     
-    // Actualizar fecha_inicio (columna I) y proceso (columna M) 
-    currentRow[8] = today; // fecha_inicio
-    currentRow[12] = 'Iniciada'; // proceso
+    // Asegurar que el array tenga suficientes elementos para la nueva estructura
+    while (currentRow.length < 14) {
+      currentRow.push('');
+    }
+    
+    // Actualizar fecha_inicio (columna J) y proceso (columna N) - ajustado por nueva columna
+    currentRow[9] = today; // fecha_inicio (antes columna I, ahora J)
+    currentRow[13] = 'Iniciada'; // proceso (antes columna M, ahora N)
     
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${tareasSheet.properties.title}!A${rowIndex + 1}:M${rowIndex + 1}`,
+      range: `${tareasSheet.properties.title}!A${rowIndex + 1}:N${rowIndex + 1}`, // Actualizado a columna N
       valueInputOption: 'RAW',
       resource: { values: [currentRow] }
     });
@@ -697,13 +719,18 @@ app.post('/tasks/:id/complete', async (req, res) => {
     const currentRow = rows[rowIndex];
     const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
     
-    // Actualizar fecha_fin (columna J) y proceso (columna M)
-    currentRow[9] = today; // fecha_fin
-    currentRow[12] = 'Terminada'; // proceso
+    // Asegurar que el array tenga suficientes elementos para la nueva estructura
+    while (currentRow.length < 14) {
+      currentRow.push('');
+    }
+    
+    // Actualizar fecha_fin (columna K) y proceso (columna N) - ajustado por nueva columna
+    currentRow[10] = today; // fecha_fin (antes columna J, ahora K)
+    currentRow[13] = 'Terminada'; // proceso (antes columna M, ahora N)
     
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${tareasSheet.properties.title}!A${rowIndex + 1}:M${rowIndex + 1}`,
+      range: `${tareasSheet.properties.title}!A${rowIndex + 1}:N${rowIndex + 1}`, // Actualizado a columna N
       valueInputOption: 'RAW',
       resource: { values: [currentRow] }
     });

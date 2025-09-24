@@ -3,6 +3,7 @@ export interface Task {
   invernadero: string;
   tipo_tarea: string;
   estimacion_horas: number;
+  jornales_reales?: number; // Nuevo campo para jornales realmente utilizados
   fecha_limite: string;
   encargado_id: string;
   encargado_nombre?: string; // Nuevo campo para el nombre del encargado
