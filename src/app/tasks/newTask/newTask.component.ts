@@ -45,6 +45,9 @@ export class newTaskComponent implements OnInit, OnChanges {
   
   // Nueva funcionalidad para áreas de trabajo por invernadero
   workingAreas: { [greenhouse: string]: number } = {}; // Hectáreas a trabajar por invernadero
+  
+  // Interruptor para horas por jornal: false = 6 horas, true = 8 horas
+  useEightHourJornal = false;
 
   ngOnInit() {
     this.greenhouseService.getGreenhouses().subscribe(data => {
@@ -111,6 +114,9 @@ export class newTaskComponent implements OnInit, OnChanges {
       }
       this.selectedEncargado = this.task.encargado_id || '';
       this.description = this.task.descripcion || '';
+      
+      // Configurar interruptor de horas por jornal: 0 = 6 horas (false), 1 = 8 horas (true)
+      this.useEightHourJornal = (this.task.hora_jornal === 1);
       
       // Configurar fechas según el modo
       if (this.task.fecha_limite) {
@@ -313,6 +319,7 @@ export class newTaskComponent implements OnInit, OnChanges {
         invernadero: g,
         tipo_tarea: this.selectedTaskType,
         estimacion_horas: estimationNum,
+        hora_jornal: this.useEightHourJornal ? 1 : 0, // 0 = 6 horas, 1 = 8 horas
         fecha_limite: fechaLimite,
         encargado_id: this.selectedEncargado,
         descripcion: this.description,
@@ -321,8 +328,18 @@ export class newTaskComponent implements OnInit, OnChanges {
       if (this.task && this.task.id) {
         data.id = this.task.id;
       }
+      
+      console.log(`=== FRONTEND: Preparando tarea para ${g} ===`);
+      console.log(`useEightHourJornal: ${this.useEightHourJornal}`);
+      console.log(`hora_jornal enviado: ${data.hora_jornal}`);
+      console.log(`estimacion_horas (jornales): ${data.estimacion_horas}`);
+      console.log(`Objeto data completo:`, data);
+      
       return data;
     });
+    
+    console.log(`=== FRONTEND: Enviando ${tareas.length} tareas ===`);
+    console.log('Todas las tareas:', tareas);
     this.add.emit(tareas);
   }
 }

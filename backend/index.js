@@ -277,9 +277,11 @@ app.get('/tasks', async (req, res) => {
       obj.desarrollo_actual = obj.desarrollo_actual || '';
       obj.dimension_total = obj.dimension_total || '';
       
-      // Convertir estimacion_horas de horas a jornales para mostrar a los usuarios (dividir por 6)
+      // Convertir estimacion_horas de horas a jornales usando factor dinámico
       if (obj.estimacion_horas) {
-        obj.estimacion_horas = (Number(obj.estimacion_horas) / 6) || 0;
+        const horaJornal = Number(obj.hora_jornal) || 0;
+        const factorConversion = horaJornal === 1 ? 8 : 6; // 0=6hrs, 1=8hrs
+        obj.estimacion_horas = (Number(obj.estimacion_horas) / factorConversion) || 0;
       }
       
       // jornales_reales se mantiene en horas tal como está almacenado (encargados ingresan horas directamente)
@@ -421,12 +423,26 @@ app.post('/tasks', async (req, res) => {
       if (rowIndex === -1) {
         return res.status(404).json({ error: 'Tarea no encontrada' });
       }
+      // Determinar factor de conversión: 0 = 6 horas/jornal, 1 = 8 horas/jornal
+      const horaJornal = Number(req.body.hora_jornal) || 0;
+      const factorConversion = horaJornal === 1 ? 8 : 6;
+      const estimacionOriginal = Number(req.body.estimacion_horas) || 0;
+      const estimacionConvertida = estimacionOriginal * factorConversion;
+      
+      console.log(`=== EDITANDO TAREA ID: ${idToUpdate} ===`);
+      console.log(`Body completo:`, req.body);
+      console.log(`hora_jornal recibido: "${req.body.hora_jornal}" (tipo: ${typeof req.body.hora_jornal})`);
+      console.log(`horaJornal parseado: ${horaJornal}`);
+      console.log(`Factor de conversión: ${factorConversion} horas/jornal`);
+      console.log(`Estimación original (jornales): ${estimacionOriginal}`);
+      console.log(`Estimación convertida (horas): ${estimacionConvertida}`);
+      
       const updatedRow = [
         idToUpdate,                                    // A: id
         req.body.invernadero,                          // B: invernadero
         req.body.tipo_tarea,                           // C: tipo_tarea
-        (Number(req.body.estimacion_horas) || 0) * 6, // D: estimacion_horas (convertir jornales a horas)
-        req.body.hora_jornal || 0,                     // E: hora_jornal (NUEVA)
+        estimacionConvertida,                          // D: estimacion_horas (jornales convertidos a horas)
+        horaJornal,                                    // E: hora_jornal (0=6hrs, 1=8hrs)
         req.body.horas_kilos || 0,                     // F: horas_kilos (NUEVA)
         Number(req.body.jornales_reales) || 0,        // G: jornales_reales (encargados ingresan horas directamente)
         req.body.fecha_limite,                         // H: fecha_limite
@@ -631,15 +647,27 @@ app.post('/tasks', async (req, res) => {
       // Usar el dimension_total que viene del frontend (seleccionado por el usuario)
       const dimensionTotalSeleccionada = Number(tarea.dimension_total) || 0;
       
-      console.log(`Creando tarea para invernadero "${tarea.invernadero}"`);
-      console.log(`Dimensión seleccionada por el usuario: ${dimensionTotalSeleccionada} hectáreas`);
+      // Determinar factor de conversión: 0 = 6 horas/jornal, 1 = 8 horas/jornal
+      const horaJornal = Number(tarea.hora_jornal) || 0;
+      const factorConversion = horaJornal === 1 ? 8 : 6;
+      const estimacionOriginal = Number(tarea.estimacion_horas) || 0;
+      const estimacionConvertida = estimacionOriginal * factorConversion;
+      
+      console.log(`=== CREANDO TAREA PARA "${tarea.invernadero}" ===`);
+      console.log(`Objeto tarea completo:`, tarea);
+      console.log(`hora_jornal recibido: "${tarea.hora_jornal}" (tipo: ${typeof tarea.hora_jornal})`);
+      console.log(`horaJornal parseado: ${horaJornal}`);
+      console.log(`Factor de conversión: ${factorConversion} horas/jornal`);
+      console.log(`Estimación original (jornales): ${estimacionOriginal}`);
+      console.log(`Estimación convertida (horas): ${estimacionConvertida}`);
+      console.log(`Dimensión seleccionada: ${dimensionTotalSeleccionada} hectáreas`);
       
       newRows.push([
         tarea.id,                                    // A: id
         tarea.invernadero,                           // B: invernadero
         tarea.tipo_tarea,                            // C: tipo_tarea
-        (Number(tarea.estimacion_horas) || 0) * 6,  // D: estimacion_horas (convertir jornales a horas)
-        0,                                           // E: hora_jornal (inicia en 0)
+        estimacionConvertida,                        // D: estimacion_horas (jornales convertidos a horas)
+        horaJornal,                                  // E: hora_jornal (0=6hrs, 1=8hrs)
         0,                                           // F: horas_kilos (inicia en 0)
         0,                                           // G: jornales_reales (inicia en 0)
         tarea.fecha_limite,                          // H: fecha_limite

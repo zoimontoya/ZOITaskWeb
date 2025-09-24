@@ -24,6 +24,16 @@
       <input type="number" id="estimation" name="estimation" [(ngModel)]="estimation" min="0.1" step="0.1" required placeholder="Ej: 5.5" />
     </p>
     
+    <!-- Interruptor para horas por jornal -->
+    <div class="hour-jornal-toggle">
+      <label class="toggle-container">
+        <span class="toggle-label">Horas por jornal:</span>
+        <input type="checkbox" [(ngModel)]="useEightHourJornal" class="toggle-checkbox">
+        <span class="toggle-slider"></span>
+        <span class="toggle-text">{{ useEightHourJornal ? '8 horas' : '6 horas' }}</span>
+      </label>
+    </div>
+    
     <!-- Toggle para modo de fechas (solo mostrar si hay invernaderos seleccionados) -->
     <div *ngIf="getSelectedInvernaderos().length > 1" class="date-mode-toggle">
       <label class="toggle-container">
