@@ -480,4 +480,32 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   toNumber(value: any): number {
     return Number(value);
   }
+
+  // Método para detectar si una tarea está vencida
+  isTaskOverdue(task: Task): boolean {
+    // Solo considerar vencidas las tareas que NO están terminadas
+    if (task.progreso === 'Terminada') {
+      return false;
+    }
+    
+    // Verificar si tiene fecha límite
+    if (!task.fecha_limite) {
+      return false;
+    }
+    
+    try {
+      const today = new Date();
+      const dueDate = new Date(task.fecha_limite);
+      
+      // Normalizar las fechas para comparar solo la fecha (sin hora)
+      today.setHours(0, 0, 0, 0);
+      dueDate.setHours(0, 0, 0, 0);
+      
+      // La tarea está vencida si la fecha límite es anterior a hoy
+      return dueDate < today;
+    } catch (error) {
+      // Si hay error al parsear la fecha, no considerar vencida
+      return false;
+    }
+  }
 }

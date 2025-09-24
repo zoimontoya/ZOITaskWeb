@@ -178,7 +178,10 @@
     <ul>
         <li *ngIf="loading"><span style="color: #aaa;">Cargando tareas...</span></li>
         <li *ngIf="!loading && tasks.length === 0"><span style="color: #aaa;">No hay tareas para este usuario.</span></li>
-        <li *ngFor="let task of filteredTasks; trackBy: trackById" class="task-card" [hidden]="loading || tasks.length === 0">
+        <li *ngFor="let task of filteredTasks; trackBy: trackById" 
+            class="task-card" 
+            [class.overdue-task]="isTaskOverdue(task)"
+            [hidden]="loading || tasks.length === 0">
             <div class="task-card-content">
                 <div class="task-card-header">
                     <strong>{{task.tipo_tarea}}</strong>
@@ -187,7 +190,10 @@
                 <div class="task-card-meta">
                     <span>Invernadero: <b>{{task.invernadero}}</b></span>
                     <span>Estimación jornales: <b>{{task.estimacion_horas}}</b></span>
-                    <span>Fecha límite: <b>{{task.fecha_limite}}</b></span>
+                    <span [class.overdue-date]="isTaskOverdue(task)">
+                        Fecha límite: <b>{{task.fecha_limite}}</b>
+                        <span *ngIf="isTaskOverdue(task)" class="overdue-badge">⚠️ VENCIDA</span>
+                    </span>
                     <span *ngIf="!isEncargado && task.encargado_nombre">Encargado: <b>{{task.encargado_nombre}}</b></span>
                     <span *ngIf="task.progreso">
                         Estado: <b>{{task.progreso}}<span *ngIf="isNumber(task.progreso)">%</span></b>

@@ -368,6 +368,68 @@
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
   background: #418041;
 }
+
+/* Estilos para tareas vencidas */
+.task-card.overdue-task {
+  background: #8b2635 !important;
+  border-color: #d63447 !important;
+  box-shadow: 0 2px 12px rgba(214, 52, 71, 0.3);
+  animation: subtle-pulse 2s ease-in-out infinite;
+}
+
+.task-card.overdue-task:hover {
+  background: #a8303f !important;
+  box-shadow: 0 4px 20px rgba(214, 52, 71, 0.4);
+}
+
+.task-card.overdue-task .task-card-header {
+  color: #ffcccb;
+}
+
+.task-card.overdue-task .task-card-desc {
+  color: #ffe4e1;
+}
+
+.task-card.overdue-task .task-card-meta span {
+  color: #ffd6d6;
+}
+
+/* Estilos para fecha vencida */
+.overdue-date {
+  color: #ffcccb !important;
+  font-weight: bold;
+}
+
+.overdue-badge {
+  background: #d63447;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.8em;
+  margin-left: 8px;
+  font-weight: bold;
+  animation: blink 1.5s ease-in-out infinite;
+}
+
+/* Animación sutil para llamar la atención */
+@keyframes subtle-pulse {
+  0%, 100% {
+    box-shadow: 0 2px 12px rgba(214, 52, 71, 0.3);
+  }
+  50% {
+    box-shadow: 0 2px 16px rgba(214, 52, 71, 0.5);
+  }
+}
+
+/* Animación para el badge de vencida */
+@keyframes blink {
+  0%, 50% {
+    opacity: 1;
+  }
+  51%, 100% {
+    opacity: 0.7;
+  }
+}
 .task-card-content {
   width: 100%;
   display: flex;
