@@ -149,14 +149,36 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
         console.log('userId recibido:', this.userId);
         console.log('Tareas recibidas:', tasks.map(t => t.encargado_id));
         
+        // CONVERSIÓN DE HORAS A JORNALES EN EL FRONTEND
+        const tasksConvertidas = tasks.map(t => {
+          const horaJornal = Number(t.hora_jornal) || 0;
+          const factorConversion = horaJornal === 1 ? 8 : 6; // 1 = 8h/jornal, 0 = 6h/jornal
+          const horasTotales = Number(t.estimacion_horas) || 0;
+          const jornalesCalculados = horasTotales / factorConversion;
+          
+          return {
+            ...t,
+            estimacion_horas: jornalesCalculados, // Convertido a jornales para mostrar
+            id: String(t.id)
+          };
+        });
+        
+        // DEBUG: Verificar conversión
+        console.log('DEBUG conversión:', tasksConvertidas.slice(0, 2).map(t => ({ 
+          id: t.id, 
+          hora_jornal: t.hora_jornal,
+          horas_almacenadas: tasks.find(orig => orig.id === t.id)?.estimacion_horas,
+          jornales_calculados: t.estimacion_horas,
+          factor: t.hora_jornal === 1 ? '8h' : '6h'
+        })));
+        
         if (this.isEncargado && this.userId) {
           // Para encargados: filtrar solo sus tareas
           const userIdNorm = String(this.userId).trim().toLowerCase();
-          this.tasks = tasks.filter(t => String(t.encargado_id).trim().toLowerCase() === userIdNorm)
-            .map(t => ({ ...t, id: String(t.id) }));
+          this.tasks = tasksConvertidas.filter(t => String(t.encargado_id).trim().toLowerCase() === userIdNorm);
         } else {
           // Para supervisores: mostrar todas las tareas
-          this.tasks = tasks.map(t => ({ ...t, id: String(t.id) }));
+          this.tasks = tasksConvertidas;
         }
         this.invernaderos = Array.from(new Set(this.tasks.map(t => t.invernadero).filter(Boolean)));
         this.tiposTarea = Array.from(new Set(this.tasks.map(t => t.tipo_tarea).filter(Boolean)));

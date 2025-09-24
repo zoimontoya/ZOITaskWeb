@@ -266,23 +266,55 @@ app.get('/tasks', async (req, res) => {
       const obj = {};
       headers.forEach((h, i) => obj[h] = row[i] || '');
       
+      // MAPEO EXPLICITO DE COLUMNAS BASADO EN POSICIÓN
+      // Basándose en el orden definido en la creación de tareas:
+      // A=id, B=invernadero, C=tipo_tarea, D=estimacion_horas, E=hora_jornal, etc.
+      const mappedObj = {
+        id: row[0] || '',                              // A
+        invernadero: row[1] || '',                     // B  
+        tipo_tarea: row[2] || '',                      // C
+        estimacion_horas: row[3] || '',                // D
+        hora_jornal: (row[4] !== undefined && row[4] !== '') ? row[4] : '0',  // E - CAMPO CLAVE (por defecto 0 = 6h)
+        horas_kilos: row[5] || '0',                    // F
+        jornales_reales: row[6] || '0',                // G
+        fecha_limite: row[7] || '',                    // H
+        encargado_id: row[8] || '',                    // I
+        descripcion: row[9] || '',                     // J
+        nombre_superior: row[10] || '',                // K
+        fecha_inicio: row[11] || '',                   // L
+        fecha_fin: row[12] || '',                      // M
+        desarrollo_actual: row[13] || '',              // N
+        dimension_total: row[14] || '',                // O
+        proceso: row[15] || 'No iniciado'              // P
+      };
+      
+      // Combinar mapeo dinámico con mapeo explícito (prioridad al explícito)
+      const finalObj = { ...obj, ...mappedObj };
+      
+      // DEBUG: Mostrar información básica para la primera tarea
+      if (row[0] === rows[1]?.[0]) { // Solo para la primera fila de datos
+        console.log('=== BACKEND: Leyendo tareas ===');
+        console.log(`Primera tarea - ID: ${finalObj.id}, estimacion_horas: ${finalObj.estimacion_horas}, hora_jornal: ${finalObj.hora_jornal}`);
+        console.log('===============================');
+      }
+      
       // DEBUG: Buscar diferentes nombres posibles para la columna de estado
-      const estadoPosible = obj.proceso || obj.progreso || obj.estado || obj.Proceso || obj.Progreso || obj.Estado || '';
+      const estadoPosible = finalObj.proceso || finalObj.progreso || finalObj.estado || finalObj.Proceso || finalObj.Progreso || finalObj.Estado || '';
       
       // Asegurar que tenga todos los campos necesarios con valores por defecto
-      obj.proceso = estadoPosible || 'No iniciado';
-      obj.nombre_superior = obj.nombre_superior || '';
-      obj.fecha_inicio = obj.fecha_inicio || '';
-      obj.fecha_fin = obj.fecha_fin || '';
-      obj.desarrollo_actual = obj.desarrollo_actual || '';
-      obj.dimension_total = obj.dimension_total || '';
+      finalObj.proceso = estadoPosible || 'No iniciado';
+      finalObj.nombre_superior = finalObj.nombre_superior || '';
+      finalObj.fecha_inicio = finalObj.fecha_inicio || '';
+      finalObj.fecha_fin = finalObj.fecha_fin || '';
+      finalObj.desarrollo_actual = finalObj.desarrollo_actual || '';
+      finalObj.dimension_total = finalObj.dimension_total || '';
       
-      // Convertir estimacion_horas de horas a jornales usando factor dinámico
-      if (obj.estimacion_horas) {
-        const horaJornal = Number(obj.hora_jornal) || 0;
-        const factorConversion = horaJornal === 1 ? 8 : 6; // 0=6hrs, 1=8hrs
-        obj.estimacion_horas = (Number(obj.estimacion_horas) / factorConversion) || 0;
-      }
+      // SIMPLIFICADO: Solo devolver los valores tal como están almacenados
+      // La conversión se hace en el frontend
+      finalObj.estimacion_horas = Number(finalObj.estimacion_horas) || 0;
+      finalObj.hora_jornal = Number(finalObj.hora_jornal) || 0;
+      
+      return finalObj;
       
       // jornales_reales se mantiene en horas tal como está almacenado (encargados ingresan horas directamente)
       
@@ -423,25 +455,21 @@ app.post('/tasks', async (req, res) => {
       if (rowIndex === -1) {
         return res.status(404).json({ error: 'Tarea no encontrada' });
       }
-      // Determinar factor de conversión: 0 = 6 horas/jornal, 1 = 8 horas/jornal
+      // SIMPLIFICADO: Solo almacenar los valores que vienen del frontend (ya calculados)
       const horaJornal = Number(req.body.hora_jornal) || 0;
-      const factorConversion = horaJornal === 1 ? 8 : 6;
-      const estimacionOriginal = Number(req.body.estimacion_horas) || 0;
-      const estimacionConvertida = estimacionOriginal * factorConversion;
+      const estimacionHoras = Number(req.body.estimacion_horas) || 0; // Ya viene calculado del frontend
       
-      console.log(`=== EDITANDO TAREA ID: ${idToUpdate} ===`);
-      console.log(`Body completo:`, req.body);
-      console.log(`hora_jornal recibido: "${req.body.hora_jornal}" (tipo: ${typeof req.body.hora_jornal})`);
-      console.log(`horaJornal parseado: ${horaJornal}`);
-      console.log(`Factor de conversión: ${factorConversion} horas/jornal`);
-      console.log(`Estimación original (jornales): ${estimacionOriginal}`);
-      console.log(`Estimación convertida (horas): ${estimacionConvertida}`);
+      console.log(`✏️ === BACKEND: EDITANDO TAREA ID: ${idToUpdate} ===`);
+      console.log(`📦 Body recibido:`, req.body);
+      console.log(`🏷️ hora_jornal: "${req.body.hora_jornal}" → ${horaJornal} (${horaJornal === 1 ? '8h' : '6h'}/jornal)`);
+      console.log(`⏰ estimacion_horas: "${req.body.estimacion_horas}" → ${estimacionHoras} horas totales`);
+      console.log(`💾 Se actualizará columna E: ${horaJornal}, columna D: ${estimacionHoras}`);
       
       const updatedRow = [
         idToUpdate,                                    // A: id
         req.body.invernadero,                          // B: invernadero
         req.body.tipo_tarea,                           // C: tipo_tarea
-        estimacionConvertida,                          // D: estimacion_horas (jornales convertidos a horas)
+        estimacionHoras,                               // D: estimacion_horas (ya calculado en frontend)
         horaJornal,                                    // E: hora_jornal (0=6hrs, 1=8hrs)
         req.body.horas_kilos || 0,                     // F: horas_kilos (NUEVA)
         Number(req.body.jornales_reales) || 0,        // G: jornales_reales (encargados ingresan horas directamente)
@@ -647,26 +675,22 @@ app.post('/tasks', async (req, res) => {
       // Usar el dimension_total que viene del frontend (seleccionado por el usuario)
       const dimensionTotalSeleccionada = Number(tarea.dimension_total) || 0;
       
-      // Determinar factor de conversión: 0 = 6 horas/jornal, 1 = 8 horas/jornal
+      // SIMPLIFICADO: Solo almacenar los valores que vienen del frontend (ya calculados)
       const horaJornal = Number(tarea.hora_jornal) || 0;
-      const factorConversion = horaJornal === 1 ? 8 : 6;
-      const estimacionOriginal = Number(tarea.estimacion_horas) || 0;
-      const estimacionConvertida = estimacionOriginal * factorConversion;
+      const estimacionHoras = Number(tarea.estimacion_horas) || 0; // Ya viene calculado del frontend
       
-      console.log(`=== CREANDO TAREA PARA "${tarea.invernadero}" ===`);
-      console.log(`Objeto tarea completo:`, tarea);
-      console.log(`hora_jornal recibido: "${tarea.hora_jornal}" (tipo: ${typeof tarea.hora_jornal})`);
-      console.log(`horaJornal parseado: ${horaJornal}`);
-      console.log(`Factor de conversión: ${factorConversion} horas/jornal`);
-      console.log(`Estimación original (jornales): ${estimacionOriginal}`);
-      console.log(`Estimación convertida (horas): ${estimacionConvertida}`);
-      console.log(`Dimensión seleccionada: ${dimensionTotalSeleccionada} hectáreas`);
+      console.log(`🔧 === BACKEND: CREANDO TAREA PARA "${tarea.invernadero}" ===`);
+      console.log(`📦 Objeto tarea recibido:`, tarea);
+      console.log(`🏷️ hora_jornal: "${tarea.hora_jornal}" → ${horaJornal} (${horaJornal === 1 ? '8h' : '6h'}/jornal)`);
+      console.log(`⏰ estimacion_horas: "${tarea.estimacion_horas}" → ${estimacionHoras} horas totales`);
+      console.log(`📏 Dimensión: ${dimensionTotalSeleccionada} hectáreas`);
+      console.log(`💾 Se guardará en columna E: ${horaJornal}, columna D: ${estimacionHoras}`);
       
       newRows.push([
         tarea.id,                                    // A: id
         tarea.invernadero,                           // B: invernadero
         tarea.tipo_tarea,                            // C: tipo_tarea
-        estimacionConvertida,                        // D: estimacion_horas (jornales convertidos a horas)
+        estimacionHoras,                             // D: estimacion_horas (ya calculado en frontend)
         horaJornal,                                  // E: hora_jornal (0=6hrs, 1=8hrs)
         0,                                           // F: horas_kilos (inicia en 0)
         0,                                           // G: jornales_reales (inicia en 0)

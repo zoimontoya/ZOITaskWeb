@@ -50,6 +50,8 @@ export class newTaskComponent implements OnInit, OnChanges {
   useEightHourJornal = false;
 
   ngOnInit() {
+    console.log(`🚀 newTaskComponent ngOnInit - useEightHourJornal inicial: ${this.useEightHourJornal}`);
+    
     this.greenhouseService.getGreenhouses().subscribe(data => {
       this.greenhouses = data;
       // Inicializar el formulario después de cargar los invernaderos
@@ -107,16 +109,23 @@ export class newTaskComponent implements OnInit, OnChanges {
       }
       
       this.selectedTaskType = this.task.tipo_tarea || '';
-      this.estimation = this.task.estimacion_horas || '';
+      
+      // CONVERSIÓN DE HORAS A JORNALES PARA MOSTRAR EN EL FORMULARIO
+      // Configurar interruptor de horas por jornal: 0 = 6 horas (false), 1 = 8 horas (true)
+      this.useEightHourJornal = (this.task.hora_jornal === 1);
+      
+      // Convertir horas almacenadas de vuelta a jornales para el formulario
+      const horasTotales = Number(this.task.estimacion_horas) || 0;
+      const factorConversion = this.useEightHourJornal ? 8 : 6;
+      const jornalesOriginales = horasTotales / factorConversion;
+      this.estimation = jornalesOriginales.toString();
+      
       this.dueDates = {};
       if (this.task.invernadero && this.task.fecha_limite) {
         this.dueDates[this.task.invernadero] = this.task.fecha_limite;
       }
       this.selectedEncargado = this.task.encargado_id || '';
       this.description = this.task.descripcion || '';
-      
-      // Configurar interruptor de horas por jornal: 0 = 6 horas (false), 1 = 8 horas (true)
-      this.useEightHourJornal = (this.task.hora_jornal === 1);
       
       // Configurar fechas según el modo
       if (this.task.fecha_limite) {
@@ -133,6 +142,7 @@ export class newTaskComponent implements OnInit, OnChanges {
       this.useSingleDate = true;
       this.singleDate = '';
       this.workingAreas = {}; // Limpiar áreas de trabajo
+      // NO tocamos useEightHourJornal aquí, debe mantener su valor por defecto (false)
     }
   }
 
@@ -236,6 +246,16 @@ export class newTaskComponent implements OnInit, OnChanges {
     this.cancel.emit();
   }
 
+  // DEBUG: Métodos de prueba temporal
+  onToggleChange() {
+    console.log(`🔄 Interruptor cambiado: useEightHourJornal = ${this.useEightHourJornal}`);
+  }
+
+  onHourJornalToggle() {
+    // Método llamado cuando cambia el toggle de horas por jornal
+    // No necesita lógica adicional, el two-way binding ya maneja el cambio
+  }
+
   onSubmit() {
     // VALIDACIONES OBLIGATORIAS (todos los campos excepto descripción)
     
@@ -315,11 +335,16 @@ export class newTaskComponent implements OnInit, OnChanges {
       // Usar fecha única o individual según el modo
       const fechaLimite = this.useSingleDate ? this.singleDate : this.dueDates[g];
       
+      // CÁLCULO EN FRONTEND: Convertir jornales a horas antes de enviar al backend
+      const horaJornal = this.useEightHourJornal ? 1 : 0; // 0 = 6h, 1 = 8h
+      const factorConversion = this.useEightHourJornal ? 8 : 6; // horas por jornal
+      const estimacionEnHoras = estimationNum * factorConversion; // jornales × factor = horas totales
+      
       const data: any = {
         invernadero: g,
         tipo_tarea: this.selectedTaskType,
-        estimacion_horas: estimationNum,
-        hora_jornal: this.useEightHourJornal ? 1 : 0, // 0 = 6 horas, 1 = 8 horas
+        estimacion_horas: estimacionEnHoras, // YA EN HORAS TOTALES
+        hora_jornal: horaJornal, // 0 = 6 horas, 1 = 8 horas
         fecha_limite: fechaLimite,
         encargado_id: this.selectedEncargado,
         descripcion: this.description,
@@ -329,17 +354,9 @@ export class newTaskComponent implements OnInit, OnChanges {
         data.id = this.task.id;
       }
       
-      console.log(`=== FRONTEND: Preparando tarea para ${g} ===`);
-      console.log(`useEightHourJornal: ${this.useEightHourJornal}`);
-      console.log(`hora_jornal enviado: ${data.hora_jornal}`);
-      console.log(`estimacion_horas (jornales): ${data.estimacion_horas}`);
-      console.log(`Objeto data completo:`, data);
-      
       return data;
     });
     
-    console.log(`=== FRONTEND: Enviando ${tareas.length} tareas ===`);
-    console.log('Todas las tareas:', tareas);
     this.add.emit(tareas);
   }
 }
