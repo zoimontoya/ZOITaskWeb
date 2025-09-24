@@ -134,7 +134,7 @@ export interface InvernaderoSelection {
     
     .dropdown-text {
       font-weight: 500;
-      color: #333;
+      color: #48703cff;
     }
     
     .main-dropdown-icon {

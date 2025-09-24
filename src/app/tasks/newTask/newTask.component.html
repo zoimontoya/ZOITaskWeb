@@ -20,8 +20,8 @@
     </app-searchable-dropdown>
     
     <p>
-      <label for="estimation">Estimación jornales</label>
-      <input type="number" id="estimation" name="estimation" [(ngModel)]="estimation" min="0" required />
+      <label for="estimation">Estimación jornales *</label>
+      <input type="number" id="estimation" name="estimation" [(ngModel)]="estimation" min="0.1" step="0.1" required placeholder="Ej: 5.5" />
     </p>
     
     <!-- Toggle para modo de fechas (solo mostrar si hay invernaderos seleccionados) -->
@@ -44,7 +44,7 @@
     
     <!-- Campo de fecha única (cuando useSingleDate es true) -->
     <div *ngIf="getSelectedInvernaderos().length > 0 && useSingleDate" class="single-date-container">
-      <label for="singleDate">Fecha límite para todos los invernaderos:</label>
+      <label for="singleDate">Fecha límite para todos los invernaderos *</label>
       <input 
         type="date" 
         id="singleDate" 
@@ -56,10 +56,10 @@
     
     <!-- Fechas individuales por invernadero (cuando useSingleDate es false) -->
     <div *ngIf="getSelectedInvernaderos().length > 0 && !useSingleDate">
-      <label>Fechas límite por invernadero:</label>
+      <label>Fechas límite por invernadero *</label>
       <div *ngFor="let g of getSelectedInvernaderos()" class="date-input-row">
         <label>
-          {{ g }}:
+          {{ g }} *:
           <input type="date" [(ngModel)]="dueDates[g]" name="dueDate_{{g}}" required />
         </label>
       </div>
@@ -67,7 +67,7 @@
     
     <!-- Selección de área de trabajo por invernadero -->
     <div *ngIf="getSelectedInvernaderos().length > 0" class="working-areas-section">
-      <h4>Área de trabajo por invernadero:</h4>
+      <h4>Área de trabajo por invernadero *</h4>
       <div *ngFor="let g of getSelectedInvernaderos()" class="working-area-item">
         <div class="working-area-header">
           <span class="invernadero-name">{{ g }}</span>
@@ -122,8 +122,8 @@
       [required]="true">
     </app-searchable-dropdown>
     <p>
-      <label for="description">Descripción</label>
-      <textarea id="description" rows="3" name="description" [(ngModel)]="description" required></textarea>
+      <label for="description">Descripción (opcional)</label>
+      <textarea id="description" rows="3" name="description" [(ngModel)]="description" placeholder="Descripción opcional de la tarea..."></textarea>
     </p>
     <p class="actions">
       <button type="button" (click)="onCancel()">Cancelar</button>

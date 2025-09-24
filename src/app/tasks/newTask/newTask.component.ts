@@ -231,33 +231,70 @@ export class newTaskComponent implements OnInit, OnChanges {
   }
 
   onSubmit() {
-    const selectedInvernaderos = this.getSelectedInvernaderos();
+    // VALIDACIONES OBLIGATORIAS (todos los campos excepto descripción)
     
+    // 1. Validar selección de invernaderos
+    const selectedInvernaderos = this.getSelectedInvernaderos();
     if (selectedInvernaderos.length === 0) {
       alert('Por favor, selecciona al menos un invernadero.');
       return;
     }
+
+    // 2. Validar tipo de tarea
+    if (!this.selectedTaskType || this.selectedTaskType.trim() === '') {
+      alert('Por favor, selecciona un tipo de tarea.');
+      return;
+    }
+
+    // 3. Validar estimación de jornales
+    const estimationNum = Number(this.estimation);
+    if (!this.estimation || isNaN(estimationNum) || estimationNum <= 0) {
+      alert('Por favor, ingresa una estimación de jornales válida (mayor que 0).');
+      return;
+    }
+
+    // 4. Validar encargado
+    if (!this.selectedEncargado || this.selectedEncargado.trim() === '') {
+      alert('Por favor, selecciona un encargado para la tarea.');
+      return;
+    }
     
-    // Validar fechas según el modo seleccionado
+    // 5. Validar fechas según el modo seleccionado
     if (this.useSingleDate) {
       // Modo fecha única: validar que se haya seleccionado la fecha única
-      if (!this.singleDate) {
-        alert('Por favor, selecciona la fecha límite.');
+      if (!this.singleDate || this.singleDate.trim() === '') {
+        alert('Por favor, selecciona la fecha límite para la tarea.');
         return;
       }
     } else {
       // Modo fechas individuales: validar que todas las fechas estén completas
-      const missingDates = selectedInvernaderos.some((g: string) => !this.dueDates[g]);
+      const missingDates = selectedInvernaderos.some((g: string) => !this.dueDates[g] || this.dueDates[g].trim() === '');
       if (missingDates) {
-        alert('Por favor, selecciona una fecha límite para cada invernadero.');
+        alert('Por favor, selecciona una fecha límite para cada invernadero seleccionado.');
         return;
       }
     }
     
-    // Validar que se haya seleccionado un área válida para cada invernadero
-    const missingAreas = selectedInvernaderos.some((g: string) => !this.workingAreas[g] || this.workingAreas[g] <= 0);
-    if (missingAreas) {
-      alert('Por favor, selecciona un área de trabajo válida para cada invernadero.');
+    // 6. Validar que se haya seleccionado un área válida para cada invernadero
+    const invalidAreas = selectedInvernaderos.filter((g: string) => {
+      const area = this.workingAreas[g];
+      return !area || area <= 0;
+    });
+    
+    if (invalidAreas.length > 0) {
+      alert(`Por favor, selecciona un área de trabajo válida (mayor que 0) para: ${invalidAreas.join(', ')}`);
+      return;
+    }
+
+    // 7. Validar que las áreas no excedan el máximo disponible
+    const exceedingAreas = selectedInvernaderos.filter((g: string) => {
+      const area = this.workingAreas[g];
+      const maxArea = this.getMaxArea(g);
+      return area > maxArea;
+    });
+
+    if (exceedingAreas.length > 0) {
+      alert(`El área seleccionada excede el máximo disponible para: ${exceedingAreas.join(', ')}`);
       return;
     }
     

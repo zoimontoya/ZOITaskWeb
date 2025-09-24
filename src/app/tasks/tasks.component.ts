@@ -387,6 +387,12 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
 
   onUpdateProgressOnly() {
     if (this.taskToComplete && this.progressValue !== (Number(this.taskToComplete.progreso) || 0)) {
+      // Validar que se haya ingresado el número de jornales reales
+      if (!this.jornalesRealesValue || this.jornalesRealesValue <= 0) {
+        alert('Por favor, ingresa el número de jornales reales trabajados.');
+        return;
+      }
+      
       // Calcular hectáreas basadas en el porcentaje
       const totalHectares = parseFloat((this.taskToComplete.dimension_total || '0').replace(',', '.'));
       const hectareasActuales = (totalHectares * this.progressValue) / 100;
@@ -410,6 +416,12 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
 
   onConfirmCompleteTask() {
     if (this.taskToComplete && this.progressValue === 100) {
+      // Validar que se haya ingresado el número de jornales reales
+      if (!this.jornalesRealesValue || this.jornalesRealesValue <= 0) {
+        alert('Por favor, ingresa el número de jornales reales trabajados para completar la tarea.');
+        return;
+      }
+      
       // Calcular hectáreas para 100% de progreso
       const totalHectares = parseFloat((this.taskToComplete.dimension_total || '0').replace(',', '.'));
       const hectareasCompletas = totalHectares; // 100% = todas las hectáreas

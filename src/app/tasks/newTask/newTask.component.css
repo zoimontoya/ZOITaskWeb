@@ -371,6 +371,59 @@ button[type="submit"]:active {
   border-color: rgba(115, 202, 122, 0.3);
 }
 
+/* Estilos para campos obligatorios */
+.asterisk {
+  color: #dc2626;
+  font-weight: bold;
+  margin-left: 2px;
+}
+
+label:has(.asterisk) {
+  font-weight: 500;
+}
+
+/* Estilo para campos requeridos con foco */
+input:required:focus,
+select:required:focus,
+textarea:focus {
+  border-color: rgba(115, 202, 122, 0.4);
+  box-shadow: 0 0 0 2px rgba(115, 202, 122, 0.1);
+  outline: none;
+}
+
+/* Estado de error para campos requeridos */
+input:required:invalid:not(:placeholder-shown),
+select:required:invalid {
+  border-color: #dc2626;
+  background-color: rgba(220, 38, 38, 0.02);
+}
+
+input:required:invalid:not(:placeholder-shown):focus,
+select:required:invalid:focus {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.1);
+}
+
+/* Indicador visual sutil para campos obligatorios */
+input:required,
+select:required {
+  position: relative;
+}
+
+input:required::after,
+select:required::after {
+  content: "";
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 4px;
+  background-color: rgba(220, 38, 38, 0.3);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
 @media (min-width: 768px) {
   dialog {
     padding: 2rem;
