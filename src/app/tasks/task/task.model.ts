@@ -2,8 +2,10 @@ export interface Task {
   id: string;
   invernadero: string;
   tipo_tarea: string;
-  estimacion_horas: number;
-  jornales_reales?: number; // Nuevo campo para jornales realmente utilizados
+  estimacion_horas: number; // Se muestra en jornales (dividido por 6), se almacena en horas (multiplicado por 6)
+  hora_jornal?: number; // Nueva columna para hora/jornal
+  horas_kilos?: number; // Nueva columna para horas/kilos
+  jornales_reales?: number; // Horas reales trabajadas (encargados ingresan horas directamente)
   fecha_limite: string;
   encargado_id: string;
   encargado_nombre?: string; // Nuevo campo para el nombre del encargado

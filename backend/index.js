@@ -282,10 +282,7 @@ app.get('/tasks', async (req, res) => {
         obj.estimacion_horas = (Number(obj.estimacion_horas) / 6) || 0;
       }
       
-      // Convertir jornales_reales de horas a jornales para mostrar a los usuarios (dividir por 6)
-      if (obj.jornales_reales) {
-        obj.jornales_reales = (Number(obj.jornales_reales) / 6) || 0;
-      }
+      // jornales_reales se mantiene en horas tal como está almacenado (encargados ingresan horas directamente)
       
       return obj;
     });
@@ -429,20 +426,22 @@ app.post('/tasks', async (req, res) => {
         req.body.invernadero,                          // B: invernadero
         req.body.tipo_tarea,                           // C: tipo_tarea
         (Number(req.body.estimacion_horas) || 0) * 6, // D: estimacion_horas (convertir jornales a horas)
-        (Number(req.body.jornales_reales) || 0) * 6,  // E: jornales_reales (convertir jornales a horas)
-        req.body.fecha_limite,                         // F: fecha_limite
-        req.body.encargado_id,                         // G: encargado_id
-        req.body.descripcion,                          // H: descripcion
-        req.body.nombre_superior || '',                // I: nombre_superior
-        req.body.fecha_inicio || '',                   // J: fecha_inicio
-        req.body.fecha_fin || '',                      // K: fecha_fin
-        Number(req.body.desarrollo_actual) || 0,      // L: desarrollo_actual
-        req.body.dimension_total || '0',               // M: dimension_total
-        req.body.proceso || 'No iniciado'              // N: proceso
+        req.body.hora_jornal || 0,                     // E: hora_jornal (NUEVA)
+        req.body.horas_kilos || 0,                     // F: horas_kilos (NUEVA)
+        Number(req.body.jornales_reales) || 0,        // G: jornales_reales (encargados ingresan horas directamente)
+        req.body.fecha_limite,                         // H: fecha_limite
+        req.body.encargado_id,                         // I: encargado_id
+        req.body.descripcion,                          // J: descripcion
+        req.body.nombre_superior || '',                // K: nombre_superior
+        req.body.fecha_inicio || '',                   // L: fecha_inicio
+        req.body.fecha_fin || '',                      // M: fecha_fin
+        Number(req.body.desarrollo_actual) || 0,      // N: desarrollo_actual
+        req.body.dimension_total || '0',               // O: dimension_total
+        req.body.proceso || 'No iniciado'              // P: proceso
       ];
       await sheets.spreadsheets.values.update({
         spreadsheetId: SPREADSHEET_ID,
-        range: `${tareasSheet.properties.title}!A${rowIndex + 1}:N${rowIndex + 1}`, // Actualizado a columna N
+        range: `${tareasSheet.properties.title}!A${rowIndex + 1}:P${rowIndex + 1}`, // Actualizado a columna P (16 columnas)
         valueInputOption: 'RAW',
         resource: { values: [updatedRow] }
       });
@@ -471,16 +470,36 @@ app.post('/tasks', async (req, res) => {
         return res.status(404).json({ error: 'Tarea no encontrada' });
       }
 
-      // Buscar índices de las columnas
-      const jornalesRealesIndex = headers.findIndex(h => h.toLowerCase().includes('jornales_reales') || h.toLowerCase() === 'jornales_reales');
-      const desarrolloActualIndex = headers.findIndex(h => h.toLowerCase().includes('desarrollo_actual') || h.toLowerCase() === 'desarrollo_actual');
-      const progresoIndex = headers.findIndex(h => h.toLowerCase() === 'progreso');
+      // Buscar índices de las columnas con búsqueda más flexible
+      const jornalesRealesIndex = headers.findIndex(h => 
+        h && (h.toLowerCase().includes('jornales_reales') || 
+              h.toLowerCase().includes('jornales reales') ||
+              h.toLowerCase() === 'jornales_reales')
+      );
+      const desarrolloActualIndex = headers.findIndex(h => 
+        h && (h.toLowerCase().includes('desarrollo_actual') || 
+              h.toLowerCase().includes('desarrollo actual') ||
+              h.toLowerCase() === 'desarrollo_actual')
+      );
+      const progresoIndex = headers.findIndex(h => 
+        h && (h.toLowerCase() === 'progreso' || 
+              h.toLowerCase().includes('progreso'))
+      );
       
+      console.log('=== DIAGNÓSTICO ACTUALIZACIÓN PROGRESO ===');
+      console.log('Headers completos:', headers);
+      console.log('Número total de columnas:', headers.length);
       console.log('Índices encontrados:', { jornalesRealesIndex, desarrolloActualIndex, progresoIndex });
-      console.log('Headers:', headers);
+      console.log('Fila actual antes de actualizar:', rows[rowIndex]);
+      console.log('Datos recibidos:', { 
+        id: req.body.id, 
+        progreso: req.body.progreso, 
+        desarrollo_actual: req.body.desarrollo_actual, 
+        jornales_reales: req.body.jornales_reales 
+      });
 
-      // Actualizar jornales_reales (columna E por defecto si no se encuentra)
-      const jornalesCol = jornalesRealesIndex >= 0 ? jornalesRealesIndex : 4; // Columna E = índice 4
+      // Actualizar jornales_reales (columna G por defecto si no se encuentra)
+      const jornalesCol = jornalesRealesIndex >= 0 ? jornalesRealesIndex : 6; // Columna G = índice 6
       const jornalesColLetter = String.fromCharCode(65 + jornalesCol);
       
       if (req.body.jornales_reales !== undefined) {
@@ -488,12 +507,12 @@ app.post('/tasks', async (req, res) => {
           spreadsheetId: SPREADSHEET_ID,
           range: `${tareasSheet.properties.title}!${jornalesColLetter}${rowIndex + 1}`,
           valueInputOption: 'RAW',
-          resource: { values: [[(Number(req.body.jornales_reales) || 0) * 6]] }
+          resource: { values: [[Number(req.body.jornales_reales) || 0]] }
         });
       }
 
-      // Actualizar desarrollo_actual (hectáreas) - columna L por defecto si no se encuentra
-      const desarrolloCol = desarrolloActualIndex >= 0 ? desarrolloActualIndex : 11; // Ajustado por nueva columna
+      // Actualizar desarrollo_actual (hectáreas) - columna N por defecto si no se encuentra  
+      const desarrolloCol = desarrolloActualIndex >= 0 ? desarrolloActualIndex : 13; // Columna N = índice 13
       const desarrolloColLetter = String.fromCharCode(65 + desarrolloCol);
       
       await sheets.spreadsheets.values.update({
@@ -506,12 +525,16 @@ app.post('/tasks', async (req, res) => {
       // Actualizar progreso (porcentaje) si existe la columna
       if (progresoIndex >= 0) {
         const progresoColLetter = String.fromCharCode(65 + progresoIndex);
+        console.log(`Actualizando progreso en columna ${progresoColLetter} con valor: ${req.body.progreso}`);
         await sheets.spreadsheets.values.update({
           spreadsheetId: SPREADSHEET_ID,
           range: `${tareasSheet.properties.title}!${progresoColLetter}${rowIndex + 1}`,
           valueInputOption: 'RAW',
           resource: { values: [[Number(req.body.progreso) || 0]] }
         });
+      } else {
+        console.log('⚠️ ADVERTENCIA: No se encontró la columna "progreso" en las cabeceras');
+        console.log('Columnas disponibles:', headers.map((h, i) => `${String.fromCharCode(65 + i)}: ${h}`));
       }
 
       console.log('Progreso actualizado para tarea:', idToUpdate, 'porcentaje:', req.body.progreso, 'hectáreas:', req.body.desarrollo_actual, 'jornales_reales:', req.body.jornales_reales);
@@ -616,16 +639,18 @@ app.post('/tasks', async (req, res) => {
         tarea.invernadero,                           // B: invernadero
         tarea.tipo_tarea,                            // C: tipo_tarea
         (Number(tarea.estimacion_horas) || 0) * 6,  // D: estimacion_horas (convertir jornales a horas)
-        0,                                           // E: jornales_reales (inicia en 0)
-        tarea.fecha_limite,                          // F: fecha_limite
-        tarea.encargado_id,                          // G: encargado_id
-        tarea.descripcion,                           // H: descripcion
-        tarea.nombre_superior || '',                 // I: nombre_superior
-        '',                                          // J: fecha_inicio (vacía al crear)
-        '',                                          // K: fecha_fin (vacía al crear)
-        0,                                           // L: desarrollo_actual (inicia en 0)
-        dimensionTotalSeleccionada,                  // M: dimension_total (seleccionada por el usuario)
-        'No iniciado'                                // N: proceso (por defecto)
+        0,                                           // E: hora_jornal (inicia en 0)
+        0,                                           // F: horas_kilos (inicia en 0)
+        0,                                           // G: jornales_reales (inicia en 0)
+        tarea.fecha_limite,                          // H: fecha_limite
+        tarea.encargado_id,                          // I: encargado_id
+        tarea.descripcion,                           // J: descripcion
+        tarea.nombre_superior || '',                 // K: nombre_superior
+        '',                                          // L: fecha_inicio (vacía al crear)
+        '',                                          // M: fecha_fin (vacía al crear)
+        0,                                           // N: desarrollo_actual (inicia en 0)
+        dimensionTotalSeleccionada,                  // O: dimension_total (seleccionada por el usuario)
+        'No iniciado'                                // P: proceso (por defecto)
       ]);
     }
     await sheets.spreadsheets.values.append({
@@ -674,18 +699,18 @@ app.post('/tasks/:id/accept', async (req, res) => {
     const currentRow = rows[rowIndex];
     const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
     
-    // Asegurar que el array tenga suficientes elementos para la nueva estructura
-    while (currentRow.length < 14) {
+    // Asegurar que el array tenga suficientes elementos para la nueva estructura de 16 columnas
+    while (currentRow.length < 16) {
       currentRow.push('');
     }
     
-    // Actualizar fecha_inicio (columna J) y proceso (columna N) - ajustado por nueva columna
-    currentRow[9] = today; // fecha_inicio (antes columna I, ahora J)
-    currentRow[13] = 'Iniciada'; // proceso (antes columna M, ahora N)
+    // Actualizar fecha_inicio (columna L = índice 11) y proceso (columna P = índice 15)
+    currentRow[11] = today; // fecha_inicio (columna L)
+    currentRow[15] = 'Iniciada'; // proceso (columna P)
     
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${tareasSheet.properties.title}!A${rowIndex + 1}:N${rowIndex + 1}`, // Actualizado a columna N
+      range: `${tareasSheet.properties.title}!A${rowIndex + 1}:P${rowIndex + 1}`, // Actualizado a columna P (16 columnas)
       valueInputOption: 'RAW',
       resource: { values: [currentRow] }
     });
@@ -729,18 +754,18 @@ app.post('/tasks/:id/complete', async (req, res) => {
     const currentRow = rows[rowIndex];
     const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
     
-    // Asegurar que el array tenga suficientes elementos para la nueva estructura
-    while (currentRow.length < 14) {
+    // Asegurar que el array tenga suficientes elementos para la nueva estructura de 16 columnas
+    while (currentRow.length < 16) {
       currentRow.push('');
     }
     
-    // Actualizar fecha_fin (columna K) y proceso (columna N) - ajustado por nueva columna
-    currentRow[10] = today; // fecha_fin (antes columna J, ahora K)
-    currentRow[13] = 'Terminada'; // proceso (antes columna M, ahora N)
+    // Actualizar fecha_fin (columna M = índice 12) y proceso (columna P = índice 15)
+    currentRow[12] = today; // fecha_fin (columna M)
+    currentRow[15] = 'Terminada'; // proceso (columna P)
     
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${tareasSheet.properties.title}!A${rowIndex + 1}:N${rowIndex + 1}`, // Actualizado a columna N
+      range: `${tareasSheet.properties.title}!A${rowIndex + 1}:P${rowIndex + 1}`, // Actualizado a columna P (16 columnas)
       valueInputOption: 'RAW',
       resource: { values: [currentRow] }
     });

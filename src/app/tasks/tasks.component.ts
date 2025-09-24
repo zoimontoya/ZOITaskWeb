@@ -40,7 +40,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   showCompleteModal = false;
   taskToComplete: Task | null = null;
   progressValue = 0;
-  jornalesRealesValue = 0; // Nuevo campo para jornales reales
+  jornalesRealesValue = 0; // Campo para horas reales trabajadas (encargados ingresan horas directamente)
   greenhouses: Greenhouse[] = [];
 
   constructor(private taskService: TasksService, private greenhouseService: GreenhouseService, private userService: UserService) {}
@@ -387,9 +387,9 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
 
   onUpdateProgressOnly() {
     if (this.taskToComplete && this.progressValue !== (Number(this.taskToComplete.progreso) || 0)) {
-      // Validar que se haya ingresado el número de jornales reales
+      // Validar que se haya ingresado el número de horas reales
       if (!this.jornalesRealesValue || this.jornalesRealesValue <= 0) {
-        alert('Por favor, ingresa el número de jornales reales trabajados.');
+        alert('Por favor, ingresa el número de horas realmente trabajadas.');
         return;
       }
       
@@ -416,9 +416,9 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
 
   onConfirmCompleteTask() {
     if (this.taskToComplete && this.progressValue === 100) {
-      // Validar que se haya ingresado el número de jornales reales
+      // Validar que se haya ingresado el número de horas reales
       if (!this.jornalesRealesValue || this.jornalesRealesValue <= 0) {
-        alert('Por favor, ingresa el número de jornales reales trabajados para completar la tarea.');
+        alert('Por favor, ingresa el número de horas realmente trabajadas para completar la tarea.');
         return;
       }
       

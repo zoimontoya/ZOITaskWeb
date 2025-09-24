@@ -49,9 +49,9 @@
                 <small>Dimensión total: {{taskToComplete.dimension_total}} Ha</small>
             </div>
             
-            <!-- Campo para jornales reales -->
+            <!-- Campo para horas reales -->
             <div class="jornales-reales-section">
-                <label for="jornalesReales">Jornales realmente utilizados <span class="asterisk">*</span>:</label>
+                <label for="jornalesReales">Horas realmente trabajadas <span class="asterisk">*</span>:</label>
                 <input 
                     type="number" 
                     id="jornalesReales"
@@ -59,7 +59,7 @@
                     min="0.1"
                     step="0.1"
                     class="jornales-input"
-                    placeholder="Ingresa los jornales utilizados (obligatorio)"
+                    placeholder="Ingresa las horas trabajadas (obligatorio)"
                     required>
                 <small class="jornales-info">
                     *Estimación inicial: {{taskToComplete?.estimacion_horas || 0}} jornales
@@ -207,7 +207,7 @@
                 <div class="task-card-meta">
                     <span>Invernadero: <b>{{task.invernadero}}</b></span>
                     <span>Estimación jornales: <b>{{task.estimacion_horas}}</b></span>
-                    <span *ngIf="task.jornales_reales && task.jornales_reales > 0">Jornales reales: <b>{{task.jornales_reales}}</b></span>
+                    <span *ngIf="task.jornales_reales && task.jornales_reales > 0">Horas reales: <b>{{task.jornales_reales}}</b></span>
                     <span [class.overdue-date]="isTaskOverdue(task)">
                         Fecha límite: <b>{{task.fecha_limite}}</b>
                         <span *ngIf="isTaskOverdue(task)" class="overdue-badge">⚠️ VENCIDA</span>
