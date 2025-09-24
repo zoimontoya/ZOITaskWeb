@@ -277,6 +277,16 @@ app.get('/tasks', async (req, res) => {
       obj.desarrollo_actual = obj.desarrollo_actual || '';
       obj.dimension_total = obj.dimension_total || '';
       
+      // Convertir estimacion_horas de horas a jornales para mostrar a los usuarios (dividir por 6)
+      if (obj.estimacion_horas) {
+        obj.estimacion_horas = (Number(obj.estimacion_horas) / 6) || 0;
+      }
+      
+      // Convertir jornales_reales de horas a jornales para mostrar a los usuarios (dividir por 6)
+      if (obj.jornales_reales) {
+        obj.jornales_reales = (Number(obj.jornales_reales) / 6) || 0;
+      }
+      
       return obj;
     });
     
@@ -418,8 +428,8 @@ app.post('/tasks', async (req, res) => {
         idToUpdate,                                    // A: id
         req.body.invernadero,                          // B: invernadero
         req.body.tipo_tarea,                           // C: tipo_tarea
-        Number(req.body.estimacion_horas) || 0,       // D: estimacion_horas
-        Number(req.body.jornales_reales) || 0,        // E: jornales_reales (NUEVO)
+        (Number(req.body.estimacion_horas) || 0) * 6, // D: estimacion_horas (convertir jornales a horas)
+        (Number(req.body.jornales_reales) || 0) * 6,  // E: jornales_reales (convertir jornales a horas)
         req.body.fecha_limite,                         // F: fecha_limite
         req.body.encargado_id,                         // G: encargado_id
         req.body.descripcion,                          // H: descripcion
@@ -478,7 +488,7 @@ app.post('/tasks', async (req, res) => {
           spreadsheetId: SPREADSHEET_ID,
           range: `${tareasSheet.properties.title}!${jornalesColLetter}${rowIndex + 1}`,
           valueInputOption: 'RAW',
-          resource: { values: [[Number(req.body.jornales_reales) || 0]] }
+          resource: { values: [[(Number(req.body.jornales_reales) || 0) * 6]] }
         });
       }
 
@@ -605,7 +615,7 @@ app.post('/tasks', async (req, res) => {
         tarea.id,                                    // A: id
         tarea.invernadero,                           // B: invernadero
         tarea.tipo_tarea,                            // C: tipo_tarea
-        Number(tarea.estimacion_horas) || 0,        // D: estimacion_horas
+        (Number(tarea.estimacion_horas) || 0) * 6,  // D: estimacion_horas (convertir jornales a horas)
         0,                                           // E: jornales_reales (inicia en 0)
         tarea.fecha_limite,                          // F: fecha_limite
         tarea.encargado_id,                          // G: encargado_id
