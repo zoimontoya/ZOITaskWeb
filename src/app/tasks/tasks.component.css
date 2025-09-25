@@ -1,3 +1,15 @@
+/* Variables de color para consistencia */
+:root {
+  --primary-text: #e8f5e8;        /* Verde muy claro para texto principal */
+  --secondary-text: #b3d8b8;      /* Verde medio para texto secundario */
+  --muted-text: #8db48d;          /* Verde más oscuro para texto sutil */
+  --label-text: #d4f0d4;          /* Verde claro para labels */
+  --success-text: #a3e6a3;        /* Verde éxito */
+  --warning-text: #ffd966;        /* Amarillo para advertencias */
+  --error-text: #ff9999;          /* Rojo suave para errores */
+  --accent-text: #7fcc7f;         /* Verde acentuado */
+}
+
 /* Flex para header pegado en encargados */
 .header-flex {
   display: flex;
@@ -55,18 +67,18 @@
   padding: 2.2em 2.5em 1.5em 2.5em;
   min-width: 320px;
   max-width: 90vw;
-  color: #d2f7d4;
+  color: var(--primary-text);
   text-align: center;
 }
 .modal-confirm h3 {
   margin-top: 0;
   margin-bottom: 0.7em;
   font-size: 1.15em;
-  color: #fff;
+  color: var(--primary-text);
 }
 .modal-confirm p {
   margin-bottom: 1.2em;
-  color: #b6e6b6;
+  color: var(--secondary-text);
 }
 .modal-actions {
   display: flex;
@@ -93,7 +105,7 @@
   display: block;
   margin-bottom: 0.8em;
   font-weight: 600;
-  color: #121412;
+  color: var(--label-text);
 }
 
 .progress-container {
@@ -155,17 +167,17 @@
 .progress-text {
   font-size: 1.2em;
   font-weight: bold;
-  color: #fff;
+  color: var(--primary-text);
 }
 
 .progress-requirement {
   font-size: 0.9em;
-  color: #ffc107;
+  color: var(--warning-text);
   font-weight: 600;
 }
 
 .progress-requirement.satisfied {
-  color: #28a745;
+  color: var(--success-text);
 }
 
 .hectares-display {
@@ -179,12 +191,12 @@
 .hectares-text {
   font-size: 1.1em;
   font-weight: 600;
-  color: #4a9;
+  color: var(--accent-text);
 }
 
 .dimension-info {
   text-align: center;
-  color: #b6e6b6;
+  color: var(--secondary-text);
   font-style: italic;
 }
 
@@ -201,7 +213,7 @@
   display: block;
   margin-bottom: 0.5em;
   font-weight: 600;
-  color: #121412;
+  color: var(--label-text);
 }
 
 .jornales-input {
@@ -217,21 +229,21 @@
 
 .jornales-input:focus {
   outline: none;
-  border-color: #4a9;
-  box-shadow: 0 0 0 2px rgba(68, 170, 153, 0.2);
+  border-color: var(--accent-text);
+  box-shadow: 0 0 0 2px rgba(127, 204, 127, 0.2);
 }
 
 .jornales-info {
   display: block;
   margin-top: 0.4em;
   font-size: 0.85em;
-  color: #666;
+  color: var(--muted-text);
   font-style: italic;
 }
 
 .complete-modal .modal-actions button:disabled {
   background: #666;
-  color: #999;
+  color: var(--muted-text);
   cursor: not-allowed;
   opacity: 0.6;
 }
@@ -252,8 +264,8 @@
   padding: 0.8em 1.5em;
   border: 2px solid transparent;
   border-radius: 8px;
-  background: #f8f9fa;
-  color: #495057;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--secondary-text);
   font-weight: 600;
   font-size: 1em;
   cursor: pointer;
@@ -263,15 +275,16 @@
 }
 
 .estado-btn:hover {
-  background: #e9ecef;
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--primary-text);
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
 
 .estado-btn.active {
   background: #2c542c;
-  color: #fff;
-  border-color: #4a9;
+  color: var(--primary-text);
+  border-color: var(--accent-text);
   box-shadow: 0 4px 16px rgba(44, 84, 44, 0.3);
 }
 
@@ -306,13 +319,13 @@
   display: flex;
   align-items: center;
   gap: 0.5em;
-  color: #6c757d;
+  color: var(--muted-text);
   font-size: 0.9em;
   font-style: italic;
-  background: rgba(108, 117, 125, 0.1);
+  background: rgba(255, 255, 255, 0.05);
   padding: 0.4em 0.8em;
   border-radius: 6px;
-  border: 1px solid rgba(108, 117, 125, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 /* Acciones del header alineadas a la derecha */
 .header-actions {
@@ -479,11 +492,11 @@
 }
 .task-card-header {
   font-size: 1.1rem;
-  color: #d2f7d4;
+  color: var(--primary-text);
   margin-bottom: 0.2rem;
 }
 .task-card-desc {
-  color: #ecffea;
+  color: var(--primary-text);
   font-size: 1.05rem;
   margin-bottom: 0.3rem;
 }
@@ -491,7 +504,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 1.2rem;
-  color: #b6e6b6;
+  color: var(--secondary-text);
   font-size: 0.97rem;
 }
 /* Ajustar el ancho para ocupar toda la pantalla */
@@ -616,7 +629,7 @@ ul {
 
 /* Estilos para campos obligatorios */
 .asterisk {
-  color: #dc2626;
+  color: var(--error-text);
   font-weight: bold;
   margin-left: 2px;
 }
@@ -643,10 +656,14 @@ ul {
 
 /* Estilos para modo kilos */
 .kilos-progress {
-  background: rgba(255, 152, 0, 0.05);
+  background: rgba(255, 255, 255, 0.05);
   padding: 1.2em;
   border-radius: 8px;
-  border: 1px solid rgba(255, 152, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.kilos-progress label {
+  color: var(--label-text);
 }
 
 .kilos-input-container {
@@ -660,9 +677,10 @@ ul {
   flex: 1;
   max-width: 150px;
   padding: 0.8em;
-  border: 2px solid #ffb74d;
+  border: 2px solid var(--accent-text);
   border-radius: 6px;
-  background-color: #fff3e0;
+  background-color: rgba(255, 255, 255, 0.95);
+  color: #333;
   font-weight: 600;
   text-align: center;
   font-size: 1.1em;
@@ -670,13 +688,13 @@ ul {
 
 .kilos-input-progress:focus {
   outline: none;
-  border-color: #ff9800;
-  box-shadow: 0 0 0 3px rgba(255, 152, 0, 0.2);
+  border-color: var(--success-text);
+  box-shadow: 0 0 0 3px rgba(163, 230, 163, 0.3);
 }
 
 .kilos-unit {
   font-weight: 600;
-  color: #e65100;
+  color: var(--accent-text);
   font-size: 1.1em;
 }
 
@@ -686,7 +704,7 @@ ul {
 
 .kilos-info small {
   display: block;
-  color: #666;
+  color: var(--muted-text);
   margin-bottom: 0.5em;
 }
 
@@ -698,16 +716,20 @@ ul {
 }
 
 .kilos-progress-indicator.complete {
-  background-color: rgba(76, 175, 80, 0.1);
-  border: 1px solid rgba(76, 175, 80, 0.3);
+  background-color: rgba(163, 230, 163, 0.1);
+  border: 1px solid rgba(163, 230, 163, 0.3);
 }
 
 .progress-incomplete {
-  color: #f57c00;
+  color: var(--warning-text);
 }
 
 .progress-complete {
-  color: #2e7d32;
+  color: var(--success-text);
+}
+
+.progress-info {
+  color: var(--accent-text);
 }
 
 @media (min-width: 768px) {
