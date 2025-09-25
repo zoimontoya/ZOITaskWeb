@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Toggle Jornales</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        .test-section {
+            border: 1px solid #ccc;
+            padding: 20px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 10px 0;
+        }
+        
+        .toggle-switch {
+            position: relative;
+            width: 60px;
+            height: 30px;
+        }
+        
+        .toggle-input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 30px;
+        }
+        
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 22px;
+            width: 22px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        
+        .toggle-input:checked + .toggle-slider {
+            background-color: #2196F3;
+        }
+        
+        .toggle-input:checked + .toggle-slider:before {
+            transform: translateX(30px);
+        }
+        
+        .result {
+            background-color: #f0f0f0;
+            padding: 10px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+        
+        input[type="number"] {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            width: 100px;
+        }
+        
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Test Toggle Sistema Jornales</h1>
+    
+    <div class="test-section">
+        <h3>Control Toggle</h3>
+        <div class="toggle-container">
+            <span>Horas por jornal:</span>
+            <div class="toggle-switch">
+                <input type="checkbox" id="toggleTest" class="toggle-input" onchange="updateToggle()">
+                <span class="toggle-slider"></span>
+            </div>
+            <span id="toggleDescription">6 horas por jornal</span>
+        </div>
+        
+        <div>
+            <label>Jornales: </label>
+            <input type="number" id="jornales" value="2.5" step="0.1" oninput="calculate()">
+        </div>
+        
+        <button onclick="testSubmit()">🚀 Simular Envío</button>
+        
+        <div class="result" id="result">
+            Resultados aparecerán aquí...
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h3>🔬 Resultados del Test</h3>
+        <div id="testResults"></div>
+    </div>
+
+    <script>
+        let useEightHourJornal = false;
+
+        function updateToggle() {
+            const checkbox = document.getElementById('toggleTest');
+            const description = document.getElementById('toggleDescription');
+            
+            useEightHourJornal = checkbox.checked;
+            
+            description.textContent = useEightHourJornal ? '8 horas por jornal' : '6 horas por jornal';
+            
+            console.log(`🎚️ Toggle cambiado: ${useEightHourJornal}`);
+            calculate();
+        }
+
+        function calculate() {
+            const jornales = parseFloat(document.getElementById('jornales').value) || 0;
+            const horaJornal = useEightHourJornal ? 1 : 0;
+            const factorConversion = useEightHourJornal ? 8 : 6;
+            const horasTotales = jornales * factorConversion;
+            
+            const result = document.getElementById('result');
+            result.innerHTML = `
+                <strong>🧮 Cálculo Actual:</strong><br>
+                • useEightHourJornal: ${useEightHourJornal}<br>
+                • horaJornal (para BD): ${horaJornal}<br>
+                • Factor conversión: ${factorConversion}<br>
+                • Jornales: ${jornales}<br>
+                • Horas totales: ${jornales} × ${factorConversion} = ${horasTotales}
+            `;
+        }
+
+        function testSubmit() {
+            const jornales = parseFloat(document.getElementById('jornales').value) || 0;
+            
+            // Simular exactamente la lógica del frontend
+            const horaJornal = useEightHourJornal ? 1 : 0;
+            const factorConversion = horaJornal === 1 ? 8 : 6;
+            const estimacionEnHoras = jornales * factorConversion;
+            
+            // Simular datos que se enviarían al backend
+            const datosPaBackend = {
+                hora_jornal: horaJornal,
+                estimacion_horas: estimacionEnHoras,
+                jornales_originales: jornales,
+                factor_usado: factorConversion
+            };
+            
+            // Simular conversión de vuelta (como hace loadTasks)
+            const horasAlmacenadas = datosPaBackend.estimacion_horas;
+            const factorRecuperacion = datosPaBackend.hora_jornal === 1 ? 8 : 6;
+            const jornalesRecuperados = horasAlmacenadas / factorRecuperacion;
+            
+            const testResults = document.getElementById('testResults');
+            testResults.innerHTML = `
+                <h4>✅ Simulación Completa</h4>
+                <div style="background: #e8f5e8; padding: 10px; margin: 5px 0; border-radius: 3px;">
+                    <strong>1. Datos enviados al backend:</strong><br>
+                    ${JSON.stringify(datosPaBackend, null, 2)}
+                </div>
+                
+                <div style="background: #f0f8ff; padding: 10px; margin: 5px 0; border-radius: 3px;">
+                    <strong>2. Conversión de vuelta (loadTasks):</strong><br>
+                    • Horas almacenadas: ${horasAlmacenadas}<br>
+                    • Factor recuperación: ${factorRecuperacion}<br>
+                    • Jornales recuperados: ${horasAlmacenadas} ÷ ${factorRecuperacion} = ${jornalesRecuperados}
+                </div>
+                
+                <div style="background: ${jornales === jornalesRecuperados ? '#d4edda' : '#f8d7da'}; padding: 10px; margin: 5px 0; border-radius: 3px;">
+                    <strong>3. Verificación:</strong><br>
+                    • Jornales originales: ${jornales}<br>
+                    • Jornales recuperados: ${jornalesRecuperados}<br>
+                    • ¿Coinciden? ${jornales === jornalesRecuperados ? '✅ SÍ' : '❌ NO'}
+                </div>
+            `;
+            
+            console.log('🧪 Test completo:', {
+                original: jornales,
+                recuperado: jornalesRecuperados,
+                coinciden: jornales === jornalesRecuperados,
+                datosPaBackend
+            });
+        }
+
+        // Inicializar
+        calculate();
+    </script>
+</body>
+</html>

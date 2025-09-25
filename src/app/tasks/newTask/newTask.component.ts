@@ -47,10 +47,10 @@ export class newTaskComponent implements OnInit, OnChanges {
   workingAreas: { [greenhouse: string]: number } = {}; // Hectáreas a trabajar por invernadero
   
   // Interruptor para horas por jornal: false = 6 horas, true = 8 horas
-  useEightHourJornal = false;
+  useEightHourJornal: boolean = false; // Explícitamente tipado y inicializado
 
   ngOnInit() {
-    console.log(`🚀 newTaskComponent ngOnInit - useEightHourJornal inicial: ${this.useEightHourJornal}`);
+    console.log(`INIT: useEightHourJornal = ${this.useEightHourJornal}`);
     
     this.greenhouseService.getGreenhouses().subscribe(data => {
       this.greenhouses = data;
@@ -110,15 +110,17 @@ export class newTaskComponent implements OnInit, OnChanges {
       
       this.selectedTaskType = this.task.tipo_tarea || '';
       
-      // CONVERSIÓN DE HORAS A JORNALES PARA MOSTRAR EN EL FORMULARIO
-      // Configurar interruptor de horas por jornal: 0 = 6 horas (false), 1 = 8 horas (true)
-      this.useEightHourJornal = (this.task.hora_jornal === 1);
+      // 🔧 CONFIGURAR TOGGLE BASÁNDOSE EN VALOR ALMACENADO
+      const horaJornalValue = Number(this.task.hora_jornal) || 0;
+      this.useEightHourJornal = (horaJornalValue === 1);
       
-      // Convertir horas almacenadas de vuelta a jornales para el formulario
-      const horasTotales = Number(this.task.estimacion_horas) || 0;
-      const factorConversion = this.useEightHourJornal ? 8 : 6;
-      const jornalesOriginales = horasTotales / factorConversion;
-      this.estimation = jornalesOriginales.toString();
+      console.log(`� === EDITANDO TAREA - CONFIGURACIÓN INICIAL ===`);
+      console.log(`📋 hora_jornal desde BD: "${this.task.hora_jornal}" → ${horaJornalValue}`);
+      console.log(`🎚️ Toggle configurado a: ${this.useEightHourJornal} (${this.useEightHourJornal ? '8h' : '6h'} por jornal)`);
+      
+      // La estimación ya viene convertida a jornales por loadTasks()
+      this.estimation = (Number(this.task.estimacion_horas) || 0).toString();
+      console.log(`📊 Jornales para mostrar: ${this.estimation}`);
       
       this.dueDates = {};
       if (this.task.invernadero && this.task.fecha_limite) {
@@ -251,12 +253,11 @@ export class newTaskComponent implements OnInit, OnChanges {
     console.log(`🔄 Interruptor cambiado: useEightHourJornal = ${this.useEightHourJornal}`);
   }
 
-  onHourJornalToggle() {
-    // Método llamado cuando cambia el toggle de horas por jornal
-    // No necesita lógica adicional, el two-way binding ya maneja el cambio
-  }
+
 
   onSubmit() {
+    console.log(`TOGGLE STATUS: useEightHourJornal = ${this.useEightHourJornal} (${this.useEightHourJornal ? '8h' : '6h'})`);
+    
     // VALIDACIONES OBLIGATORIAS (todos los campos excepto descripción)
     
     // 1. Validar selección de invernaderos
@@ -335,10 +336,12 @@ export class newTaskComponent implements OnInit, OnChanges {
       // Usar fecha única o individual según el modo
       const fechaLimite = this.useSingleDate ? this.singleDate : this.dueDates[g];
       
-      // CÁLCULO EN FRONTEND: Convertir jornales a horas antes de enviar al backend
-      const horaJornal = this.useEightHourJornal ? 1 : 0; // 0 = 6h, 1 = 8h
-      const factorConversion = this.useEightHourJornal ? 8 : 6; // horas por jornal
-      const estimacionEnHoras = estimationNum * factorConversion; // jornales × factor = horas totales
+      // CONVERSIÓN SIMPLE: Jornales a Horas
+      const horaJornal = this.useEightHourJornal ? 1 : 0; // 0=6h, 1=8h
+      const factor = this.useEightHourJornal ? 8 : 6;     // Horas por jornal
+      const estimacionEnHoras = estimationNum * factor;   // Conversión
+      
+      console.log(`CONVERSIÓN ${g}: ${estimationNum} jornales × ${factor}h = ${estimacionEnHoras}h (hora_jornal=${horaJornal})`);      
       
       const data: any = {
         invernadero: g,
