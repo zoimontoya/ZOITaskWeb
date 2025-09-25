@@ -19,6 +19,23 @@ dialog {
   top: 5rem;
 }
 
+/* Form labels styling */
+::ng-deep .form-label {
+  color: #d4f0d4;
+  font-weight: 500;
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
+  display: block;
+}
+
+/* Section headers styling */
+h4 {
+  color: #d4f0d4;
+  font-weight: 600;
+  font-size: 1.1rem;
+  margin: 1rem 0 0.5rem 0;
+}
+
 h2 {
   margin: 0;
   color: #e8f5e8;
@@ -115,7 +132,7 @@ button[type="submit"]:active {
 
 .toggle-label {
   font-weight: 500;
-  color: #a0c09a;
+  color: #d4f0d4;
   min-width: 80px;
 }
 
@@ -167,7 +184,7 @@ button[type="submit"]:active {
 
 .toggle-description {
   font-size: 0.9rem;
-  color: #666;
+  color: #b3d8b8;
   font-style: italic;
 }
 
@@ -207,7 +224,7 @@ button[type="submit"]:active {
 ::ng-deep .searchable-dropdown .dropdown-header {
   background-color: #c2e1c4;
   border-color: #9dc09a;
-  color: #333;
+  color: #2d5a2f;
 }
 
 ::ng-deep .searchable-dropdown .dropdown-header:hover {
@@ -215,7 +232,7 @@ button[type="submit"]:active {
 }
 
 ::ng-deep .searchable-dropdown .dropdown-label {
-  color: #a0c09a;
+  color: #d4f0d4;
 }
 
 ::ng-deep .searchable-dropdown .dropdown-content {
@@ -356,7 +373,7 @@ button[type="submit"]:active {
 
 .area-unit {
   font-size: 0.9rem;
-  color: #666;
+  color: #b3d8b8;
   font-weight: 500;
   min-width: 20px;
 }
@@ -443,7 +460,7 @@ select:required::after {
 
 .toggle-label {
   font-weight: 500;
-  color: #333;
+  color: #d4f0d4;
   min-width: 120px;
 }
 
