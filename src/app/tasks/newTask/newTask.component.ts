@@ -46,8 +46,14 @@ export class newTaskComponent implements OnInit, OnChanges {
   // Nueva funcionalidad para áreas de trabajo por invernadero
   workingAreas: { [greenhouse: string]: number } = {}; // Hectáreas a trabajar por invernadero
   
+  // Kilos esperados por invernadero (cuando useKilosMode = true)
+  expectedKilos: { [greenhouse: string]: number } = {}; // Kilos esperados por invernadero
+  
   // Interruptor para horas por jornal: false = 6 horas, true = 8 horas
   useEightHourJornal: boolean = false; // Explícitamente tipado y inicializado
+  
+  // Interruptor para tipo de medición: false = Hectáreas, true = Kilos
+  useKilosMode: boolean = false; // false = Hectáreas (0), true = Kilos (1)
 
   ngOnInit() {
     console.log(`INIT: useEightHourJornal = ${this.useEightHourJornal}`);
@@ -244,6 +250,14 @@ export class newTaskComponent implements OnInit, OnChanges {
     this.workingAreas[invernaderoNombre] = clampedValue; // Mantener precisión completa
   }
 
+  updateExpectedKilos(invernaderoNombre: string, event: Event) {
+    const target = event.target as HTMLInputElement;
+    const value = parseFloat(target.value) || 0;
+    // Los kilos no tienen límite máximo, solo que sean positivos
+    const clampedValue = Math.max(0, value);
+    this.expectedKilos[invernaderoNombre] = clampedValue;
+  }
+
   onCancel() {
     this.cancel.emit();
   }
@@ -302,27 +316,41 @@ export class newTaskComponent implements OnInit, OnChanges {
       }
     }
     
-    // 6. Validar que se haya seleccionado un área válida para cada invernadero
-    const invalidAreas = selectedInvernaderos.filter((g: string) => {
-      const area = this.workingAreas[g];
-      return !area || area <= 0;
-    });
-    
-    if (invalidAreas.length > 0) {
-      alert(`Por favor, selecciona un área de trabajo válida (mayor que 0) para: ${invalidAreas.join(', ')}`);
-      return;
-    }
+    // 6. Validar dimensiones según el tipo de medición
+    if (this.useKilosMode) {
+      // MODO KILOS: Validar que se hayan ingresado kilos esperados
+      const invalidKilos = selectedInvernaderos.filter((g: string) => {
+        const kilos = this.expectedKilos[g];
+        return !kilos || kilos <= 0;
+      });
+      
+      if (invalidKilos.length > 0) {
+        alert(`Por favor, ingresa los kilos esperados (mayor que 0) para: ${invalidKilos.join(', ')}`);
+        return;
+      }
+    } else {
+      // MODO HECTÁREAS: Validar áreas como antes
+      const invalidAreas = selectedInvernaderos.filter((g: string) => {
+        const area = this.workingAreas[g];
+        return !area || area <= 0;
+      });
+      
+      if (invalidAreas.length > 0) {
+        alert(`Por favor, selecciona un área de trabajo válida (mayor que 0) para: ${invalidAreas.join(', ')}`);
+        return;
+      }
 
-    // 7. Validar que las áreas no excedan el máximo disponible
-    const exceedingAreas = selectedInvernaderos.filter((g: string) => {
-      const area = this.workingAreas[g];
-      const maxArea = this.getMaxArea(g);
-      return area > maxArea;
-    });
+      // Validar que las áreas no excedan el máximo disponible
+      const exceedingAreas = selectedInvernaderos.filter((g: string) => {
+        const area = this.workingAreas[g];
+        const maxArea = this.getMaxArea(g);
+        return area > maxArea;
+      });
 
-    if (exceedingAreas.length > 0) {
-      alert(`El área seleccionada excede el máximo disponible para: ${exceedingAreas.join(', ')}`);
-      return;
+      if (exceedingAreas.length > 0) {
+        alert(`El área seleccionada excede el máximo disponible para: ${exceedingAreas.join(', ')}`);
+        return;
+      }
     }
     
     // Emitir un array de tareas, una por invernadero
@@ -341,17 +369,25 @@ export class newTaskComponent implements OnInit, OnChanges {
       const factor = this.useEightHourJornal ? 8 : 6;     // Horas por jornal
       const estimacionEnHoras = estimationNum * factor;   // Conversión
       
-      console.log(`CONVERSIÓN ${g}: ${estimationNum} jornales × ${factor}h = ${estimacionEnHoras}h (hora_jornal=${horaJornal})`);      
+      // TIPO DE MEDICIÓN: Hectáreas vs Kilos
+      const horasKilos = this.useKilosMode ? 1 : 0; // 0=Hectáreas, 1=Kilos
+      const dimensionValue = this.useKilosMode ? 
+        (this.expectedKilos[g] || 0) :  // Kilos esperados
+        workingArea;                     // Hectáreas seleccionadas
+      
+      console.log(`CONVERSIÓN ${g}: ${estimationNum} jornales × ${factor}h = ${estimacionEnHoras}h (hora_jornal=${horaJornal})`);
+      console.log(`MEDICIÓN ${g}: ${this.useKilosMode ? 'KILOS' : 'HECTÁREAS'} = ${dimensionValue} (horas_kilos=${horasKilos})`);
       
       const data: any = {
         invernadero: g,
         tipo_tarea: this.selectedTaskType,
         estimacion_horas: estimacionEnHoras, // YA EN HORAS TOTALES
         hora_jornal: horaJornal, // 0 = 6 horas, 1 = 8 horas
+        horas_kilos: horasKilos, // 0 = Hectáreas, 1 = Kilos
         fecha_limite: fechaLimite,
         encargado_id: this.selectedEncargado,
         descripcion: this.description,
-        dimension_total: workingArea // El valor exacto seleccionado en la barra
+        dimension_total: dimensionValue // Hectáreas O Kilos esperados
       };
       if (this.task && this.task.id) {
         data.id = this.task.id;

@@ -42,6 +42,24 @@
       </label>
     </div>
     
+    <!-- Interruptor para tipo de medición: Hectáreas vs Kilos -->
+    <div class="measurement-type-toggle">
+      <label class="toggle-container">
+        <span class="toggle-label">Tipo de medición:</span>
+        <div class="toggle-switch">
+          <input 
+            type="checkbox" 
+            [(ngModel)]="useKilosMode"
+            name="useKilosMode"
+            class="toggle-input">
+          <span class="toggle-slider"></span>
+        </div>
+        <span class="toggle-description">
+          {{ useKilosMode ? 'Kilos esperados' : 'Hectáreas del terreno' }}
+        </span>
+      </label>
+    </div>
+    
     <!-- Toggle para modo de fechas (solo mostrar si hay invernaderos seleccionados) -->
     <div *ngIf="getSelectedInvernaderos().length > 1" class="date-mode-toggle">
       <label class="toggle-container">
@@ -95,7 +113,8 @@
           </span>
         </div>
         
-        <div class="working-area-controls">
+        <!-- MODO HECTÁREAS: Slider y controles de área -->
+        <div *ngIf="!useKilosMode" class="working-area-controls">
           <!-- Barra de progreso/slider -->
           <div class="area-slider-container">
             <input 
@@ -124,6 +143,23 @@
               (input)="updateWorkingArea(g, $event)"
               placeholder="Área">
             <span class="area-unit">Ha</span>
+          </div>
+        </div>
+        
+        <!-- MODO KILOS: Input directo para kilos esperados -->
+        <div *ngIf="useKilosMode" class="kilos-input-controls">
+          <div class="kilos-input-container">
+            <label [for]="'kilosInput_' + g" class="kilos-label">Kilos esperados:</label>
+            <input 
+              type="number" 
+              class="kilos-input"
+              [min]="0"
+              [step]="0.1"
+              [value]="expectedKilos[g] || 0"
+              (input)="updateExpectedKilos(g, $event)"
+              [id]="'kilosInput_' + g"
+              placeholder="Ej: 1500">
+            <span class="kilos-unit">Kg</span>
           </div>
         </div>
       </div>

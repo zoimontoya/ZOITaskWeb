@@ -275,7 +275,7 @@ app.get('/tasks', async (req, res) => {
         tipo_tarea: row[2] || '',                      // C
         estimacion_horas: row[3] || '',                // D
         hora_jornal: (row[4] !== undefined && row[4] !== '') ? row[4] : '0',  // E - CAMPO CLAVE (por defecto 0 = 6h)
-        horas_kilos: row[5] || '0',                    // F
+        horas_kilos: Number(row[5]) || 0,              // F - Convertir a número (0=Hectáreas, 1=Kilos)
         jornales_reales: row[6] || '0',                // G
         fecha_limite: row[7] || '',                    // H
         encargado_id: row[8] || '',                    // I
@@ -458,12 +458,14 @@ app.post('/tasks', async (req, res) => {
       // SIMPLIFICADO: Solo almacenar los valores que vienen del frontend (ya calculados)
       const horaJornal = Number(req.body.hora_jornal) || 0;
       const estimacionHoras = Number(req.body.estimacion_horas) || 0; // Ya viene calculado del frontend
+      const horasKilos = Number(req.body.horas_kilos) || 0; // 0=Hectáreas, 1=Kilos
       
       console.log(`✏️ === BACKEND: EDITANDO TAREA ID: ${idToUpdate} ===`);
       console.log(`📦 Body recibido:`, req.body);
       console.log(`🏷️ hora_jornal: "${req.body.hora_jornal}" → ${horaJornal} (${horaJornal === 1 ? '8h' : '6h'}/jornal)`);
+      console.log(`📊 horas_kilos: "${req.body.horas_kilos}" → ${horasKilos} (${horasKilos === 1 ? 'KILOS' : 'HECTÁREAS'})`);
       console.log(`⏰ estimacion_horas: "${req.body.estimacion_horas}" → ${estimacionHoras} horas totales`);
-      console.log(`💾 Se actualizará columna E: ${horaJornal}, columna D: ${estimacionHoras}`);
+      console.log(`💾 Se actualizará columna E: ${horaJornal}, columna F: ${horasKilos}, columna D: ${estimacionHoras}`);
       
       const updatedRow = [
         idToUpdate,                                    // A: id
@@ -471,7 +473,7 @@ app.post('/tasks', async (req, res) => {
         req.body.tipo_tarea,                           // C: tipo_tarea
         estimacionHoras,                               // D: estimacion_horas (ya calculado en frontend)
         horaJornal,                                    // E: hora_jornal (0=6hrs, 1=8hrs)
-        req.body.horas_kilos || 0,                     // F: horas_kilos (NUEVA)
+        horasKilos,                                    // F: horas_kilos (0=Hectáreas, 1=Kilos)
         Number(req.body.jornales_reales) || 0,        // G: jornales_reales (encargados ingresan horas directamente)
         req.body.fecha_limite,                         // H: fecha_limite
         req.body.encargado_id,                         // I: encargado_id
@@ -570,11 +572,20 @@ app.post('/tasks', async (req, res) => {
       if (progresoIndex >= 0) {
         const progresoColLetter = String.fromCharCode(65 + progresoIndex);
         console.log(`Actualizando progreso en columna ${progresoColLetter} con valor: ${req.body.progreso}`);
+        
+        // Para tareas de kilos, mantener el valor como string, para hectáreas convertir a número
+        let progresoValue;
+        if (req.body.progreso === 'Iniciada' || req.body.progreso === 'No iniciado' || req.body.progreso === 'Terminada') {
+          progresoValue = req.body.progreso; // Mantener como string
+        } else {
+          progresoValue = Number(req.body.progreso) || 0; // Convertir a número para porcentajes
+        }
+        
         await sheets.spreadsheets.values.update({
           spreadsheetId: SPREADSHEET_ID,
           range: `${tareasSheet.properties.title}!${progresoColLetter}${rowIndex + 1}`,
           valueInputOption: 'RAW',
-          resource: { values: [[Number(req.body.progreso) || 0]] }
+          resource: { values: [[progresoValue]] }
         });
       } else {
         console.log('⚠️ ADVERTENCIA: No se encontró la columna "progreso" en las cabeceras');
@@ -678,13 +689,15 @@ app.post('/tasks', async (req, res) => {
       // SIMPLIFICADO: Solo almacenar los valores que vienen del frontend (ya calculados)
       const horaJornal = Number(tarea.hora_jornal) || 0;
       const estimacionHoras = Number(tarea.estimacion_horas) || 0; // Ya viene calculado del frontend
+      const horasKilos = Number(tarea.horas_kilos) || 0; // 0=Hectáreas, 1=Kilos
       
       console.log(`🔧 === BACKEND: CREANDO TAREA PARA "${tarea.invernadero}" ===`);
       console.log(`📦 Objeto tarea recibido:`, tarea);
       console.log(`🏷️ hora_jornal: "${tarea.hora_jornal}" → ${horaJornal} (${horaJornal === 1 ? '8h' : '6h'}/jornal)`);
+      console.log(`📊 horas_kilos: "${tarea.horas_kilos}" → ${horasKilos} (${horasKilos === 1 ? 'KILOS' : 'HECTÁREAS'})`);
       console.log(`⏰ estimacion_horas: "${tarea.estimacion_horas}" → ${estimacionHoras} horas totales`);
-      console.log(`📏 Dimensión: ${dimensionTotalSeleccionada} hectáreas`);
-      console.log(`💾 Se guardará en columna E: ${horaJornal}, columna D: ${estimacionHoras}`);
+      console.log(`📏 Dimensión: ${dimensionTotalSeleccionada} ${horasKilos === 1 ? 'kilos' : 'hectáreas'}`);
+      console.log(`💾 Se guardará en columna E: ${horaJornal}, columna F: ${horasKilos}, columna D: ${estimacionHoras}`);
       
       newRows.push([
         tarea.id,                                    // A: id
@@ -692,7 +705,7 @@ app.post('/tasks', async (req, res) => {
         tarea.tipo_tarea,                            // C: tipo_tarea
         estimacionHoras,                             // D: estimacion_horas (ya calculado en frontend)
         horaJornal,                                  // E: hora_jornal (0=6hrs, 1=8hrs)
-        0,                                           // F: horas_kilos (inicia en 0)
+        horasKilos,                                  // F: horas_kilos (0=Hectáreas, 1=Kilos)
         0,                                           // G: jornales_reales (inicia en 0)
         tarea.fecha_limite,                          // H: fecha_limite
         tarea.encargado_id,                          // I: encargado_id

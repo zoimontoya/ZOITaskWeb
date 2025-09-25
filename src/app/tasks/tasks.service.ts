@@ -37,7 +37,7 @@ export class TasksService {
   }
 
   // Actualizar solo el progreso de la tarea (sin cambiar estado)
-  updateTaskProgress(taskId: string, progress: number, hectareas: number, jornalesReales?: number): Observable<any> {
+  updateTaskProgress(taskId: string, progress: number | string, hectareas: number, jornalesReales?: number): Observable<any> {
     const body: any = {
       action: 'update-progress', 
       id: taskId,

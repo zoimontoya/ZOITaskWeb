@@ -491,6 +491,68 @@ select:required::after {
   box-shadow: 0 0 0 3px rgba(115, 202, 122, 0.1);
 }
 
+/* Estilos para el interruptor de tipo de medición */
+.measurement-type-toggle {
+  margin: 1rem 0;
+  padding: 0.8rem;
+  background-color: rgba(255, 152, 0, 0.05);
+  border: 1px solid rgba(255, 152, 0, 0.2);
+  border-radius: 6px;
+}
+
+.measurement-type-toggle .toggle-checkbox:checked + .toggle-slider {
+  background-color: #ff9800;
+}
+
+.measurement-type-toggle .toggle-description {
+  color: #e65100;
+  font-weight: 600;
+}
+
+/* Estilos para controles de kilos */
+.kilos-input-controls {
+  margin-top: 0.5rem;
+}
+
+.kilos-input-container {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.8rem;
+  background-color: rgba(255, 152, 0, 0.05);
+  border: 1px solid rgba(255, 152, 0, 0.2);
+  border-radius: 6px;
+}
+
+.kilos-label {
+  font-weight: 500;
+  color: #e65100;
+  min-width: 120px;
+  margin: 0;
+}
+
+.kilos-input {
+  flex: 1;
+  max-width: 120px;
+  font-weight: 600;
+  text-align: center;
+  border: 2px solid #ffb74d;
+  background-color: #fff3e0;
+  padding: 0.4rem;
+}
+
+.kilos-input:focus {
+  outline: none;
+  border-color: #ff9800;
+  box-shadow: 0 0 0 3px rgba(255, 152, 0, 0.1);
+}
+
+.kilos-unit {
+  font-weight: 600;
+  color: #e65100;
+  font-size: 0.9rem;
+}
+
 @media (min-width: 768px) {
   dialog {
     padding: 2rem;

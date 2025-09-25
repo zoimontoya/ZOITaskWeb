@@ -41,6 +41,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   taskToComplete: Task | null = null;
   progressValue = 0;
   jornalesRealesValue = 0; // Campo para horas reales trabajadas (encargados ingresan horas directamente)
+  kilosRecogidosValue = 0; // Campo para kilos recogidos (modo kilos)
   greenhouses: Greenhouse[] = [];
 
   constructor(private taskService: TasksService, private greenhouseService: GreenhouseService, private userService: UserService) {}
@@ -404,28 +405,62 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     this.taskToComplete = task;
     this.progressValue = Number(task.progreso) || 0; // Usar el campo progreso para el porcentaje
     this.jornalesRealesValue = task.jornales_reales || 0; // Inicializar con valor actual o 0
+    
+    // Si está en modo kilos, inicializar kilos recogidos desde desarrollo_actual
+    if (this.isKilosMode(task)) {
+      this.kilosRecogidosValue = Number(task.desarrollo_actual) || 0;
+    }
+    
     this.showCompleteModal = true;
   }
 
   onUpdateProgressOnly() {
-    if (this.taskToComplete && this.progressValue !== (Number(this.taskToComplete.progreso) || 0)) {
-      // Validar que se haya ingresado el número de horas reales
-      if (!this.jornalesRealesValue || this.jornalesRealesValue <= 0) {
-        alert('Por favor, ingresa el número de horas realmente trabajadas.');
+    if (!this.taskToComplete) return;
+    
+    // Validar que se haya ingresado el número de horas reales
+    if (!this.jornalesRealesValue || this.jornalesRealesValue <= 0) {
+      alert('Por favor, ingresa el número de horas realmente trabajadas.');
+      return;
+    }
+    
+    let progressValue: number | string;
+    let desarrolloValue: number;
+    
+    if (this.isKilosMode(this.taskToComplete)) {
+      // MODO KILOS: Solo registrar kilos recogidos sin calcular porcentaje ni meta
+      if (!this.kilosRecogidosValue || this.kilosRecogidosValue <= 0) {
+        alert('Por favor, ingresa los kilos recogidos.');
         return;
       }
       
-      // Calcular hectáreas basadas en el porcentaje
+      // En modo kilos: progreso siempre permanece como "Iniciada"
+      progressValue = "Iniciada"; // Mantener como "Iniciada" para tareas de kilos
+      desarrolloValue = this.kilosRecogidosValue;
+      
+      console.log(`MODO KILOS: ${this.kilosRecogidosValue} kg registrados (progreso: Iniciada)`);
+    } else {
+      // MODO HECTÁREAS: Como antes
+      if (this.progressValue === (Number(this.taskToComplete.progreso) || 0)) {
+        return; // No hay cambios
+      }
+      
       const totalHectares = parseFloat((this.taskToComplete.dimension_total || '0').replace(',', '.'));
       const hectareasActuales = (totalHectares * this.progressValue) / 100;
       
-      this.taskService.updateTaskProgress(this.taskToComplete.id, this.progressValue, hectareasActuales, this.jornalesRealesValue).subscribe({
+      progressValue = this.progressValue;
+      desarrolloValue = hectareasActuales;
+      
+      console.log(`MODO HECTÁREAS: ${this.progressValue}% = ${hectareasActuales}/${totalHectares} Ha`);
+    }
+    
+    this.taskService.updateTaskProgress(this.taskToComplete.id, progressValue, desarrolloValue, this.jornalesRealesValue).subscribe({
         next: () => {
           console.log('Progreso actualizado correctamente');
           this.showCompleteModal = false;
           this.taskToComplete = null;
           this.progressValue = 0;
           this.jornalesRealesValue = 0; // Limpiar jornales reales
+          this.kilosRecogidosValue = 0; // Limpiar kilos recogidos
           this.loadTasks(); // Recargar para ver cambios
         },
         error: (err: any) => {
@@ -433,23 +468,39 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
           alert('Error al actualizar el progreso. Inténtalo de nuevo.');
         }
       });
-    }
   }
 
   onConfirmCompleteTask() {
-    if (this.taskToComplete && this.progressValue === 100) {
-      // Validar que se haya ingresado el número de horas reales
-      if (!this.jornalesRealesValue || this.jornalesRealesValue <= 0) {
-        alert('Por favor, ingresa el número de horas realmente trabajadas para completar la tarea.');
+    if (!this.taskToComplete) return;
+    
+    // Validar que se haya ingresado el número de horas reales
+    if (!this.jornalesRealesValue || this.jornalesRealesValue <= 0) {
+      alert('Por favor, ingresa el número de horas realmente trabajadas para completar la tarea.');
+      return;
+    }
+    
+    let progressValue: number | string = 100;
+    let desarrolloValue: number;
+    
+    if (this.isKilosMode(this.taskToComplete)) {
+      // MODO KILOS: Sin restricciones de meta, solo registrar kilos recogidos
+      // Para completar, mantener como "Iniciada" hasta que se termine
+      progressValue = "Iniciada"; // Mantener "Iniciada" incluso al completar
+      desarrolloValue = this.kilosRecogidosValue || 0;
+      console.log(`COMPLETANDO MODO KILOS: ${desarrolloValue} kg recogidos (progreso: Iniciada)`);
+    } else {
+      // MODO HECTÁREAS: Validar que el progreso sea 100%
+      if (this.progressValue !== 100) {
+        alert('Para completar la tarea el progreso debe estar al 100%.');
         return;
       }
-      
-      // Calcular hectáreas para 100% de progreso
       const totalHectares = parseFloat((this.taskToComplete.dimension_total || '0').replace(',', '.'));
-      const hectareasCompletas = totalHectares; // 100% = todas las hectáreas
-      
-      // Primero actualizar el progreso al 100%, las hectáreas y los jornales reales
-      this.taskService.updateTaskProgress(this.taskToComplete.id, 100, hectareasCompletas, this.jornalesRealesValue).subscribe({
+      desarrolloValue = totalHectares; // 100% = todas las hectáreas
+      console.log(`COMPLETANDO MODO HECTÁREAS: ${desarrolloValue} Ha (100%)`);
+    }
+    
+    // Actualizar el progreso al 100% y completar
+    this.taskService.updateTaskProgress(this.taskToComplete.id, progressValue, desarrolloValue, this.jornalesRealesValue).subscribe({
         next: () => {
           console.log('Progreso actualizado al 100%');
           // Después completar la tarea (cambiar estado)
@@ -461,6 +512,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
                 this.taskToComplete = null;
                 this.progressValue = 0;
                 this.jornalesRealesValue = 0; // Limpiar jornales reales
+                this.kilosRecogidosValue = 0; // Limpiar kilos recogidos
                 this.loadTasks(); // Recargar para ver cambios
               },
               error: (err) => {
@@ -475,7 +527,6 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
           alert('Error al actualizar el progreso final. Inténtalo de nuevo.');
         }
       });
-    }
   }
 
   onCancelCompleteTask() {
@@ -506,6 +557,12 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
       minimumFractionDigits: 0, 
       maximumFractionDigits: 3 
     });
+  }
+
+  // Verificar si la tarea está en modo kilos (horas_kilos = 1)
+  isKilosMode(task: Task | null): boolean {
+    if (!task) return false;
+    return Number(task.horas_kilos) === 1;
   }
 
   trackById(index: number, item: Task) {

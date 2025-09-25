@@ -24,29 +24,58 @@
             <b>{{taskToComplete.tipo_tarea}}</b> de invernadero <b>{{taskToComplete.invernadero}}</b>
         </p>
         <div class="progress-section">
-            <label>Progreso completado (debe ser 100%):</label>
-            <div class="progress-container">
-                <input 
-                    type="range" 
-                    min="0" 
-                    max="100" 
-                    [(ngModel)]="progressValue"
-                    class="progress-slider"
-                    [class.complete]="progressValue === 100">
-                <div class="progress-display">
-                    <span class="progress-text">{{progressValue}}%</span>
-                    <span class="progress-requirement" [class.satisfied]="progressValue === 100">
-                        {{progressValue === 100 ? '✅ Completado' : '⚠️ Debe ser 100%'}}
-                    </span>
+            <!-- MODO HECTÁREAS: Barra de progreso por porcentaje -->
+            <div *ngIf="!isKilosMode(taskToComplete)" class="hectares-progress">
+                <label>Progreso completado (debe ser 100%):</label>
+                <div class="progress-container">
+                    <input 
+                        type="range" 
+                        min="0" 
+                        max="100" 
+                        [(ngModel)]="progressValue"
+                        class="progress-slider"
+                        [class.complete]="progressValue === 100">
+                    <div class="progress-display">
+                        <span class="progress-text">{{progressValue}}%</span>
+                        <span class="progress-requirement" [class.satisfied]="progressValue === 100">
+                            {{progressValue === 100 ? '✅ Completado' : '⚠️ Debe ser 100%'}}
+                        </span>
+                    </div>
+                    <div class="hectares-display" *ngIf="taskToComplete">
+                        <span class="hectares-text">
+                            {{getHectaresFromProgress()}} / {{taskToComplete.dimension_total}} hectáreas
+                        </span>
+                    </div>
                 </div>
-                <div class="hectares-display" *ngIf="taskToComplete">
-                    <span class="hectares-text">
-                        {{getHectaresFromProgress()}} / {{taskToComplete.dimension_total}} hectáreas
-                    </span>
+                <div class="dimension-info" *ngIf="taskToComplete && !isKilosMode(taskToComplete)">
+                    <small>Dimensión total: {{taskToComplete.dimension_total}} Ha</small>
                 </div>
             </div>
-            <div class="dimension-info" *ngIf="taskToComplete">
-                <small>Dimensión total: {{taskToComplete.dimension_total}} Ha</small>
+            
+            <!-- MODO KILOS: Input directo para kilos recogidos -->
+            <div *ngIf="isKilosMode(taskToComplete)" class="kilos-progress">
+                <label for="kilosRecogidos">Kilos recogidos <span class="asterisk">*</span>:</label>
+                <div class="kilos-input-container">
+                    <input 
+                        type="number" 
+                        id="kilosRecogidos"
+                        [(ngModel)]="kilosRecogidosValue"
+                        min="0"
+                        step="0.1"
+                        class="kilos-input-progress"
+                        placeholder="Ingresa los kilos recogidos"
+                        required>
+                    <span class="kilos-unit">Kg</span>
+                </div>
+                <div class="kilos-info" *ngIf="taskToComplete">
+                    <small>Kilos esperados: {{taskToComplete.dimension_total}} kg</small>
+                    <div class="kilos-progress-indicator">
+                        <span class="progress-info">
+                            ✅ Registro actual: {{(kilosRecogidosValue || 0)}} kg
+                        </span>
+                        <small><em>Nota: Las tareas en kilos no requieren alcanzar una meta específica</em></small>
+                    </div>
+                </div>
             </div>
             
             <!-- Campo para horas reales -->
@@ -70,13 +99,13 @@
             <button 
                 class="task-action-btn update-btn" 
                 (click)="onUpdateProgressOnly()"
-                [disabled]="progressValue === (taskToComplete?.progreso || 0) || progressValue === 100">
-                📊 Actualizar progreso
+                [disabled]="!isKilosMode(taskToComplete) && (progressValue === (taskToComplete?.progreso || 0) || progressValue === 100)">
+                📊 <span *ngIf="isKilosMode(taskToComplete)">Registrar kilos</span><span *ngIf="!isKilosMode(taskToComplete)">Actualizar progreso</span>
             </button>
             <button 
                 class="task-action-btn complete-btn" 
                 (click)="onConfirmCompleteTask()"
-                [disabled]="progressValue !== 100">
+                [disabled]="!isKilosMode(taskToComplete) && progressValue !== 100">
                 🏁 Terminar tarea
             </button>
             <button class="task-action-btn" (click)="onCancelCompleteTask()">Cancelar</button>
@@ -214,11 +243,26 @@
                     </span>
                     <span *ngIf="!isEncargado && task.encargado_nombre">Encargado: <b>{{task.encargado_nombre}}</b></span>
                     <span *ngIf="task.progreso">
-                        Estado: <b>{{task.progreso}}<span *ngIf="isNumber(task.progreso)">%</span></b>
+                        Estado: <b>
+                            <!-- Tareas de kilos: Lógica especial -->
+                            <ng-container *ngIf="task.horas_kilos === 1">
+                                <span *ngIf="task.progreso === 'No iniciado'">No iniciado</span>
+                                <span *ngIf="task.progreso === 'Terminada'">Terminada</span>
+                                <span *ngIf="task.progreso !== 'No iniciado' && task.progreso !== 'Terminada'">Iniciada</span>
+                            </ng-container>
+                            <!-- Tareas normales (hectáreas): Mostrar progreso normal -->
+                            <ng-container *ngIf="task.horas_kilos !== 1">
+                                {{task.progreso}}<span *ngIf="isNumber(task.progreso)">%</span>
+                            </ng-container>
+                        </b>
                     </span>
                     <span *ngIf="task.fecha_inicio">Iniciada: <b>{{task.fecha_inicio}}</b></span>
                     <span *ngIf="task.fecha_fin">Terminada: <b>{{task.fecha_fin}}</b></span>
-                    <span *ngIf="task.dimension_total">Dimensión: <b>{{task.dimension_total}} Ha</b></span>
+                    <span *ngIf="task.dimension_total">
+                        <!-- Mostrar dimensión diferente según el tipo -->
+                        <span *ngIf="task.horas_kilos === 1">Kilos esperados: <b>{{task.dimension_total}} kg</b></span>
+                        <span *ngIf="task.horas_kilos !== 1">Dimensión: <b>{{task.dimension_total}} Ha</b></span>
+                    </span>
                 </div>
                 <div *ngIf="isEncargado" class="task-actions">
                     <button *ngIf="task.progreso === 'No iniciado'" 
