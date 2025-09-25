@@ -562,7 +562,9 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   // Verificar si la tarea está en modo kilos (horas_kilos = 1)
   isKilosMode(task: Task | null): boolean {
     if (!task) return false;
-    return Number(task.horas_kilos) === 1;
+    // Comparación flexible para manejar tanto números como strings
+    const horasKilos = task.horas_kilos;
+    return horasKilos == 1 || String(horasKilos) === '1' || Number(horasKilos) === 1;
   }
 
   trackById(index: number, item: Task) {

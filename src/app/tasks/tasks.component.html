@@ -245,13 +245,13 @@
                     <span *ngIf="task.progreso">
                         Estado: <b>
                             <!-- Tareas de kilos: Lógica especial -->
-                            <ng-container *ngIf="task.horas_kilos === 1">
+                            <ng-container *ngIf="isKilosMode(task)">
                                 <span *ngIf="task.progreso === 'No iniciado'">No iniciado</span>
                                 <span *ngIf="task.progreso === 'Terminada'">Terminada</span>
                                 <span *ngIf="task.progreso !== 'No iniciado' && task.progreso !== 'Terminada'">Iniciada</span>
                             </ng-container>
                             <!-- Tareas normales (hectáreas): Mostrar progreso normal -->
-                            <ng-container *ngIf="task.horas_kilos !== 1">
+                            <ng-container *ngIf="!isKilosMode(task)">
                                 {{task.progreso}}<span *ngIf="isNumber(task.progreso)">%</span>
                             </ng-container>
                         </b>
@@ -260,8 +260,8 @@
                     <span *ngIf="task.fecha_fin">Terminada: <b>{{task.fecha_fin}}</b></span>
                     <span *ngIf="task.dimension_total">
                         <!-- Mostrar dimensión diferente según el tipo -->
-                        <span *ngIf="task.horas_kilos === 1">Kilos esperados: <b>{{task.dimension_total}} kg</b></span>
-                        <span *ngIf="task.horas_kilos !== 1">Dimensión: <b>{{task.dimension_total}} Ha</b></span>
+                        <span *ngIf="isKilosMode(task)">Kilos esperados: <b>{{task.dimension_total}} kg</b></span>
+                        <span *ngIf="!isKilosMode(task)">Dimensión: <b>{{task.dimension_total}} Ha</b></span>
                     </span>
                 </div>
                 <div *ngIf="isEncargado" class="task-actions">
