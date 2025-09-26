@@ -19,162 +19,221 @@
       [required]="true">
     </app-searchable-dropdown>
     
-    <p>
-      <label for="estimation">Estimación jornales *</label>
-      <input type="number" id="estimation" name="estimation" [(ngModel)]="estimation" min="0.1" step="0.1" required placeholder="Ej: 5.5" />
-    </p>
-    
-    <!-- Interruptor para horas por jornal -->
-    <div class="hour-jornal-toggle">
-      <label class="toggle-container">
-        <span class="toggle-label">Horas por jornal:</span>
-        <div class="toggle-switch">
-          <input 
-            type="checkbox" 
-            [(ngModel)]="useEightHourJornal"
-            name="useEightHourJornal"
-            class="toggle-input">
-          <span class="toggle-slider"></span>
-        </div>
-        <span class="toggle-description">
-          {{ useEightHourJornal ? '8 horas por jornal' : '6 horas por jornal' }}
-        </span>
-      </label>
-    </div>
-    
-    <!-- Interruptor para tipo de medición: Hectáreas vs Kilos -->
-    <div class="measurement-type-toggle">
-      <label class="toggle-container">
-        <span class="toggle-label">Tipo de medición:</span>
-        <div class="toggle-switch">
-          <input 
-            type="checkbox" 
-            [(ngModel)]="useKilosMode"
-            name="useKilosMode"
-            class="toggle-input">
-          <span class="toggle-slider"></span>
-        </div>
-        <span class="toggle-description">
-          {{ useKilosMode ? 'Kilos esperados' : 'Hectáreas del terreno' }}
-        </span>
-      </label>
-    </div>
-    
-    <!-- Toggle para modo de fechas (solo mostrar si hay invernaderos seleccionados) -->
-    <div *ngIf="getSelectedInvernaderos().length > 1" class="date-mode-toggle">
-      <label class="toggle-container">
-        <span class="toggle-label">Fecha límite:</span>
-        <div class="toggle-switch">
-          <input 
-            type="checkbox" 
-            [(ngModel)]="useSingleDate"
-            (change)="onDateModeToggle()"
-            class="toggle-input">
-          <span class="toggle-slider"></span>
-        </div>
-        <span class="toggle-description">
-          {{ useSingleDate ? 'Una fecha para todos' : 'Fecha individual por invernadero' }}
-        </span>
-      </label>
-    </div>
-    
-    <!-- Campo de fecha única (cuando useSingleDate es true) -->
-    <div *ngIf="getSelectedInvernaderos().length > 0 && useSingleDate" class="single-date-container">
-      <label for="singleDate">Fecha límite para todos los invernaderos *</label>
-      <input 
-        type="date" 
-        id="singleDate" 
-        name="singleDate" 
-        [(ngModel)]="singleDate" 
-        required 
-        class="single-date-input" />
-    </div>
-    
-    <!-- Fechas individuales por invernadero (cuando useSingleDate es false) -->
-    <div *ngIf="getSelectedInvernaderos().length > 0 && !useSingleDate">
-      <label>Fechas límite por invernadero *</label>
-      <div *ngFor="let g of getSelectedInvernaderos()" class="date-input-row">
-        <label>
-          {{ g }} *:
-          <input type="date" [(ngModel)]="dueDates[g]" name="dueDate_{{g}}" required />
+    <!-- Configuraciones globales -->
+    <div class="global-settings">
+      <!-- Interruptor para horas por jornal -->
+      <div class="hour-jornal-toggle">
+        <label class="toggle-container">
+          <span class="toggle-label">Horas por jornal:</span>
+          <div class="toggle-switch">
+            <input 
+              type="checkbox" 
+              [(ngModel)]="useEightHourJornal"
+              name="useEightHourJornal"
+              class="toggle-input">
+            <span class="toggle-slider"></span>
+          </div>
+          <span class="toggle-description">
+            {{ useEightHourJornal ? '8 horas por jornal' : '6 horas por jornal' }}
+          </span>
+        </label>
+      </div>
+      
+      <!-- Interruptor para tipo de medición: Hectáreas vs Kilos -->
+      <div class="measurement-type-toggle">
+        <label class="toggle-container">
+          <span class="toggle-label">Tipo de medición:</span>
+          <div class="toggle-switch">
+            <input 
+              type="checkbox" 
+              [(ngModel)]="useKilosMode"
+              name="useKilosMode"
+              class="toggle-input">
+            <span class="toggle-slider"></span>
+          </div>
+          <span class="toggle-description">
+            {{ useKilosMode ? 'Kilos esperados' : 'Hectáreas del terreno' }}
+          </span>
+        </label>
+      </div>
+      
+      <!-- Toggle para modo de fechas (solo mostrar si hay invernaderos seleccionados) -->
+      <div *ngIf="getSelectedInvernaderos().length > 1" class="date-mode-toggle">
+        <label class="toggle-container">
+          <span class="toggle-label">Fechas límite:</span>
+          <div class="toggle-switch">
+            <input 
+              type="checkbox" 
+              [checked]="useIndividualDates"
+              (click)="onToggleClick()"
+              class="toggle-input">
+            <span class="toggle-slider"></span>
+          </div>
+          <span class="toggle-description">
+            {{ useIndividualDates ? 'Fecha individual por invernadero' : 'Misma fecha para todos' }}
+          </span>
+        </label>
+      </div>
+      
+      <!-- Toggle para encargados (solo mostrar si hay invernaderos seleccionados) -->
+      <div *ngIf="getSelectedInvernaderos().length > 1" class="encargado-mode-toggle">
+        <label class="toggle-container">
+          <span class="toggle-label">Encargados:</span>
+          <div class="toggle-switch">
+            <input 
+              type="checkbox" 
+              [checked]="useIndividualEncargados"
+              (click)="onEncargadoToggleClick()"
+              class="toggle-input">
+            <span class="toggle-slider"></span>
+          </div>
+          <span class="toggle-description">
+            {{ useIndividualEncargados ? 'Encargado individual por invernadero' : 'Mismo encargado para todos' }}
+          </span>
         </label>
       </div>
     </div>
-    
-    <!-- Selección de área de trabajo por invernadero -->
-    <div *ngIf="getSelectedInvernaderos().length > 0" class="working-areas-section">
-      <h4>Área de trabajo por invernadero *</h4>
-      <div *ngFor="let g of getSelectedInvernaderos()" class="working-area-item">
-        <div class="working-area-header">
-          <span class="invernadero-name">{{ g }}</span>
-          <span class="area-info">
-            {{ getCurrentAreaDisplay(g) }}Ha / {{ getMaxAreaDisplay(g) }}Ha
-            ({{ getAreaPercentage(g).toFixed(1) }}%)
-          </span>
-        </div>
+
+    <!-- Campos globales cuando están desactivados los toggles (solo para múltiples invernaderos) -->
+    <div *ngIf="getSelectedInvernaderos().length > 1" class="single-values-section">
+      <!-- Campo de fecha global (cuando el toggle individual está OFF) -->
+      <div class="single-date-container" [style.display]="useIndividualDates ? 'none' : 'block'">
+        <label for="singleDate">Fecha límite para todos los invernaderos *</label>
+        <input 
+          type="date" 
+          id="singleDate" 
+          name="singleDate" 
+          [(ngModel)]="singleDate"
+          (ngModelChange)="onSingleDateChange()"
+          required 
+          class="single-date-input" />
+        <div style="font-size: 12px; color: #aaa;">Campo global visible (useIndividualDates = {{ useIndividualDates }})</div>
+      </div>
+
+      <!-- Campo de encargado global (cuando el toggle individual está OFF) -->
+      <div *ngIf="!useIndividualEncargados" class="single-encargado-container">
+        <app-searchable-dropdown
+          label="Encargado para todos los invernaderos"
+          [options]="encargadoOptions"
+          [selectedValue]="selectedEncargado"
+          (selectionChange)="selectedEncargado = $event; onSingleEncargadoChange()"
+          placeholder="Selecciona un encargado"
+          searchPlaceholder="Buscar encargado..."
+          [required]="true">
+        </app-searchable-dropdown>
+      </div>
+    </div>
+
+    <!-- Bloques por invernadero -->
+    <div *ngIf="getSelectedInvernaderos().length > 0" class="invernaderos-blocks">
+      <h3 *ngIf="getSelectedInvernaderos().length > 1">Configuración por Invernadero</h3>
+      <h3 *ngIf="getSelectedInvernaderos().length === 1">Configuración de la Tarea</h3>
+      
+      <div *ngFor="let invernadero of getSelectedInvernaderos()" class="invernadero-block">
+        <h4 class="invernadero-block-title">{{ invernadero }}</h4>
         
-        <!-- MODO HECTÁREAS: Slider y controles de área -->
-        <div *ngIf="!useKilosMode" class="working-area-controls">
-          <!-- Barra de progreso/slider -->
-          <div class="area-slider-container">
-            <input 
-              type="range" 
-              class="area-slider"
-              [min]="0"
-              [max]="getMaxArea(g)"
-              [step]="0.01"
-              [value]="workingAreas[g] || 0"
-              (input)="updateWorkingArea(g, $event)"
-              [id]="'areaSlider_' + g">
-            <div class="slider-track-bg"></div>
-            <div class="slider-track-fill" 
-                 [style.width.%]="getAreaPercentage(g)"></div>
+        <!-- Área de trabajo -->
+        <div class="working-area-section">
+          <div class="working-area-header">
+            <span class="area-label">{{ useKilosMode ? 'Producción esperada' : 'Área de trabajo' }}</span>
+            <span *ngIf="!useKilosMode" class="area-info">
+              {{ getCurrentAreaDisplay(invernadero) }}Ha / {{ getMaxAreaDisplay(invernadero) }}Ha
+              ({{ getAreaPercentage(invernadero).toFixed(1) }}%)
+            </span>
           </div>
           
-          <!-- Input numérico para ajuste fino -->
-          <div class="area-input-container">
-            <input 
-              type="number" 
-              class="area-input"
-              [min]="0"
-              [max]="getMaxArea(g)"
-              [step]="0.01"
-              [value]="workingAreas[g] || 0"
-              (input)="updateWorkingArea(g, $event)"
-              placeholder="Área">
-            <span class="area-unit">Ha</span>
+          <!-- MODO HECTÁREAS: Slider y controles de área -->
+          <div *ngIf="!useKilosMode" class="working-area-controls">
+            <!-- Barra de progreso/slider -->
+            <div class="area-slider-container">
+              <input 
+                type="range" 
+                class="area-slider"
+                [min]="0"
+                [max]="getMaxArea(invernadero)"
+                [step]="0.01"
+                [value]="workingAreas[invernadero] || 0"
+                (input)="updateWorkingArea(invernadero, $event)"
+                [id]="'areaSlider_' + invernadero">
+              <div class="slider-track-bg"></div>
+              <div class="slider-track-fill" 
+                   [style.width.%]="getAreaPercentage(invernadero)"></div>
+            </div>
+            
+            <!-- Input numérico para ajuste fino -->
+            <div class="area-input-container">
+              <input 
+                type="number" 
+                class="area-input"
+                [min]="0"
+                [max]="getMaxArea(invernadero)"
+                [step]="0.01"
+                [value]="workingAreas[invernadero] || 0"
+                (input)="updateWorkingArea(invernadero, $event)"
+                placeholder="Área">
+              <span class="area-unit">Ha</span>
+            </div>
+          </div>
+          
+          <!-- MODO KILOS: Input directo para kilos esperados -->
+          <div *ngIf="useKilosMode" class="kilos-input-controls">
+            <div class="kilos-input-container">
+              <input 
+                type="number" 
+                class="kilos-input"
+                [min]="0"
+                [step]="0.1"
+                [value]="expectedKilos[invernadero] || 0"
+                (input)="updateExpectedKilos(invernadero, $event)"
+                [id]="'kilosInput_' + invernadero"
+                placeholder="Ej: 1500">
+              <span class="kilos-unit">Kg</span>
+            </div>
           </div>
         </div>
-        
-        <!-- MODO KILOS: Input directo para kilos esperados -->
-        <div *ngIf="useKilosMode" class="kilos-input-controls">
-          <div class="kilos-input-container">
-            <label [for]="'kilosInput_' + g" class="kilos-label">Kilos esperados:</label>
-            <input 
-              type="number" 
-              class="kilos-input"
-              [min]="0"
-              [step]="0.1"
-              [value]="expectedKilos[g] || 0"
-              (input)="updateExpectedKilos(g, $event)"
-              [id]="'kilosInput_' + g"
-              placeholder="Ej: 1500">
-            <span class="kilos-unit">Kg</span>
-          </div>
+
+        <!-- Estimación de jornales por invernadero -->
+        <div class="jornal-estimation-section">
+          <label [for]="'estimation_' + invernadero">Estimación jornales *</label>
+          <input 
+            type="number" 
+            [id]="'estimation_' + invernadero" 
+            [name]="'estimation_' + invernadero" 
+            [(ngModel)]="estimations[invernadero]" 
+            min="0.1" 
+            step="0.1" 
+            required 
+            placeholder="Ej: 5.5"
+            class="jornal-input" />
+        </div>
+
+        <!-- Fecha por invernadero (cuando el toggle individual está ON O es el único invernadero) -->
+        <div class="date-section" [style.display]="(useIndividualDates || getSelectedInvernaderos().length === 1) ? 'block' : 'none'">
+          <label [for]="'date_' + invernadero">Fecha límite *</label>
+          <input 
+            type="date" 
+            [id]="'date_' + invernadero"
+            [name]="'date_' + invernadero"
+            [(ngModel)]="dueDates[invernadero]" 
+            required 
+            class="date-input" />
+          <div style="font-size: 12px; color: #aaa;">Campo individual visible (useIndividualDates = {{ useIndividualDates }})</div>
+        </div>
+
+        <!-- Encargado por invernadero (cuando el toggle individual está ON O es el único invernadero) -->
+        <div *ngIf="useIndividualEncargados || getSelectedInvernaderos().length === 1" class="encargado-section">
+          <app-searchable-dropdown
+            [label]="getSelectedInvernaderos().length === 1 ? 'Encargado' : 'Encargado para ' + invernadero"
+            [options]="encargadoOptions"
+            [selectedValue]="selectedEncargados[invernadero]"
+            (selectionChange)="updateEncargado(invernadero, $event)"
+            placeholder="Selecciona un encargado"
+            [searchPlaceholder]="'Buscar encargado para ' + invernadero + '...'"
+            [required]="true">
+          </app-searchable-dropdown>
         </div>
       </div>
     </div>
-    
-    <!-- Dropdown con buscador para encargado -->
-    <app-searchable-dropdown
-      label="Encargado"
-      [options]="encargadoOptions"
-      [selectedValue]="selectedEncargado"
-      (selectionChange)="selectedEncargado = $event"
-      placeholder="Selecciona un encargado"
-      searchPlaceholder="Buscar encargado..."
-      [required]="true">
-    </app-searchable-dropdown>
     <p>
       <label for="description">Descripción (opcional)</label>
       <textarea id="description" rows="3" name="description" [(ngModel)]="description" placeholder="Descripción opcional de la tarea..."></textarea>

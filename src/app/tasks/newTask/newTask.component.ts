@@ -35,14 +35,30 @@ export class newTaskComponent implements OnInit, OnChanges {
   // Cambiar de selectedGreenhouses a selección jerárquica múltiple
   invernaderoSelection: InvernaderoSelection | null = null;
   selectedTaskType = '';
-  estimation = '';
+  estimation = ''; // Mantener para compatibilidad, pero ahora usar estimations
   dueDates: { [greenhouse: string]: string } = {};
-  selectedEncargado = '';
+  selectedEncargado = ''; // Mantener para compatibilidad, pero ahora usar selectedEncargados
   description = '';
   
-  // Nueva funcionalidad para fechas únicas o individuales
-  useSingleDate = true; // Por defecto, una fecha para todos
-  singleDate = ''; // Fecha única cuando useSingleDate es true
+  // NUEVAS PROPIEDADES PARA BLOQUES INDIVIDUALES
+  estimations: { [greenhouse: string]: number } = {}; // Jornales por invernadero
+  selectedEncargados: { [greenhouse: string]: string } = {}; // Encargado por invernadero
+  
+  // Nueva funcionalidad para fechas: por defecto global, toggle activa individual
+  useIndividualDates = false; // false = global, true = individual
+  singleDate = ''; // Fecha global cuando useIndividualDates es false
+  
+  // Nueva funcionalidad para encargados: por defecto global, toggle activa individual  
+  useIndividualEncargados = false; // false = global, true = individual
+  
+  // Propiedades calculadas para mantener compatibilidad
+  get useSingleDate(): boolean {
+    return !this.useIndividualDates;
+  }
+  
+  get useSingleEncargado(): boolean {
+    return !this.useIndividualEncargados;
+  }
   
   // Nueva funcionalidad para áreas de trabajo por invernadero
   workingAreas: { [greenhouse: string]: number } = {}; // Hectáreas a trabajar por invernadero
@@ -129,28 +145,40 @@ export class newTaskComponent implements OnInit, OnChanges {
       this.estimation = (Number(this.task.estimacion_horas) || 0).toString();
       console.log(`📊 Jornales para mostrar: ${this.estimation}`);
       
+      // Inicializar estructuras individuales para edición
       this.dueDates = {};
-      if (this.task.invernadero && this.task.fecha_limite) {
-        this.dueDates[this.task.invernadero] = this.task.fecha_limite;
+      this.estimations = {};
+      this.selectedEncargados = {};
+      
+      if (this.task.invernadero) {
+        // Configurar valores individuales del invernadero
+        this.dueDates[this.task.invernadero] = this.task.fecha_limite || '';
+        this.estimations[this.task.invernadero] = Number(this.task.estimacion_horas) || 0;
+        this.selectedEncargados[this.task.invernadero] = this.task.encargado_id || '';
       }
+      
+      // Configurar valores únicos para compatibilidad
       this.selectedEncargado = this.task.encargado_id || '';
       this.description = this.task.descripcion || '';
+      this.singleDate = this.task.fecha_limite || '';
       
-      // Configurar fechas según el modo
-      if (this.task.fecha_limite) {
-        this.singleDate = this.task.fecha_limite;
-        this.useSingleDate = true; // Por defecto al editar, usar fecha única
-      }
+      // Al editar, por defecto usar valores globales (más simple)
+      this.useIndividualDates = false;
+      this.useIndividualEncargados = false;
     } else {
+      // Limpiar todo para nueva tarea
       this.invernaderoSelection = null;
       this.selectedTaskType = '';
       this.estimation = '';
       this.dueDates = {};
+      this.estimations = {};
       this.selectedEncargado = '';
+      this.selectedEncargados = {};
       this.description = '';
-      this.useSingleDate = true;
+      this.useIndividualDates = false;
+      this.useIndividualEncargados = false;
       this.singleDate = '';
-      this.workingAreas = {}; // Limpiar áreas de trabajo
+      this.workingAreas = {};
       // NO tocamos useEightHourJornal aquí, debe mantener su valor por defecto (false)
     }
   }
@@ -160,24 +188,106 @@ export class newTaskComponent implements OnInit, OnChanges {
     
     // Limpiar fechas anteriores y crear nuevas entradas según el modo
     this.updateDateFields();
+    
+    // Sincronizar fechas y encargados si están en modo único
+    this.syncSingleValues();
   }
   
+  private syncSingleValues() {
+    const selectedInvernaderos = this.getSelectedInvernaderos();
+    
+    if (selectedInvernaderos.length > 0) {
+      // Sincronizar fechas si está en modo global (no individual)
+      if (!this.useIndividualDates && this.singleDate) {
+        selectedInvernaderos.forEach(inv => {
+          this.dueDates[inv] = this.singleDate;
+        });
+      }
+      
+      // Sincronizar encargados si está en modo global (no individual)
+      if (!this.useIndividualEncargados && this.selectedEncargado) {
+        selectedInvernaderos.forEach(inv => {
+          this.selectedEncargados[inv] = this.selectedEncargado;
+        });
+      }
+    }
+  }
+  
+  onToggleClick() {
+    // Cambiar manualmente el valor
+    this.useIndividualDates = !this.useIndividualDates;
+    
+    // Llamar a la lógica de sincronización
+    this.onDateModeToggle();
+  }
+
   onDateModeToggle() {
-    // Cambiar entre modo fecha única y fechas individuales
-    this.useSingleDate = !this.useSingleDate;
-    this.updateDateFields();
+    const selectedInvernaderos = this.getSelectedInvernaderos();
+    
+    if (this.useIndividualDates) {
+      // Cambiamos a fechas individuales
+      if (this.singleDate) {
+        // Copiar fecha global a todos los invernaderos individuales
+        selectedInvernaderos.forEach(inv => {
+          this.dueDates[inv] = this.singleDate;
+        });
+      } else {
+        // Si no hay fecha global, inicializar fechas vacías
+        selectedInvernaderos.forEach(inv => {
+          this.dueDates[inv] = '';
+        });
+      }
+    } else {
+      // Cambiamos a fecha global
+      if (selectedInvernaderos.length > 0 && this.dueDates[selectedInvernaderos[0]]) {
+        // Usar la primera fecha individual como global
+        this.singleDate = this.dueDates[selectedInvernaderos[0]];
+      }
+    }
+  }
+  
+  onEncargadoToggleClick() {
+    // Cambiar manualmente el valor
+    this.useIndividualEncargados = !this.useIndividualEncargados;
+    
+    // Llamar a la lógica de sincronización
+    this.onEncargadoModeToggle();
+  }
+
+  onEncargadoModeToggle() {
+    // Cambiar entre modo encargado global e individual
+    if (this.useIndividualEncargados) {
+      // Cambiamos a encargados individuales: copiar encargado global a todos
+      if (this.selectedEncargado) {
+        this.getSelectedInvernaderos().forEach(inv => {
+          this.selectedEncargados[inv] = this.selectedEncargado;
+        });
+      }
+    } else {
+      // Cambiamos a encargado global: usar el primer encargado individual como global
+      const selectedInvernaderos = this.getSelectedInvernaderos();
+      if (selectedInvernaderos.length > 0 && this.selectedEncargados[selectedInvernaderos[0]]) {
+        this.selectedEncargado = this.selectedEncargados[selectedInvernaderos[0]];
+      }
+    }
+    this.updateEncargadoFields();
   }
   
   private updateDateFields() {
-    // Limpiar fechas anteriores
-    this.dueDates = {};
     
     if (this.invernaderoSelection && this.invernaderoSelection.invernaderos.length > 0) {
-      if (!this.useSingleDate) {
-        // Modo fechas individuales: crear entradas para cada invernadero
+      if (this.useIndividualDates) {
+        // Modo fechas individuales: crear entradas para cada invernadero si no existen
         this.invernaderoSelection.invernaderos.forEach((inv: string) => {
-          this.dueDates[inv] = '';
+          if (!this.dueDates[inv]) {
+            this.dueDates[inv] = '';
+          }
         });
+      } else {
+        // Modo fecha global: asegurar que existe singleDate
+        if (!this.singleDate) {
+          this.singleDate = '';
+        }
       }
       
       // Inicializar áreas de trabajo para cada invernadero seleccionado
@@ -197,9 +307,59 @@ export class newTaskComponent implements OnInit, OnChanges {
           delete this.workingAreas[inv];
         }
       });
+      
+      // Inicializar estimaciones por invernadero
+      this.invernaderoSelection.invernaderos.forEach((inv: string) => {
+        if (!this.estimations[inv]) {
+          this.estimations[inv] = 0;
+        }
+      });
+      
+      // Inicializar encargados por invernadero
+      this.invernaderoSelection.invernaderos.forEach((inv: string) => {
+        if (!this.selectedEncargados[inv]) {
+          this.selectedEncargados[inv] = '';
+        }
+      });
     } else {
-      // Si no hay invernaderos seleccionados, limpiar áreas
+      // Si no hay invernaderos seleccionados, limpiar todo
       this.workingAreas = {};
+      this.estimations = {};
+      this.selectedEncargados = {};
+    }
+  }
+  
+  private updateEncargadoFields() {
+    if (this.invernaderoSelection && this.invernaderoSelection.invernaderos.length > 0) {
+      if (!this.useSingleEncargado) {
+        // Modo encargados individuales: inicializar para cada invernadero
+        this.invernaderoSelection.invernaderos.forEach((inv: string) => {
+          if (!this.selectedEncargados[inv]) {
+            this.selectedEncargados[inv] = '';
+          }
+        });
+      }
+    }
+  }
+  
+  updateEncargado(invernadero: string, encargadoId: string) {
+    this.selectedEncargados[invernadero] = encargadoId;
+  }
+  
+  // Métodos para sincronizar valores globales con individuales
+  onSingleDateChange() {
+    if (!this.useIndividualDates && this.singleDate) {
+      this.getSelectedInvernaderos().forEach(inv => {
+        this.dueDates[inv] = this.singleDate;
+      });
+    }
+  }
+  
+  onSingleEncargadoChange() {
+    if (!this.useIndividualEncargados && this.selectedEncargado) {
+      this.getSelectedInvernaderos().forEach(inv => {
+        this.selectedEncargados[inv] = this.selectedEncargado;
+      });
     }
   }
 
@@ -288,31 +448,48 @@ export class newTaskComponent implements OnInit, OnChanges {
       return;
     }
 
-    // 3. Validar estimación de jornales
-    const estimationNum = Number(this.estimation);
-    if (!this.estimation || isNaN(estimationNum) || estimationNum <= 0) {
-      alert('Por favor, ingresa una estimación de jornales válida (mayor que 0).');
+    // 3. Validar estimaciones de jornales por invernadero
+    const invalidEstimations = selectedInvernaderos.filter((inv: string) => {
+      const estimation = this.estimations[inv];
+      return !estimation || estimation <= 0;
+    });
+    
+    if (invalidEstimations.length > 0) {
+      alert(`Por favor, ingresa una estimación de jornales válida (mayor que 0) para: ${invalidEstimations.join(', ')}`);
       return;
     }
 
-    // 4. Validar encargado
-    if (!this.selectedEncargado || this.selectedEncargado.trim() === '') {
-      alert('Por favor, selecciona un encargado para la tarea.');
-      return;
-    }
-    
-    // 5. Validar fechas según el modo seleccionado
-    if (this.useSingleDate) {
-      // Modo fecha única: validar que se haya seleccionado la fecha única
-      if (!this.singleDate || this.singleDate.trim() === '') {
-        alert('Por favor, selecciona la fecha límite para la tarea.');
+    // 4. Validar encargados según el modo
+    if (selectedInvernaderos.length === 1 || this.useIndividualEncargados) {
+      // Modo encargados individuales (o un solo invernadero)
+      const invalidEncargados = selectedInvernaderos.filter((inv: string) => {
+        return !this.selectedEncargados[inv] || this.selectedEncargados[inv].trim() === '';
+      });
+      
+      if (invalidEncargados.length > 0) {
+        alert(`Por favor, selecciona un encargado para: ${invalidEncargados.join(', ')}`);
         return;
       }
     } else {
-      // Modo fechas individuales: validar que todas las fechas estén completas
+      // Modo encargado global (múltiples invernaderos con toggle desactivado)
+      if (!this.selectedEncargado || this.selectedEncargado.trim() === '') {
+        alert('Por favor, selecciona un encargado para todos los invernaderos.');
+        return;
+      }
+    }
+    
+    // 5. Validar fechas según el modo
+    if (selectedInvernaderos.length === 1 || this.useIndividualDates) {
+      // Modo fechas individuales (o un solo invernadero)
       const missingDates = selectedInvernaderos.some((g: string) => !this.dueDates[g] || this.dueDates[g].trim() === '');
       if (missingDates) {
         alert('Por favor, selecciona una fecha límite para cada invernadero seleccionado.');
+        return;
+      }
+    } else {
+      // Modo fecha global (múltiples invernaderos con toggle desactivado)
+      if (!this.singleDate || this.singleDate.trim() === '') {
+        alert('Por favor, selecciona la fecha límite para todos los invernaderos.');
         return;
       }
     }
@@ -356,14 +533,22 @@ export class newTaskComponent implements OnInit, OnChanges {
     
     // Emitir un array de tareas, una por invernadero
     const tareas = selectedInvernaderos.map((g: string) => {
-      let estimationNum = Number(this.estimation);
+      // Usar estimación individual del invernadero
+      let estimationNum = Number(this.estimations[g]);
       if (isNaN(estimationNum)) estimationNum = 0;
       
       // Usar el área de trabajo definida por el usuario en la barra
       const workingArea = this.workingAreas[g] || 0;
       
-      // Usar fecha única o individual según el modo
-      const fechaLimite = this.useSingleDate ? this.singleDate : this.dueDates[g];
+      // Usar fecha según el modo (global o individual)
+      const fechaLimite = (selectedInvernaderos.length > 1 && !this.useIndividualDates) 
+        ? this.singleDate 
+        : this.dueDates[g];
+      
+      // Usar encargado según el modo (global o individual)
+      const encargadoId = (selectedInvernaderos.length > 1 && !this.useIndividualEncargados) 
+        ? this.selectedEncargado 
+        : this.selectedEncargados[g];
       
       // CONVERSIÓN SIMPLE: Jornales a Horas
       const horaJornal = this.useEightHourJornal ? 1 : 0; // 0=6h, 1=8h
@@ -378,6 +563,7 @@ export class newTaskComponent implements OnInit, OnChanges {
       
       console.log(`CONVERSIÓN ${g}: ${estimationNum} jornales × ${factor}h = ${estimacionEnHoras}h (hora_jornal=${horaJornal})`);
       console.log(`MEDICIÓN ${g}: ${this.useKilosMode ? 'KILOS' : 'HECTÁREAS'} = ${dimensionValue} (horas_kilos=${horasKilos})`);
+      console.log(`ENCARGADO ${g}: ${encargadoId}`);
       
       const data: any = {
         invernadero: g,
@@ -386,7 +572,7 @@ export class newTaskComponent implements OnInit, OnChanges {
         hora_jornal: horaJornal, // 0 = 6 horas, 1 = 8 horas
         horas_kilos: horasKilos, // 0 = Hectáreas, 1 = Kilos
         fecha_limite: fechaLimite,
-        encargado_id: this.selectedEncargado,
+        encargado_id: encargadoId,
         descripcion: this.description,
         dimension_total: dimensionValue // Hectáreas O Kilos esperados
       };

@@ -570,8 +570,221 @@ select:required::after {
   font-size: 0.9rem;
 }
 
+/* ===== NUEVOS ESTILOS PARA BLOQUES POR INVERNADERO ===== */
+
+.global-settings {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.single-values-section {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: rgba(76, 175, 80, 0.1);
+  border-radius: 8px;
+  border: 1px solid rgba(76, 175, 80, 0.2);
+}
+
+.single-date-container,
+.single-encargado-container {
+  margin-bottom: 1rem;
+}
+
+.single-date-container:last-child,
+.single-encargado-container:last-child {
+  margin-bottom: 0;
+}
+
+.single-date-container label {
+  color: #d4f0d4;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  display: block;
+}
+
+.single-date-input {
+  width: 100%;
+  padding: 0.6rem;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #e8f5e8;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+}
+
+.single-date-input:focus {
+  outline: none;
+  border-color: #4caf50;
+  background: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.2);
+}
+
+.invernaderos-blocks {
+  margin-top: 1rem;
+}
+
+.invernaderos-blocks > h3 {
+  color: #e8f5e8;
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.invernadero-block {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  padding: 1.2rem;
+  margin-bottom: 1.5rem;
+  transition: all 0.3s ease;
+}
+
+.invernadero-block:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.invernadero-block-title {
+  color: #d4f0d4;
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: 0 0 1rem 0;
+  padding: 0.5rem;
+  background: rgba(75, 175, 79, 0.2);
+  border-radius: 6px;
+  text-align: center;
+  border: 1px solid rgba(75, 175, 79, 0.3);
+}
+
+.working-area-section {
+  margin-bottom: 1rem;
+}
+
+.working-area-header .area-label {
+  color: #d4f0d4;
+  font-weight: 600;
+  font-size: 0.9rem;
+  display: block;
+  margin-bottom: 0.3rem;
+}
+
+.jornal-estimation-section {
+  margin-bottom: 1rem;
+}
+
+.jornal-estimation-section label {
+  color: #d4f0d4;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  display: block;
+}
+
+.jornal-input {
+  width: 100%;
+  padding: 0.6rem;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #e8f5e8;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+}
+
+.jornal-input:focus {
+  outline: none;
+  border-color: #4caf50;
+  background: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.2);
+}
+
+.date-section {
+  margin-bottom: 1rem;
+}
+
+.date-section label {
+  color: #d4f0d4;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  display: block;
+}
+
+.date-input {
+  width: 100%;
+  padding: 0.6rem;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #e8f5e8;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+}
+
+.date-input:focus {
+  outline: none;
+  border-color: #2196f3;
+  background: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.2);
+}
+
+.encargado-section {
+  margin-bottom: 0;
+}
+
+/* Estilos para los nuevos toggles */
+.encargado-mode-toggle {
+  margin-top: 1rem;
+}
+
+.encargado-mode-toggle .toggle-container {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.encargado-mode-toggle .toggle-label {
+  color: #d4f0d4;
+  font-weight: 600;
+  font-size: 0.9rem;
+  min-width: 100px;
+}
+
+.encargado-mode-toggle .toggle-description {
+  color: #b8e6b8;
+  font-size: 0.8rem;
+  font-style: italic;
+}
+
+/* Responsive adjustments for blocks */
+@media (max-width: 768px) {
+  .invernadero-block {
+    padding: 1rem;
+    margin-bottom: 1rem;
+  }
+  
+  .invernadero-block-title {
+    font-size: 1rem;
+    padding: 0.4rem;
+  }
+  
+  .global-settings {
+    padding: 0.8rem;
+  }
+  
+  dialog {
+    width: 95%;
+    max-width: none;
+  }
+}
+
 @media (min-width: 768px) {
   dialog {
     padding: 2rem;
+    max-width: 35rem;
   }
 }
