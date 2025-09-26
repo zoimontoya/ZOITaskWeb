@@ -1,0 +1,27 @@
+# Dockerignore para el backend
+
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Archivos de desarrollo
+.git/
+.gitignore
+*.md
+
+# Archivos de IDE
+.vscode/
+.idea/
+
+# Archivos de sistema
+.DS_Store
+Thumbs.db
+
+# Logs
+logs
+*.log
+
+# Dockerfile (para evitar conflictos)
+Dockerfile
+.dockerignore

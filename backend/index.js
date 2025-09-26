@@ -1,20 +1,47 @@
 import express from 'express';
 import cors from 'cors';
 import { google } from 'googleapis';
+import fs from 'fs';
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-const SERVICE_ACCOUNT_FILE = './service-account.json';
 const SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
 const SPREADSHEET_ID = '1EEZlootxR63QHicF2cQ5GDmzQJ31V22fE202LXkufc4';
 
-// Autenticación con Google
-const auth = new google.auth.GoogleAuth({
-  keyFile: SERVICE_ACCOUNT_FILE,
-  scopes: SCOPES,
-});
+// 🔒 Configuración segura de credenciales de Google
+const getGoogleAuth = () => {
+  // Opción 1: Variables de entorno (Docker/Producción)
+  if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
+    try {
+      const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
+      console.log('✅ Usando credenciales de Google desde variables de entorno');
+      return new google.auth.GoogleAuth({
+        credentials: credentials,
+        scopes: SCOPES,
+      });
+    } catch (error) {
+      console.error('❌ Error al parsear credenciales de entorno:', error.message);
+      throw new Error('Credenciales de entorno inválidas');
+    }
+  }
+  
+  // Opción 2: Archivo local (Desarrollo)
+  const SERVICE_ACCOUNT_FILE = './service-account.json';
+  if (fs.existsSync(SERVICE_ACCOUNT_FILE)) {
+    console.log('✅ Usando credenciales de Google desde archivo local');
+    return new google.auth.GoogleAuth({
+      keyFile: SERVICE_ACCOUNT_FILE,
+      scopes: SCOPES,
+    });
+  }
+  
+  throw new Error('❌ No se encontraron credenciales de Google. Configure GOOGLE_SERVICE_ACCOUNT_JSON o coloque service-account.json');
+};
+
+// Autenticación con Google (segura)
+const auth = getGoogleAuth();
 
 // Función auxiliar para obtener dimensiones de invernaderos
 async function getInvernaderosDimensions(client) {
@@ -844,9 +871,19 @@ app.post('/tasks/:id/complete', async (req, res) => {
 });
 
 // Arranque del servidor
+// 🔍 Health check endpoint para Docker
+app.get('/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(),
+    service: 'ZOI Task Web Backend'
+  });
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Servidor escuchando en puerto ${PORT}`);
+  console.log(`🚀 Servidor escuchando en puerto ${PORT}`);
+  console.log(`🔍 Health check disponible en: http://localhost:${PORT}/health`);
 });
 
 

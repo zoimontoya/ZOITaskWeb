@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  # Backend (Node.js + Express)
+  backend:
+    build: ./backend
+    container_name: zoi-task-backend
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      # 🔒 Credenciales cargadas desde .env de forma segura
+      - GOOGLE_SERVICE_ACCOUNT_JSON=${GOOGLE_SERVICE_ACCOUNT_JSON}
+    env_file:
+      - .env
+    networks:
+      - zoi-network
+    restart: unless-stopped
+
+  # Frontend (Angular + Nginx)
+  frontend:
+    build: .
+    container_name: zoi-task-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - zoi-network
+    restart: unless-stopped
+
+networks:
+  zoi-network:
+    driver: bridge
+
+# Para desarrollo local, también puedes exponer otros puertos
+# Descomenta las siguientes líneas si quieres acceso directo a los servicios:
+# 
+# services:
+#   backend:
+#     ports:
+#       - "3001:3000"  # Puerto alternativo para backend
+#   frontend:
+#     ports:
+#       - "8080:80"    # Puerto alternativo para frontend
