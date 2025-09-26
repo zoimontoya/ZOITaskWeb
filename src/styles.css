@@ -5,7 +5,7 @@
 }
 
 html {
-  height: 100%;
+  min-height: 100%;
 }
 
 body {
@@ -14,5 +14,30 @@ body {
   color: #b3d8b8;
   margin: 0;
   padding: 0;
-  height: 100%;
+  min-height: 100vh;
+  overflow-x: hidden; /* Evita scroll horizontal en móviles */
+}
+
+/* Estilos responsive globales */
+@media (max-width: 768px) {
+  body {
+    font-size: 14px; /* Texto base más pequeño en móviles */
+  }
+}
+
+@media (max-width: 480px) {
+  body {
+    font-size: 13px; /* Aún más pequeño en móviles muy pequeños */
+  }
+}
+
+/* Mejorar el comportamiento táctil en móviles */
+button, input, select, textarea {
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+  touch-action: manipulation;
+}
+
+/* Asegurar que los elementos no excedan el ancho de pantalla */
+* {
+  max-width: 100%;
 }
