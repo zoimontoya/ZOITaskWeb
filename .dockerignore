@@ -1,26 +1,32 @@
 # Archivos y carpetas a ignorar en Docker
 
-# Node modules
-node_modules/
+# Node modules (MUY IMPORTANTE)
+node_modules
+**/node_modules
+*/node_modules
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Distribución y build
+# Build output
 dist/
 .angular/
+backend/
 
-# Archivos de desarrollo
-.git/
+# Git y documentación  
+.git
 .gitignore
 *.md
 .editorconfig
+README.md
 
-# Archivos de IDE
-.vscode/
-.idea/
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
 
-# Archivos de sistema
+# Sistema
 .DS_Store
 Thumbs.db
 
@@ -28,9 +34,14 @@ Thumbs.db
 logs
 *.log
 
-# Environment files (estos los montaremos como volumes si es necesario)
+# Variables de entorno
 .env
-.env.local
-.env.development
-.env.test
-.env.production
+.env.*
+
+# Docker files
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Archivos específicos grandes
+service-account.json

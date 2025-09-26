@@ -9,6 +9,7 @@ import { HttpClient } from '@angular/common/http';
 import { User } from '../../user/user.model';
 import { InvernaderoSelectorComponent, InvernaderoSelection } from '../../shared/invernadero-selector/invernadero-selector.component';
 import { SearchableDropdownComponent, DropdownOption } from '../../shared/searchable-dropdown/searchable-dropdown.component';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-newTask',
@@ -72,7 +73,7 @@ export class newTaskComponent implements OnInit, OnChanges {
       }));
     });
     // Obtener encargados desde el backend
-    this.http.get<User[]>('http://localhost:3000/encargados').subscribe(encargados => {
+    this.http.get<User[]>(`${environment.apiBaseUrl}/encargados`).subscribe(encargados => {
       this.encargados = encargados;
       // Convertir a opciones para el dropdown con buscador
       this.encargadoOptions = this.encargados.map(e => ({

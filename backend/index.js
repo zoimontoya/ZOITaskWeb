@@ -7,6 +7,12 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Middleware para logging de todas las peticiones
+app.use((req, res, next) => {
+  console.log(`📡 ${new Date().toISOString()} - ${req.method} ${req.url} from ${req.ip || req.connection.remoteAddress}`);
+  next();
+});
+
 const SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
 const SPREADSHEET_ID = '1EEZlootxR63QHicF2cQ5GDmzQJ31V22fE202LXkufc4';
 
@@ -873,17 +879,22 @@ app.post('/tasks/:id/complete', async (req, res) => {
 // Arranque del servidor
 // 🔍 Health check endpoint para Docker
 app.get('/health', (req, res) => {
+  console.log('🩺 Health check request received from:', req.ip || req.connection.remoteAddress);
   res.status(200).json({ 
     status: 'OK', 
     timestamp: new Date().toISOString(),
-    service: 'ZOI Task Web Backend'
+    service: 'ZOI Task Web Backend',
+    port: PORT || 3000
   });
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`🚀 Servidor escuchando en puerto ${PORT}`);
-  console.log(`🔍 Health check disponible en: http://localhost:${PORT}/health`);
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Backend server running on 0.0.0.0:${PORT}`);
+  console.log(`🔍 Health check disponible en:`);
+  console.log(`   - Localmente: http://localhost:${PORT}/health`);
+  console.log(`   - Desde la red: http://192.168.0.85:${PORT}/health`);
 });
 
 

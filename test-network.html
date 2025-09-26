@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test de Conexión</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test { margin: 10px 0; padding: 10px; border: 1px solid #ccc; }
+        .success { background: #d4edda; }
+        .error { background: #f8d7da; }
+        button { padding: 10px 20px; margin: 5px; font-size: 16px; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Test de Conexión de Red</h1>
+    
+    <div class="test">
+        <h3>1. Test del Frontend</h3>
+        <p>Si ves esta página, el frontend está funcionando ✅</p>
+        <p><strong>URL actual:</strong> <span id="current-url"></span></p>
+    </div>
+
+    <div class="test">
+        <h3>2. Test del Proxy Angular</h3>
+        <button onclick="testProxy()">🧪 Probar /api/health</button>
+        <div id="proxy-result"></div>
+    </div>
+
+    <div class="test">
+        <h3>3. Test del Backend Directo</h3>
+        <button onclick="testBackendDirect()">🧪 Probar localhost:3000/health</button>
+        <div id="backend-result"></div>
+    </div>
+
+    <div class="test">
+        <h3>4. Test de Login</h3>
+        <button onclick="testLogin()">🧪 Probar Login</button>
+        <div id="login-result"></div>
+    </div>
+
+    <script>
+        // Mostrar URL actual
+        document.getElementById('current-url').textContent = window.location.href;
+
+        async function testProxy() {
+            const result = document.getElementById('proxy-result');
+            result.innerHTML = '⏳ Probando proxy...';
+            
+            try {
+                const response = await fetch('/api/health');
+                const data = await response.text();
+                result.innerHTML = `✅ Proxy OK: ${data}`;
+                result.className = 'success';
+            } catch (error) {
+                result.innerHTML = `❌ Proxy Error: ${error.message}`;
+                result.className = 'error';
+            }
+        }
+
+        async function testBackendDirect() {
+            const result = document.getElementById('backend-result');
+            result.innerHTML = '⏳ Probando backend directo...';
+            
+            try {
+                const response = await fetch('http://localhost:3000/health');
+                const data = await response.text();
+                result.innerHTML = `✅ Backend OK: ${data}`;
+                result.className = 'success';
+            } catch (error) {
+                result.innerHTML = `❌ Backend Error: ${error.message}`;
+                result.className = 'error';
+            }
+        }
+
+        async function testLogin() {
+            const result = document.getElementById('login-result');
+            result.innerHTML = '⏳ Probando login...';
+            
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        id: 'test',
+                        password: 'test'
+                    })
+                });
+                const data = await response.json();
+                result.innerHTML = `📤 Login Response: ${JSON.stringify(data)}`;
+                result.className = response.ok ? 'success' : 'error';
+            } catch (error) {
+                result.innerHTML = `❌ Login Error: ${error.message}`;
+                result.className = 'error';
+            }
+        }
+
+        // Test automático al cargar
+        setTimeout(() => {
+            console.log('🔍 Iniciando tests automáticos...');
+            testProxy();
+        }, 1000);
+    </script>
+</body>
+</html>

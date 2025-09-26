@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test de Conexión</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            padding: 20px; 
+            background: #f5f5f5;
+            margin: 0;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test { 
+            margin: 15px 0; 
+            padding: 15px; 
+            border: 1px solid #ddd; 
+            border-radius: 8px;
+            background: #fafafa;
+        }
+        .success { 
+            background: #d4edda; 
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+        .error { 
+            background: #f8d7da; 
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+        .warning {
+            background: #fff3cd;
+            border-color: #ffeaa7;
+            color: #856404;
+        }
+        button { 
+            padding: 12px 24px; 
+            margin: 8px; 
+            font-size: 16px; 
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            background: #007bff;
+            color: white;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:active {
+            transform: scale(0.98);
+        }
+        .info {
+            background: #d1ecf1;
+            border-color: #bee5eb;
+            color: #0c5460;
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+        .status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Test de Conexión de Red - ZOI Task</h1>
+        
+        <div class="test info">
+            <h3>ℹ️ Información del Dispositivo</h3>
+            <p><strong>URL actual:</strong> <span id="current-url"></span></p>
+            <p><strong>User Agent:</strong> <span id="user-agent"></span></p>
+            <p><strong>Pantalla:</strong> <span id="screen-info"></span></p>
+        </div>
+
+        <div class="test">
+            <h3>1. ✅ Test del Frontend</h3>
+            <p>Si ves esta página, el frontend Angular está funcionando correctamente</p>
+            <div class="status success">FRONTEND OK</div>
+        </div>
+
+        <div class="test">
+            <h3>2. 🔄 Test del Proxy Angular (/api/health)</h3>
+            <p>Esto prueba si el proxy de Angular está redirigiendo correctamente al backend</p>
+            <button onclick="testProxy()">🧪 Probar Proxy /api/health</button>
+            <div id="proxy-result"></div>
+        </div>
+
+        <div class="test">
+            <h3>3. 🎯 Test del Backend Directo (localhost:3000)</h3>
+            <p><strong>⚠️ Nota:</strong> Esto puede fallar en dispositivos móviles (es normal)</p>
+            <button onclick="testBackendDirect()">🧪 Probar Backend Directo</button>
+            <div id="backend-result"></div>
+        </div>
+
+        <div class="test">
+            <h3>4. 🔐 Test de Login API</h3>
+            <p>Prueba completa del endpoint de login a través del proxy</p>
+            <button onclick="testLogin()">🧪 Probar Login</button>
+            <div id="login-result"></div>
+        </div>
+
+        <div class="test">
+            <h3>5. 📊 Test de Tasks API</h3>
+            <p>Prueba el endpoint principal de tareas</p>
+            <button onclick="testTasks()">🧪 Probar /api/tasks</button>
+            <div id="tasks-result"></div>
+        </div>
+
+        <div class="test">
+            <h3>🚀 Acciones Rápidas</h3>
+            <button onclick="runAllTests()" style="background: #28a745;">🔄 Ejecutar Todos los Tests</button>
+            <button onclick="goToApp()" style="background: #17a2b8;">📱 Ir a la App Principal</button>
+        </div>
+    </div>
+
+    <script>
+        // Mostrar información del dispositivo
+        document.getElementById('current-url').textContent = window.location.href;
+        document.getElementById('user-agent').textContent = navigator.userAgent.includes('Mobile') ? '📱 Móvil' : '💻 Desktop';
+        document.getElementById('screen-info').textContent = `${screen.width}x${screen.height}`;
+
+        function showResult(elementId, message, isSuccess, isWarning = false) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = message;
+            element.className = isWarning ? 'warning' : (isSuccess ? 'success' : 'error');
+        }
+
+        async function testProxy() {
+            const resultId = 'proxy-result';
+            showResult(resultId, '⏳ Probando conexión al proxy...', false);
+            
+            try {
+                console.log('🔍 Enviando petición a /api/health...');
+                const response = await fetch('/api/health', {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json, text/plain, */*'
+                    }
+                });
+                
+                console.log('📡 Response status:', response.status);
+                const data = await response.text();
+                console.log('📄 Response data:', data);
+                
+                if (response.ok) {
+                    showResult(resultId, `✅ Proxy funcionando correctamente!<br><pre>${data}</pre>`, true);
+                } else {
+                    showResult(resultId, `⚠️ Proxy responde pero con error ${response.status}<br><pre>${data}</pre>`, false, true);
+                }
+            } catch (error) {
+                console.error('❌ Proxy error:', error);
+                showResult(resultId, `❌ Error en el proxy: ${error.message}<br><small>Verifica que el backend esté corriendo en localhost:3000</small>`, false);
+            }
+        }
+
+        async function testBackendDirect() {
+            const resultId = 'backend-result';
+            showResult(resultId, '⏳ Probando conexión directa al backend...', false);
+            
+            try {
+                const response = await fetch('http://localhost:3000/health');
+                const data = await response.text();
+                showResult(resultId, `✅ Backend accesible directamente: <pre>${data}</pre>`, true);
+            } catch (error) {
+                showResult(resultId, `⚠️ No se puede acceder directamente al backend (normal en móvil)<br>${error.message}`, false, true);
+            }
+        }
+
+        async function testLogin() {
+            const resultId = 'login-result';
+            showResult(resultId, '⏳ Probando endpoint de login...', false);
+            
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        id: 'test-user',
+                        password: 'test-pass'
+                    })
+                });
+                
+                const data = await response.json();
+                const message = `📤 Login Response (${response.status}):<br><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                
+                if (response.ok || response.status === 401) {
+                    // 401 es normal para credenciales de test
+                    showResult(resultId, `✅ Endpoint de login funciona!<br>${message}`, true);
+                } else {
+                    showResult(resultId, `⚠️ Login endpoint responde con error:<br>${message}`, false, true);
+                }
+            } catch (error) {
+                showResult(resultId, `❌ Error en login: ${error.message}`, false);
+            }
+        }
+
+        async function testTasks() {
+            const resultId = 'tasks-result';
+            showResult(resultId, '⏳ Probando endpoint de tareas...', false);
+            
+            try {
+                const response = await fetch('/api/tasks');
+                const data = await response.json();
+                showResult(resultId, `✅ Tasks API funciona!<br><pre>Tareas encontradas: ${Array.isArray(data) ? data.length : 'N/A'}</pre>`, true);
+            } catch (error) {
+                showResult(resultId, `❌ Error en tasks: ${error.message}`, false);
+            }
+        }
+
+        async function runAllTests() {
+            console.log('🚀 Ejecutando todos los tests...');
+            await testProxy();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            await testBackendDirect();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            await testLogin();
+            await new Promise(resolve => setTimeout(resolve, 500));
+            await testTasks();
+        }
+
+        function goToApp() {
+            window.location.href = '/';
+        }
+
+        // Auto-ejecutar test del proxy al cargar
+        setTimeout(() => {
+            console.log('🔍 Ejecutando test automático del proxy...');
+            testProxy();
+        }, 1500);
+    </script>
+</body>
+</html>

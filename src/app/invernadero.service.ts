@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../environments/environment';
 
 export interface Invernadero {
   nombre: string;
@@ -20,7 +21,7 @@ export interface InvernaderosResponse {
   providedIn: 'root'
 })
 export class InvernaderoService {
-  private baseUrl = 'http://localhost:3000';
+  private baseUrl = environment.apiBaseUrl;
 
   constructor(private http: HttpClient) { }
 
