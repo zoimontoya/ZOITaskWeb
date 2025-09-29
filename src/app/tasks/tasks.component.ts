@@ -407,7 +407,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   onOpenProgressModal(task: Task) {
     this.taskToComplete = task;
     this.progressValue = Number(task.progreso) || 0; // Usar el campo progreso para el porcentaje
-    this.jornalesRealesValue = task.jornales_reales || 0; // Inicializar con valor actual o 0
+    this.jornalesRealesValue = 0; // Siempre empezar vacío para que el encargado ingrese las horas del día
     
     // Si está en modo kilos, inicializar kilos recogidos desde desarrollo_actual
     if (this.isKilosMode(task)) {
