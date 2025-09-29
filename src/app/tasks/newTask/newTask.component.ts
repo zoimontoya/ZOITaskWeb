@@ -90,27 +90,20 @@ export class newTaskComponent implements OnInit, OnChanges {
     }
     
     // Cargar invernaderos filtrados por cabezal del usuario
-    console.log('🔍 DEBUG: Usuario logueado:', this.loggedUser);
-    console.log('🔍 DEBUG: Cabezal del usuario:', this.loggedUser?.cabezal);
-    
     if (this.loggedUser?.cabezal) {
-      console.log('🔍 DEBUG: Cargando invernaderos por cabezal...');
       this.greenhouseService.getGreenhousesByCabezal(this.loggedUser.cabezal).subscribe({
         next: data => {
-          console.log('🔍 DEBUG: Datos recibidos:', data);
           this.greenhouses = data.cabezales.flatMap(cabezal => cabezal.invernaderos);
-          console.log('🔍 DEBUG: Invernaderos procesados:', this.greenhouses);
           // Inicializar el formulario después de cargar los invernaderos
           this.initFormFromTask();
         },
         error: err => {
-          console.error('🔍 DEBUG: Error cargando invernaderos por cabezal:', err);
+          console.error('Error cargando invernaderos por cabezal:', err);
           // Fallback en caso de error
           this.loadAllGreenhouses();
         }
       });
     } else {
-      console.log('🔍 DEBUG: Sin cabezal, cargando todos los invernaderos...');
       this.loadAllGreenhouses();
     }
     this.taskTypeService.getTaskTypes().subscribe(data => {
@@ -647,35 +640,37 @@ export class newTaskComponent implements OnInit, OnChanges {
     // Primero actualizar el área como antes
     this.updateWorkingArea(invernaderoNombre, event);
     
-    // No llenar automáticamente, solo actualizar el placeholder
-    // El usuario decidirá si usar la recomendación o su propio valor
+    // Forzar la detección de cambios para que se actualice el placeholder
+    // El placeholder se actualiza automáticamente a través de getJornalPlaceholder()
   }
 
-  // Método para obtener el placeholder del input de jornales
+  // Método para obtener el placeholder del input de jornales (ya no se usa, mantenido por compatibilidad)
   getJornalPlaceholder(invernaderoNombre: string): string {
+    return 'Ej: 5,5';
+  }
+
+  // Método para calcular jornales recomendados dinámicamente
+  getCalculatedJornales(invernaderoNombre: string): string {
     if (this.selectedTaskJornalUnidad > 0) {
       const hectareas = this.workingAreas[invernaderoNombre] || 0;
       if (hectareas > 0) {
         const jornalesEstimados = this.selectedTaskJornalUnidad * hectareas;
-        const recomendacion = jornalesEstimados.toFixed(2).replace('.', ',');
-        return `Recomendado: ${recomendacion}`;
+        return jornalesEstimados.toFixed(2).replace('.', ',');
       }
     }
-    return 'Ej: 5,5';
+    return '0,00';
   }
 
   // Método auxiliar para cargar todos los invernaderos
   private loadAllGreenhouses(): void {
-    console.log('🔍 DEBUG: Cargando todos los invernaderos como fallback...');
     this.greenhouseService.getGreenhouses().subscribe({
       next: data => {
-        console.log('🔍 DEBUG: Todos los invernaderos recibidos:', data);
         this.greenhouses = data;
         // Inicializar el formulario después de cargar los invernaderos
         this.initFormFromTask();
       },
       error: err => {
-        console.error('🔍 DEBUG: Error cargando todos los invernaderos:', err);
+        console.error('Error cargando todos los invernaderos:', err);
       }
     });
   }
