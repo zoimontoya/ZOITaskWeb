@@ -571,6 +571,8 @@
   margin-left: 8px;
   font-weight: bold;
   animation: blink 1.5s ease-in-out infinite;
+  position: relative;
+  z-index: 10;
 }
 
 /* Animación sutil para llamar la atención */

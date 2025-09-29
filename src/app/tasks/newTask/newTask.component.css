@@ -5,6 +5,7 @@
   left: 0;
   width: 100%;
   height: 100vh;
+  z-index: 2000;
 }
 
 dialog {
@@ -17,6 +18,7 @@ dialog {
   overflow: hidden;
   padding: 1rem;
   top: 5rem;
+  z-index: 2500;
 }
 
 /* Form labels styling */
