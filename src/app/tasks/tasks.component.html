@@ -1,8 +1,8 @@
 
 
 
-<app-newTask *ngIf="isAddingTask" (cancel)="onCancelAddTask()" (add)="onAddTask($event)"></app-newTask>
-<app-newTask *ngIf="editingTask" [task]="editingTask" (cancel)="onCancelEditTask()" (add)="onEditTask($event)"></app-newTask>
+<app-newTask *ngIf="isAddingTask" [loggedUser]="loggedUser" (cancel)="onCancelAddTask()" (add)="onAddTask($event)"></app-newTask>
+<app-newTask *ngIf="editingTask" [task]="editingTask" [loggedUser]="loggedUser" (cancel)="onCancelEditTask()" (add)="onEditTask($event)"></app-newTask>
 
 <div *ngIf="showDeleteModal" class="modal-overlay" (click)="onDeleteModalOverlayClick($event)">
     <div class="modal-confirm" (click)="$event.stopPropagation()">

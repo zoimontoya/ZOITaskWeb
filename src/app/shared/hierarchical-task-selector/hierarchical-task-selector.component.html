@@ -1,0 +1,65 @@
+<div class="hierarchical-task-selector">
+  <h4>Seleccionar Tarea</h4>
+  
+  <!-- Selector de Tipo con buscador -->
+  <div class="selector-group">
+    <label for="tipo">Tipo de Tarea:</label>
+    <div class="searchable-dropdown" [class.open]="isDropdownOpen">
+      <!-- Input de búsqueda -->
+      <div class="dropdown-input-container">
+        <input 
+          type="text" 
+          class="dropdown-input"
+          [(ngModel)]="searchTerm"
+          (input)="onSearchChange()"
+          (focus)="openDropdown()"
+          (blur)="closeDropdownDelayed()"
+          [placeholder]="selectedTaskLabel || 'Buscar tipo de tarea...'"
+          autocomplete="off">
+        <span class="dropdown-arrow" [class.rotated]="isDropdownOpen">▼</span>
+      </div>
+      
+      <!-- Lista de opciones -->
+      <div class="dropdown-options" *ngIf="isDropdownOpen">
+        <div class="dropdown-scroll">
+          <!-- Mensaje si no hay resultados -->
+          <div *ngIf="filteredOptions.length === 0" class="no-results">
+            No se encontraron tareas
+          </div>
+          
+          <!-- Opciones filtradas -->
+          <ng-container *ngFor="let option of filteredOptions">
+            <!-- Tipo sin subtipos -->
+            <div 
+              *ngIf="!option.hasSubtareas" 
+              class="dropdown-option"
+              (mousedown)="selectOption(option.value, option.label)"
+              [class.highlighted]="highlightedIndex === option.index">
+              {{ option.label }}
+            </div>
+            
+            <!-- Tipo con subtipos (header del grupo) -->
+            <div *ngIf="option.hasSubtareas" class="dropdown-group-header">
+              {{ option.label }}
+            </div>
+            
+            <!-- Subtipos del grupo -->
+            <div 
+              *ngFor="let subtipo of option.subtipos" 
+              class="dropdown-option subtipo"
+              (mousedown)="selectOption(subtipo.fullValue, subtipo.label)"
+              [class.highlighted]="highlightedIndex === subtipo.index">
+              {{ subtipo.label }}
+            </div>
+          </ng-container>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mostrar tarea seleccionada -->
+  <div class="selected-task" *ngIf="selectedTaskLabel">
+    <strong>Tarea seleccionada:</strong> {{ selectedTaskLabel }}
+  </div>
+
+</div>

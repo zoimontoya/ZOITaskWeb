@@ -8,16 +8,12 @@
       (selectionChange)="onInvernaderoSelectionChange($event)">
     </app-invernadero-selector>
     
-    <!-- Dropdown con buscador para tipo de tarea -->
-    <app-searchable-dropdown
-      label="Tipo de tarea"
-      [options]="taskTypeOptions"
-      [selectedValue]="selectedTaskType"
-      (selectionChange)="selectedTaskType = $event"
-      placeholder="Selecciona un tipo de tarea"
-      searchPlaceholder="Buscar tipo de tarea..."
-      [required]="true">
-    </app-searchable-dropdown>
+    <!-- Selector jerárquico de tareas -->
+    <app-hierarchical-task-selector
+      [grupoTrabajo]="grupoTrabajo"
+      [selectedTarea]="selectedTareaJerarquica"
+      (tareaSelected)="onTareaJerarquicaSelected($event)">
+    </app-hierarchical-task-selector>
     
     <!-- Configuraciones globales -->
     <div class="global-settings">

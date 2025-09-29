@@ -19,6 +19,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   @Input() isEncargado: boolean = false;
   @Input() name?: string;
   @Input() userId!: string;
+  @Input() loggedUser: any;
 
   isAddingTask = false;
   tasks: Task[] = [];

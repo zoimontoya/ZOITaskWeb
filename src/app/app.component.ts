@@ -36,7 +36,7 @@ export class AppComponent {
       next: res => {
         if (res.success) {
           this.isAuthenticated = true;
-          this.loggedUser = { id: username, name: res.name || username, rol: res.rol };
+          this.loggedUser = { id: username, name: res.name || username, rol: res.rol, grupo_trabajo: res.grupo_trabajo };
         } else {
           setTimeout(() => {
             const loginCmp = document.querySelector('app-login') as any;

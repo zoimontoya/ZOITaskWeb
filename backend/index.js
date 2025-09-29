@@ -263,6 +263,107 @@ app.get('/encargados', async (req, res) => {
   }
 });
 
+// Obtener encargados filtrados por grupo de trabajo
+app.get('/encargados/:grupo', async (req, res) => {
+  try {
+    const { grupo } = req.params;
+    console.log('Obteniendo encargados para grupo:', grupo);
+    
+    const client = await auth.getClient();
+    const sheets = google.sheets({ version: 'v4', auth: client });
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: 'Usuarios',
+    });
+    
+    const rows = response.data.values;
+    if (!rows || rows.length === 0) {
+      console.log('No hay filas en Usuarios');
+      return res.json([]);
+    }
+    
+    const headers = rows[0];
+    const idxRol = headers.findIndex(h => h.toLowerCase() === 'rol');
+    const idxId = headers.findIndex(h => h.toLowerCase() === 'id');
+    const idxName = headers.findIndex(h => h.toLowerCase() === 'name');
+    const idxGrupo = headers.findIndex(h => h.toLowerCase().includes('grupo'));
+    
+    if (idxRol === -1 || idxId === -1 || idxName === -1 || idxGrupo === -1) {
+      console.log('Faltan columnas necesarias en Usuarios');
+      return res.status(500).json({ error: 'Faltan columnas necesarias' });
+    }
+    
+    const encargados = rows.slice(1)
+      .filter(row => 
+        row[idxRol] && 
+        String(row[idxRol]).toLowerCase() === 'encargado' &&
+        row[idxGrupo] &&
+        String(row[idxGrupo]).toUpperCase() === grupo.toUpperCase()
+      )
+      .map(row => ({
+        id: row[idxId],
+        name: row[idxName],
+        rol: row[idxRol],
+        grupo_trabajo: row[idxGrupo]
+      }));
+    
+    console.log(`Encargados encontrados para ${grupo}:`, encargados.length);
+    res.json(encargados);
+  } catch (err) {
+    console.error('Error en /encargados filtrados:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Obtener tipos de tarea filtrados por grupo de trabajo
+app.get('/tipos-tarea/:grupo', async (req, res) => {
+  try {
+    const { grupo } = req.params;
+    console.log('Obteniendo tipos de tarea para grupo:', grupo);
+    
+    const client = await auth.getClient();
+    const sheets = google.sheets({ version: 'v4', auth: client });
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: 'TiposTareas',
+    });
+    
+    const rows = response.data.values;
+    if (!rows || rows.length === 0) {
+      console.log('No hay tipos de tarea en la hoja');
+      return res.json([]);
+    }
+    
+    // Asumiendo estructura: grupo_trabajo | familia | tipo | subtipo | tarea_nombre | jornal_unidad
+    const headers = rows[0];
+    const idxGrupo = headers.findIndex(h => h.toLowerCase().includes('grupo'));
+    const idxFamilia = headers.findIndex(h => h.toLowerCase().includes('familia'));
+    const idxTipo = headers.findIndex(h => h.toLowerCase().includes('tipo'));
+    const idxSubtipo = headers.findIndex(h => h.toLowerCase().includes('subtipo'));
+    const idxNombre = headers.findIndex(h => h.toLowerCase().includes('tarea_nombre'));
+    const idxJornal = headers.findIndex(h => h.toLowerCase().includes('jornal_unidad'));
+    
+    console.log('Índices encontrados:', { idxGrupo, idxFamilia, idxTipo, idxSubtipo, idxNombre, idxJornal });
+    
+    const tiposTarea = rows.slice(1)
+      .filter(row => row[idxGrupo] && String(row[idxGrupo]).toUpperCase() === grupo.toUpperCase())
+      .map(row => ({
+        grupo_trabajo: row[idxGrupo] || '',
+        familia: row[idxFamilia] || '',
+        tipo: row[idxTipo] || '',
+        subtipo: row[idxSubtipo] || '',
+        tarea_nombre: row[idxNombre] || '',
+        jornal_unidad: row[idxJornal] || ''
+      }));
+    
+    console.log(`Tipos de tarea encontrados para ${grupo}:`, tiposTarea.length);
+    res.json(tiposTarea);
+  } catch (err) {
+    console.error('Error en /tipos-tarea:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Obtener todas las tareas
 app.get('/tasks', async (req, res) => {
   try {
@@ -388,7 +489,8 @@ app.post('/login', async (req, res) => {
     const idxPassword = headers.findIndex(h => h.toLowerCase() === 'password');
     const idxRol = headers.findIndex(h => h.toLowerCase() === 'rol');
     const idxName = headers.findIndex(h => h.toLowerCase() === 'name');
-    console.log('Índices:', { idxId, idxPassword, idxRol, idxName });
+    const idxGrupo = headers.findIndex(h => h.toLowerCase().includes('grupo'));
+    console.log('Índices:', { idxId, idxPassword, idxRol, idxName, idxGrupo });
     if (idxId === -1 || idxPassword === -1) {
       console.log('Faltan columnas id/password');
       return res.status(500).json({ success: false, error: 'Faltan columnas id/password' });
@@ -400,8 +502,9 @@ app.post('/login', async (req, res) => {
     if (userRow) {
       const rol = idxRol !== -1 ? userRow[idxRol] : undefined;
       const name = idxName !== -1 ? userRow[idxName] : id;
-      console.log('Login correcto:', { id, rol, name });
-      return res.json({ success: true, id, rol, name });
+      const grupo_trabajo = idxGrupo !== -1 ? userRow[idxGrupo] : undefined;
+      console.log('Login correcto:', { id, rol, name, grupo_trabajo });
+      return res.json({ success: true, id, rol, name, grupo_trabajo });
     } else {
       console.log('ID o contraseña incorrectos');
       return res.json({ success: false });

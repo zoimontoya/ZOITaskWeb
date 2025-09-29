@@ -12,9 +12,9 @@
     } @else {
         @if (!errorMsg) {
             @if (isSuperior && loggedUser) {
-                <app-tasks [userId]="loggedUser.id!" [name]="loggedUser.name!" [isEncargado]="false" />
+                <app-tasks [userId]="loggedUser.id!" [name]="loggedUser.name!" [isEncargado]="false" [loggedUser]="loggedUser" />
             } @else if (isEncargado && loggedUser) {
-                <app-tasks [userId]="loggedUser.id!" [name]="loggedUser.name!" [isEncargado]="true" />
+                <app-tasks [userId]="loggedUser.id!" [name]="loggedUser.name!" [isEncargado]="true" [loggedUser]="loggedUser" />
             }
         } @else {
             <p style="color: red; font-weight: bold;">{{ errorMsg }}</p>

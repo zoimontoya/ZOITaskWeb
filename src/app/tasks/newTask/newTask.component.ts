@@ -9,12 +9,13 @@ import { HttpClient } from '@angular/common/http';
 import { User } from '../../user/user.model';
 import { InvernaderoSelectorComponent, InvernaderoSelection } from '../../shared/invernadero-selector/invernadero-selector.component';
 import { SearchableDropdownComponent, DropdownOption } from '../../shared/searchable-dropdown/searchable-dropdown.component';
+import { HierarchicalTaskSelectorComponent } from '../../shared/hierarchical-task-selector/hierarchical-task-selector.component';
 import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-newTask',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatSelectModule, MatCheckboxModule, InvernaderoSelectorComponent, SearchableDropdownComponent],
+  imports: [CommonModule, FormsModule, MatSelectModule, MatCheckboxModule, InvernaderoSelectorComponent, SearchableDropdownComponent, HierarchicalTaskSelectorComponent],
   templateUrl: './newTask.component.html',
   styleUrls: ['./newTask.component.css']
 })
@@ -72,8 +73,18 @@ export class newTaskComponent implements OnInit, OnChanges {
   // Interruptor para tipo de medición: false = Hectáreas, true = Kilos
   useKilosMode: boolean = false; // false = Hectáreas (0), true = Kilos (1)
 
+  // Nuevas propiedades para el selector jerárquico de tareas
+  @Input() loggedUser: User | undefined = undefined;
+  selectedTareaJerarquica: string = '';
+  grupoTrabajo: string = '';
+
   ngOnInit() {
     console.log(`INIT: useEightHourJornal = ${this.useEightHourJornal}`);
+    
+    // Establecer grupo de trabajo del usuario logueado
+    if (this.loggedUser?.grupo_trabajo) {
+      this.grupoTrabajo = this.loggedUser.grupo_trabajo;
+    }
     
     this.greenhouseService.getGreenhouses().subscribe(data => {
       this.greenhouses = data;
@@ -88,15 +99,18 @@ export class newTaskComponent implements OnInit, OnChanges {
         label: t.tipo
       }));
     });
-    // Obtener encargados desde el backend
-    this.http.get<User[]>(`${environment.apiBaseUrl}/encargados`).subscribe(encargados => {
-      this.encargados = encargados;
-      // Convertir a opciones para el dropdown con buscador
-      this.encargadoOptions = this.encargados.map(e => ({
-        value: e.id,
-        label: e.name
-      }));
-    });
+    // Obtener encargados filtrados por grupo de trabajo
+    if (this.grupoTrabajo) {
+      this.http.get<User[]>(`${environment.apiBaseUrl}/encargados/${this.grupoTrabajo}`).subscribe(encargados => {
+        this.encargados = encargados;
+        // Convertir a opciones para el dropdown con buscador
+        this.encargadoOptions = this.encargados.map(e => ({
+          value: e.id,
+          label: e.name
+        }));
+
+      });
+    }
   }
 
   ngOnChanges(changes: SimpleChanges) {
@@ -361,6 +375,12 @@ export class newTaskComponent implements OnInit, OnChanges {
         this.selectedEncargados[inv] = this.selectedEncargado;
       });
     }
+  }
+
+  // Método para manejar la selección del selector jerárquico de tareas
+  onTareaJerarquicaSelected(tareaNombre: string) {
+    this.selectedTareaJerarquica = tareaNombre;
+    this.selectedTaskType = tareaNombre; // Mantener compatibilidad
   }
 
   getSelectedInvernaderos(): string[] {
