@@ -2,7 +2,7 @@
 <dialog open>
   <h2>{{ task ? 'Editar Tarea' : 'Nueva Tarea' }}</h2>
   <form (ngSubmit)="onSubmit()">
-    <!-- Usar el nuevo selector jerárquico -->
+    <!-- Selector de invernaderos -->
     <app-invernadero-selector
       [initialValue]="task?.invernadero || ''"
       [cabezalFilter]="loggedUser?.cabezal || ''"
@@ -15,6 +15,13 @@
       [selectedTarea]="selectedTareaJerarquica"
       (tareaSelected)="onTareaJerarquicaSelected($event)">
     </app-hierarchical-task-selector>
+    
+    <!-- Información de jornal_unidad -->
+    <div *ngIf="selectedTaskJornalUnidad > 0" class="jornal-info">
+      <small class="jornal-info-text">
+        <strong>Jornales por hectárea:</strong> {{ selectedTaskJornalUnidad.toFixed(2).replace('.', ',') }} jornales/Ha
+      </small>
+    </div>
     
     <!-- Configuraciones globales -->
     <div class="global-settings">
@@ -149,7 +156,7 @@
                 [max]="getMaxArea(invernadero)"
                 [step]="0.01"
                 [value]="workingAreas[invernadero] || 0"
-                (input)="updateWorkingArea(invernadero, $event)"
+                (input)="updateWorkingAreaAndEstimation(invernadero, $event)"
                 [id]="'areaSlider_' + invernadero">
               <div class="slider-track-bg"></div>
               <div class="slider-track-fill" 
@@ -165,7 +172,7 @@
                 [max]="getMaxArea(invernadero)"
                 [step]="0.01"
                 [value]="workingAreas[invernadero] || 0"
-                (input)="updateWorkingArea(invernadero, $event)"
+                (input)="updateWorkingAreaAndEstimation(invernadero, $event)"
                 placeholder="Área">
               <span class="area-unit">Ha</span>
             </div>

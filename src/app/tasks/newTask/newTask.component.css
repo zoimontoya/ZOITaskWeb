@@ -784,6 +784,23 @@ select:required::after {
   }
 }
 
+
+
+/* Estilos para información de jornal_unidad */
+.jornal-info {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-left: 3px solid #4CAF50;
+  padding: 8px 12px;
+  margin: 10px 0;
+  border-radius: 4px;
+}
+
+.jornal-info-text {
+  color: #e0e0e0;
+  font-size: 0.9em;
+  margin: 0;
+}
+
 @media (min-width: 768px) {
   dialog {
     padding: 2rem;

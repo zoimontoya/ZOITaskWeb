@@ -27,7 +27,7 @@ interface TareaOption {
 export class HierarchicalTaskSelectorComponent implements OnInit, OnChanges {
   @Input() grupoTrabajo: string = '';
   @Input() selectedTarea: string = '';
-  @Output() tareaSelected = new EventEmitter<string>();
+  @Output() tareaSelected = new EventEmitter<{nombre: string, jornal_unidad: number}>();
 
   tiposTarea: TipoTarea[] = [];
   tipos: TareaOption[] = [];
@@ -173,6 +173,7 @@ export class HierarchicalTaskSelectorComponent implements OnInit, OnChanges {
 
   private emitSelection(): void {
     let tareaNombre = '';
+    let jornalUnidad = 0;
 
     if (this.selectedTipo) {
       if (this.selectedTipo.includes('|')) {
@@ -183,6 +184,7 @@ export class HierarchicalTaskSelectorComponent implements OnInit, OnChanges {
           t.subtipo === subtipo
         );
         tareaNombre = tareaFound?.tarea_nombre || '';
+        jornalUnidad = parseFloat(tareaFound?.jornal_unidad.replace(',', '.') || '0') || 0;
       } else {
         // Es un tipo simple sin subtipos
         const tareaFound = this.tiposTarea.find(t => 
@@ -190,10 +192,14 @@ export class HierarchicalTaskSelectorComponent implements OnInit, OnChanges {
           !t.subtipo
         );
         tareaNombre = tareaFound?.tarea_nombre || '';
+        jornalUnidad = parseFloat(tareaFound?.jornal_unidad.replace(',', '.') || '0') || 0;
       }
     }
 
-    this.tareaSelected.emit(tareaNombre);
+    this.tareaSelected.emit({
+      nombre: tareaNombre,
+      jornal_unidad: jornalUnidad
+    });
   }
 
   private resetSelections(): void {
