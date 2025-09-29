@@ -592,8 +592,25 @@ app.get('/tasks', async (req, res) => {
       finalObj.nombre_superior = finalObj.nombre_superior || '';
       finalObj.fecha_inicio = finalObj.fecha_inicio || '';
       finalObj.fecha_fin = finalObj.fecha_fin || '';
-      finalObj.desarrollo_actual = finalObj.desarrollo_actual || '';
-      finalObj.dimension_total = finalObj.dimension_total || '';
+      
+      // Procesar desarrollo_actual para convertir formato europeo (coma) a americano (punto)
+      let desarrolloValue = finalObj.desarrollo_actual || '';
+      if (desarrolloValue && typeof desarrolloValue === 'string') {
+        desarrolloValue = desarrolloValue.replace(',', '.');
+        finalObj.desarrollo_actual = parseFloat(desarrolloValue) || 0;
+      } else {
+        finalObj.desarrollo_actual = parseFloat(desarrolloValue) || 0;
+      }
+      
+      // Procesar dimension_total para convertir formato europeo (coma) a americano (punto)
+      let dimensionValue = finalObj.dimension_total || '';
+      if (dimensionValue && typeof dimensionValue === 'string') {
+        // Convertir coma decimal europea a punto decimal americano
+        dimensionValue = dimensionValue.replace(',', '.');
+        finalObj.dimension_total = parseFloat(dimensionValue) || 0;
+      } else {
+        finalObj.dimension_total = parseFloat(dimensionValue) || 0;
+      }
       
       // SIMPLIFICADO: Solo devolver los valores tal como están almacenados
       // La conversión se hace en el frontend

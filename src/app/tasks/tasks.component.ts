@@ -174,6 +174,13 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
           factor: t.hora_jornal === 1 ? '8h' : '6h'
         })));
         
+        // DEBUG: Verificar dimension_total
+        console.log('DEBUG dimension_total:', tasksConvertidas.slice(0, 3).map(t => ({ 
+          id: t.id, 
+          dimension_total: t.dimension_total,
+          tipo_dimension: typeof t.dimension_total
+        })));
+        
         if (this.isEncargado && this.userId) {
           // Para encargados: filtrar solo sus tareas
           const userIdNorm = String(this.userId).trim().toLowerCase();
@@ -608,10 +615,31 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     }
   }
 
-  // Formatear dimension_total para mostrar con coma decimal
+  // Formatear dimension_total para mostrar con coma decimal (hasta 4 decimales)
   formatDimensionTotal(value: string | number): string {
-    if (!value) return '0,00';
+    // DEBUG: Ver qué valor está llegando
+    console.log('formatDimensionTotal recibió:', value, 'tipo:', typeof value);
+    
+    if (!value || value === 0) return '0,00';
     const numValue = typeof value === 'string' ? parseFloat(value) : value;
-    return numValue.toFixed(2).replace('.', ',');
+    
+    // Si es NaN o 0, mostrar 0,00
+    if (isNaN(numValue) || numValue === 0) return '0,00';
+    
+    // Mostrar hasta 4 decimales, eliminando ceros innecesarios al final
+    let formatted = numValue.toFixed(4);
+    
+    // Eliminar ceros innecesarios al final
+    formatted = formatted.replace(/\.?0+$/, '');
+    
+    // Si no hay decimales, agregar ",00"
+    if (!formatted.includes('.')) {
+      formatted += '.00';
+    }
+    
+    // Reemplazar punto por coma
+    const result = formatted.replace('.', ',');
+    console.log('formatDimensionTotal resultado:', result);
+    return result;
   }
 }
