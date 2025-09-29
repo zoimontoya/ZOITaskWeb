@@ -1,6 +1,8 @@
 import { Component, Input, Output, EventEmitter, OnInit, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
+import { environment } from '../../../environments/environment';
 
 interface TipoTarea {
   grupo_trabajo: string;
@@ -42,8 +44,9 @@ export class HierarchicalTaskSelectorComponent implements OnInit, OnChanges {
   isDropdownOpen: boolean = false;
   highlightedIndex: number = -1;
   closeTimeout: any;
+  private apiUrl = environment.apiBaseUrl;
 
-  constructor() { }
+  constructor(private http: HttpClient) { }
 
   ngOnInit(): void {
     if (this.grupoTrabajo) {
@@ -58,28 +61,30 @@ export class HierarchicalTaskSelectorComponent implements OnInit, OnChanges {
     }
   }
 
-  async loadTiposTarea(): Promise<void> {
-    try {
-      const response = await fetch(`http://localhost:3000/tipos-tarea/${this.grupoTrabajo}`);
-      this.tiposTarea = await response.json();
-      
-      // Extraer tipos únicos directamente
-      const tiposUnicos = [...new Set(this.tiposTarea.map(t => t.tipo))].filter(t => t);
-      
-      this.tipos = tiposUnicos.map(tipo => {
-        const hasSubtareas = this.tiposTarea.some(t => t.tipo === tipo && t.subtipo);
-        return {
-          value: tipo,
-          label: tipo,
-          hasSubtareas
-        };
-      });
-      
-      // Inicializar las opciones filtradas
-      this.updateFilteredOptions();
-    } catch (error) {
-      console.error('Error cargando tipos de tarea:', error);
-    }
+  loadTiposTarea(): void {
+    this.http.get<TipoTarea[]>(`${this.apiUrl}/tipos-tarea/${this.grupoTrabajo}`).subscribe({
+      next: (tiposTarea) => {
+        this.tiposTarea = tiposTarea;
+        
+        // Extraer tipos únicos directamente
+        const tiposUnicos = [...new Set(this.tiposTarea.map(t => t.tipo))].filter(t => t);
+        
+        this.tipos = tiposUnicos.map(tipo => {
+          const hasSubtareas = this.tiposTarea.some(t => t.tipo === tipo && t.subtipo);
+          return {
+            value: tipo,
+            label: tipo,
+            hasSubtareas
+          };
+        });
+        
+        // Inicializar las opciones filtradas
+        this.updateFilteredOptions();
+      },
+      error: (error) => {
+        console.error('Error cargando tipos de tarea:', error);
+      }
+    });
   }
 
 
