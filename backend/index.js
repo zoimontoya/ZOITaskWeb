@@ -126,7 +126,101 @@ async function getInvernaderosDimensions(client) {
   }
 }
 
-// Endpoint para obtener invernaderos agrupados por cabezal
+// Endpoint para obtener invernaderos filtrados por cabezal
+app.get('/invernaderos/:cabezal', async (req, res) => {
+  try {
+    const { cabezal } = req.params;
+    console.log('Obteniendo invernaderos para cabezal:', cabezal);
+    
+    const client = await auth.getClient();
+    const sheets = google.sheets({ version: 'v4', auth: client });
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: 'Invernaderos',
+      valueRenderOption: 'UNFORMATTED_VALUE',
+      dateTimeRenderOption: 'FORMATTED_STRING'
+    });
+
+    const rows = response.data.values;
+    if (!rows || rows.length === 0) {
+      console.log('No hay filas en Invernaderos');
+      return res.json({ cabezales: [] });
+    }
+
+    const headers = rows[0];
+    console.log('Headers en Invernaderos:', headers);
+
+    const nameIdx = headers.findIndex(h => 
+      h && (h.toLowerCase().includes('nombre') || h.toLowerCase().includes('name'))
+    );
+    
+    const cabezalIdx = headers.findIndex(h => 
+      h && h.toLowerCase().includes('cabezal')
+    );
+    
+    const dimensionIdx = headers.findIndex(h => 
+      h && h.toLowerCase().includes('dimension')
+    );
+
+    if (nameIdx === -1) {
+      console.log('No se encontró columna de nombre en Invernaderos');
+      return res.status(500).json({ error: 'No se encontró columna de nombre' });
+    }
+
+    console.log(`Índices: nombre=${nameIdx}, cabezal=${cabezalIdx}, dimensiones=${dimensionIdx}`);
+    
+    // Filtrar invernaderos por cabezal específico
+    const invernaderos = [];
+    
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      const cabezalValue = cabezalIdx !== -1 ? row[cabezalIdx] : 'Sin Cabezal';
+      
+      // Solo incluir si coincide con el cabezal solicitado
+      if (String(cabezalValue).toUpperCase() === cabezal.toUpperCase()) {
+        const nombreInvernadero = row[nameIdx];
+        if (nombreInvernadero && nombreInvernadero.trim()) {
+          const valorDimension = dimensionIdx !== -1 ? row[dimensionIdx] : null;
+          
+          // Procesar dimensión manejando formato europeo (coma decimal)
+          let dimensionValue = 0;
+          if (valorDimension !== undefined && valorDimension !== '') {
+            if (typeof valorDimension === 'number') {
+              dimensionValue = valorDimension;
+            } else if (typeof valorDimension === 'string') {
+              // Convertir formato europeo (28,084) a formato americano (28.084) para parseFloat
+              const europeanFormatted = valorDimension.replace(',', '.');
+              const cleanValue = europeanFormatted.replace(/[^\d.-]/g, '');
+              dimensionValue = parseFloat(cleanValue) || 0;
+            }
+          }
+          
+          invernaderos.push({
+            nombre: nombreInvernadero.trim(),
+            dimensiones: dimensionValue.toString()
+          });
+        }
+      }
+    }
+
+    // Crear estructura de cabezal único
+    const result = {
+      cabezales: [{
+        nombre: cabezal,
+        invernaderos: invernaderos.sort((a, b) => a.nombre.localeCompare(b.nombre))
+      }]
+    };
+
+    console.log(`Invernaderos encontrados para ${cabezal}:`, invernaderos.length);
+    console.log('Dimensiones procesadas:', invernaderos.map(inv => `${inv.nombre}: ${inv.dimensiones}`));
+    res.json(result);
+  } catch (err) {
+    console.error('Error en /invernaderos filtrados:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Endpoint para obtener invernaderos agrupados por cabezal (mantener para compatibilidad)
 app.get('/invernaderos', async (req, res) => {
   try {
     const client = await auth.getClient();
@@ -183,13 +277,15 @@ app.get('/invernaderos', async (req, res) => {
       const valorDimension = dimensionIdx !== -1 ? row[dimensionIdx] : null;
       
       if (nombreInvernadero) {
-        // Procesar dimensión
+        // Procesar dimensión manejando formato europeo (coma decimal)
         let dimensionValue = 0;
         if (valorDimension !== undefined && valorDimension !== '') {
           if (typeof valorDimension === 'number') {
             dimensionValue = valorDimension;
           } else if (typeof valorDimension === 'string') {
-            const cleanValue = valorDimension.replace(/[^\d.-]/g, '');
+            // Convertir formato europeo (28,084) a formato americano (28.084) para parseFloat
+            const europeanFormatted = valorDimension.replace(',', '.');
+            const cleanValue = europeanFormatted.replace(/[^\d.-]/g, '');
             dimensionValue = parseFloat(cleanValue) || 0;
           }
         }
@@ -204,7 +300,7 @@ app.get('/invernaderos', async (req, res) => {
         
         cabezalesMap.get(cabezal).invernaderos.push({
           nombre: nombreInvernadero,
-          dimension: dimensionValue
+          dimensiones: dimensionValue.toString()
         });
       }
     });
@@ -263,7 +359,63 @@ app.get('/encargados', async (req, res) => {
   }
 });
 
-// Obtener encargados filtrados por grupo de trabajo
+// Obtener encargados filtrados por grupo de trabajo y cabezal
+app.get('/encargados/:grupo/:cabezal', async (req, res) => {
+  try {
+    const { grupo, cabezal } = req.params;
+    console.log('Obteniendo encargados para grupo:', grupo, 'y cabezal:', cabezal);
+    
+    const client = await auth.getClient();
+    const sheets = google.sheets({ version: 'v4', auth: client });
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: 'Usuarios',
+    });
+    
+    const rows = response.data.values;
+    if (!rows || rows.length === 0) {
+      console.log('No hay filas en Usuarios');
+      return res.json([]);
+    }
+    
+    const headers = rows[0];
+    const idxRol = headers.findIndex(h => h.toLowerCase() === 'rol');
+    const idxId = headers.findIndex(h => h.toLowerCase() === 'id');
+    const idxName = headers.findIndex(h => h.toLowerCase() === 'name');
+    const idxGrupo = headers.findIndex(h => h.toLowerCase().includes('grupo'));
+    const idxCabezal = headers.findIndex(h => h.toLowerCase().includes('cabezal'));
+    
+    if (idxRol === -1 || idxId === -1 || idxName === -1 || idxGrupo === -1 || idxCabezal === -1) {
+      console.log('Faltan columnas necesarias en Usuarios');
+      return res.status(500).json({ error: 'Faltan columnas necesarias' });
+    }
+    
+    const encargados = rows.slice(1)
+      .filter(row => 
+        row[idxRol] && 
+        String(row[idxRol]).toLowerCase() === 'encargado' &&
+        row[idxGrupo] &&
+        String(row[idxGrupo]).toUpperCase() === grupo.toUpperCase() &&
+        row[idxCabezal] &&
+        String(row[idxCabezal]).toUpperCase() === cabezal.toUpperCase()
+      )
+      .map(row => ({
+        id: row[idxId],
+        name: row[idxName],
+        rol: row[idxRol],
+        grupo_trabajo: row[idxGrupo],
+        cabezal: row[idxCabezal]
+      }));
+    
+    console.log(`Encargados encontrados para ${grupo}/${cabezal}:`, encargados.length);
+    res.json(encargados);
+  } catch (err) {
+    console.error('Error en /encargados filtrados:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Mantener endpoint anterior para compatibilidad (solo por grupo)
 app.get('/encargados/:grupo', async (req, res) => {
   try {
     const { grupo } = req.params;
@@ -490,7 +642,8 @@ app.post('/login', async (req, res) => {
     const idxRol = headers.findIndex(h => h.toLowerCase() === 'rol');
     const idxName = headers.findIndex(h => h.toLowerCase() === 'name');
     const idxGrupo = headers.findIndex(h => h.toLowerCase().includes('grupo'));
-    console.log('Índices:', { idxId, idxPassword, idxRol, idxName, idxGrupo });
+    const idxCabezal = headers.findIndex(h => h.toLowerCase().includes('cabezal'));
+    console.log('Índices:', { idxId, idxPassword, idxRol, idxName, idxGrupo, idxCabezal });
     if (idxId === -1 || idxPassword === -1) {
       console.log('Faltan columnas id/password');
       return res.status(500).json({ success: false, error: 'Faltan columnas id/password' });
@@ -503,8 +656,9 @@ app.post('/login', async (req, res) => {
       const rol = idxRol !== -1 ? userRow[idxRol] : undefined;
       const name = idxName !== -1 ? userRow[idxName] : id;
       const grupo_trabajo = idxGrupo !== -1 ? userRow[idxGrupo] : undefined;
-      console.log('Login correcto:', { id, rol, name, grupo_trabajo });
-      return res.json({ success: true, id, rol, name, grupo_trabajo });
+      const cabezal = idxCabezal !== -1 ? userRow[idxCabezal] : undefined;
+      console.log('Login correcto:', { id, rol, name, grupo_trabajo, cabezal });
+      return res.json({ success: true, id, rol, name, grupo_trabajo, cabezal });
     } else {
       console.log('ID o contraseña incorrectos');
       return res.json({ success: false });

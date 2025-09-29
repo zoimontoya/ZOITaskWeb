@@ -86,11 +86,21 @@ export class newTaskComponent implements OnInit, OnChanges {
       this.grupoTrabajo = this.loggedUser.grupo_trabajo;
     }
     
-    this.greenhouseService.getGreenhouses().subscribe(data => {
-      this.greenhouses = data;
-      // Inicializar el formulario después de cargar los invernaderos
-      this.initFormFromTask();
-    });
+    // Cargar invernaderos filtrados por cabezal del usuario
+    if (this.loggedUser?.cabezal) {
+      this.greenhouseService.getGreenhousesByCabezal(this.loggedUser.cabezal).subscribe(data => {
+        this.greenhouses = data.cabezales.flatMap(cabezal => cabezal.invernaderos);
+        // Inicializar el formulario después de cargar los invernaderos
+        this.initFormFromTask();
+      });
+    } else {
+      // Fallback: cargar todos los invernaderos si no hay cabezal
+      this.greenhouseService.getGreenhouses().subscribe(data => {
+        this.greenhouses = data;
+        // Inicializar el formulario después de cargar los invernaderos
+        this.initFormFromTask();
+      });
+    }
     this.taskTypeService.getTaskTypes().subscribe(data => {
       this.taskTypes = data;
       // Convertir a opciones para el dropdown con buscador
@@ -99,9 +109,9 @@ export class newTaskComponent implements OnInit, OnChanges {
         label: t.tipo
       }));
     });
-    // Obtener encargados filtrados por grupo de trabajo
-    if (this.grupoTrabajo) {
-      this.http.get<User[]>(`${environment.apiBaseUrl}/encargados/${this.grupoTrabajo}`).subscribe(encargados => {
+    // Obtener encargados filtrados por grupo de trabajo y cabezal
+    if (this.grupoTrabajo && this.loggedUser?.cabezal) {
+      this.http.get<User[]>(`${environment.apiBaseUrl}/encargados/${this.grupoTrabajo}/${this.loggedUser.cabezal}`).subscribe(encargados => {
         this.encargados = encargados;
         // Convertir a opciones para el dropdown con buscador
         this.encargadoOptions = this.encargados.map(e => ({
@@ -410,15 +420,15 @@ export class newTaskComponent implements OnInit, OnChanges {
   // Getter que fuerza la evaluación del área actual
   getCurrentAreaDisplay(invernaderoNombre: string): string {
     const area = this.workingAreas[invernaderoNombre];
-    if (area === undefined || area === null || isNaN(area)) return '0.00';
-    // Mostrar 2 decimales para display normal
-    return area.toFixed(2);
+    if (area === undefined || area === null || isNaN(area)) return '0,00';
+    // Mostrar 2 decimales para display normal con coma decimal
+    return area.toFixed(2).replace('.', ',');
   }
   
   // Getter para el área máxima
   getMaxAreaDisplay(invernaderoNombre: string): string {
     const maxArea = this.getMaxArea(invernaderoNombre);
-    return maxArea.toFixed(2);
+    return maxArea.toFixed(2).replace('.', ',');
   }
   
   // Método para actualizar el área de trabajo de un invernadero

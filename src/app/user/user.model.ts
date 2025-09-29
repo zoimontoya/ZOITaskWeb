@@ -3,4 +3,5 @@ export interface User {
   name: string;
   rol?: string;
   grupo_trabajo?: string;
+  cabezal?: string;
 }

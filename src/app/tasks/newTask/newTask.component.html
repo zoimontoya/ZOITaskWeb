@@ -5,6 +5,7 @@
     <!-- Usar el nuevo selector jerárquico -->
     <app-invernadero-selector
       [initialValue]="task?.invernadero || ''"
+      [cabezalFilter]="loggedUser?.cabezal || ''"
       (selectionChange)="onInvernaderoSelectionChange($event)">
     </app-invernadero-selector>
     

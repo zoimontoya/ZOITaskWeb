@@ -2,35 +2,45 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
+import { environment } from '../../environments/environment';
 
 export interface Greenhouse {
   nombre: string;
   dimensiones: string;
 }
 
+export interface Cabezal {
+  nombre: string;
+  invernaderos: Greenhouse[];
+}
+
+export interface GreenhouseResponse {
+  cabezales: Cabezal[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class GreenhouseService {
-  // Reemplaza esta URL por la de tu hoja de cálculo publicada como CSV para invernaderos
-  private csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR_l3eDLgV1-W9cmjmg49gEoNn8nrz8OvwYgZ457tMMaGXWmypEmb-HQ2TXTpPNB5lTEHVlEe4AiHbN/pub?gid=1539495508&single=true&output=csv';
+  private apiUrl = environment.apiBaseUrl;
 
   constructor(private http: HttpClient) {}
 
+  // Obtener todos los invernaderos (mantener para compatibilidad)
   getGreenhouses(): Observable<Greenhouse[]> {
-    return this.http.get(this.csvUrl, { responseType: 'text' }).pipe(
-      map(csv => this.parseCSV(csv))
+    return this.http.get<GreenhouseResponse>(`${this.apiUrl}/invernaderos`).pipe(
+      map(response => {
+        // Aplanar todos los invernaderos de todos los cabezales
+        return response.cabezales.flatMap(cabezal => cabezal.invernaderos);
+      })
     );
   }
-
-  private parseCSV(csv: string): Greenhouse[] {
-    const lines = csv.split('\n');
-    const headers = lines[0].split(',');
-    return lines.slice(1).filter(line => line.trim()).map(line => {
-      const data = line.split(',');
-      const greenhouse: any = {};
-      headers.forEach((header, i) => {
-        greenhouse[header.trim()] = data[i]?.trim();
-      });
-      return greenhouse as Greenhouse;
-    });
+  
+  // Obtener invernaderos filtrados por cabezal
+  getGreenhousesByCabezal(cabezal: string): Observable<GreenhouseResponse> {
+    return this.http.get<GreenhouseResponse>(`${this.apiUrl}/invernaderos/${cabezal}`);
+  }
+  
+  // Obtener todos los invernaderos agrupados por cabezal
+  getGreenhousesGrouped(): Observable<GreenhouseResponse> {
+    return this.http.get<GreenhouseResponse>(`${this.apiUrl}/invernaderos`);
   }
 }

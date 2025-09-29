@@ -43,12 +43,12 @@
                     </div>
                     <div class="hectares-display" *ngIf="taskToComplete">
                         <span class="hectares-text">
-                            {{getHectaresFromProgress()}} / {{taskToComplete.dimension_total}} hectáreas
+                            {{getHectaresFromProgress()}} / {{formatDimensionTotal(taskToComplete.dimension_total)}} hectáreas
                         </span>
                     </div>
                 </div>
                 <div class="dimension-info" *ngIf="taskToComplete && !isKilosMode(taskToComplete)">
-                    <small>Dimensión total: {{taskToComplete.dimension_total}} Ha</small>
+                    <small>Dimensión total: {{formatDimensionTotal(taskToComplete.dimension_total)}} Ha</small>
                 </div>
             </div>
             
@@ -68,7 +68,7 @@
                     <span class="kilos-unit">Kg</span>
                 </div>
                 <div class="kilos-info" *ngIf="taskToComplete">
-                    <small>Kilos esperados: {{taskToComplete.dimension_total}} kg</small>
+                    <small>Kilos esperados: {{formatDimensionTotal(taskToComplete.dimension_total)}} kg</small>
                     <div class="kilos-progress-indicator">
                         <span class="progress-info">
                             ✅ Registro actual: {{(kilosRecogidosValue || 0)}} kg
@@ -261,8 +261,8 @@
                     <span *ngIf="task.fecha_fin">Terminada: <b>{{task.fecha_fin}}</b></span>
                     <span *ngIf="task.dimension_total">
                         <!-- Mostrar dimensión diferente según el tipo -->
-                        <span *ngIf="isKilosMode(task)">Kilos esperados: <b>{{task.dimension_total}} kg</b></span>
-                        <span *ngIf="!isKilosMode(task)">Dimensión: <b>{{task.dimension_total}} Ha</b></span>
+                        <span *ngIf="isKilosMode(task)">Kilos esperados: <b>{{formatDimensionTotal(task.dimension_total)}} kg</b></span>
+                        <span *ngIf="!isKilosMode(task)">Dimensión: <b>{{formatDimensionTotal(task.dimension_total)}} Ha</b></span>
                     </span>
                 </div>
                 <div *ngIf="isEncargado" class="task-actions">

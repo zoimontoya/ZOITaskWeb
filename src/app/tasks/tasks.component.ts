@@ -607,4 +607,11 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
       return false;
     }
   }
+
+  // Formatear dimension_total para mostrar con coma decimal
+  formatDimensionTotal(value: string | number): string {
+    if (!value) return '0,00';
+    const numValue = typeof value === 'string' ? parseFloat(value) : value;
+    return numValue.toFixed(2).replace('.', ',');
+  }
 }

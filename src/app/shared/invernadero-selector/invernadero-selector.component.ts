@@ -69,7 +69,7 @@ export interface InvernaderoSelection {
                         [checked]="selectedInvernaderos.has(invernadero.nombre)"
                         (change)="toggleInvernaderoSelection(invernadero.nombre, cabezal.nombre, $event)">
                       <span class="checkbox-label">
-                        {{ invernadero.nombre }} ({{ invernadero.dimension }}m²)
+                        {{ invernadero.nombre }} ({{ invernadero.dimensiones.toString().replace('.', ',') }}m²)
                       </span>
                     </label>
                   </div>
@@ -291,6 +291,7 @@ export interface InvernaderoSelection {
 })
 export class InvernaderoSelectorComponent implements OnInit {
   @Input() initialValue: string = '';
+  @Input() cabezalFilter: string = '';  // Nuevo input para filtrar por cabezal específico
   @Output() selectionChange = new EventEmitter<InvernaderoSelection>();
   
   cabezales: Cabezal[] = [];
@@ -314,7 +315,13 @@ export class InvernaderoSelectorComponent implements OnInit {
   
   loadInvernaderos() {
     this.loading = true;
-    this.invernaderoService.getInvernaderos().subscribe({
+    
+    // Usar filtrado por cabezal si se especifica
+    const serviceCall = this.cabezalFilter 
+      ? this.invernaderoService.getInvernaderosByCabezal(this.cabezalFilter)
+      : this.invernaderoService.getInvernaderos();
+    
+    serviceCall.subscribe({
       next: (response: InvernaderosResponse) => {
         this.cabezales = response.cabezales;
         this.loading = false;
