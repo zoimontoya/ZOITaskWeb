@@ -174,12 +174,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
           factor: t.hora_jornal === 1 ? '8h' : '6h'
         })));
         
-        // DEBUG: Verificar dimension_total
-        console.log('DEBUG dimension_total:', tasksConvertidas.slice(0, 3).map(t => ({ 
-          id: t.id, 
-          dimension_total: t.dimension_total,
-          tipo_dimension: typeof t.dimension_total
-        })));
+
         
         if (this.isEncargado && this.userId) {
           // Para encargados: filtrar solo sus tareas
@@ -452,7 +447,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
         return; // No hay cambios
       }
       
-      const totalHectares = parseFloat((this.taskToComplete.dimension_total || '0').replace(',', '.'));
+      const totalHectares = this.parseDimension(this.taskToComplete.dimension_total);
       const hectareasActuales = (totalHectares * this.progressValue) / 100;
       
       progressValue = this.progressValue;
@@ -502,7 +497,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
         alert('Para completar la tarea el progreso debe estar al 100%.');
         return;
       }
-      const totalHectares = parseFloat((this.taskToComplete.dimension_total || '0').replace(',', '.'));
+      const totalHectares = this.parseDimension(this.taskToComplete.dimension_total);
       desarrolloValue = totalHectares; // 100% = todas las hectáreas
       console.log(`COMPLETANDO MODO HECTÁREAS: ${desarrolloValue} Ha (100%)`);
     }
@@ -557,14 +552,13 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   getHectaresFromProgress(): string {
     if (!this.taskToComplete?.dimension_total) return '0';
     
-    const totalHectares = parseFloat(this.taskToComplete.dimension_total.replace(',', '.'));
+    const totalHectares = this.parseDimension(this.taskToComplete.dimension_total);
+    if (totalHectares === 0) return '0';
+    
     const currentHectares = (totalHectares * this.progressValue) / 100;
     
-    // Formatear con comas como separador de miles si es necesario
-    return currentHectares.toLocaleString('es-ES', { 
-      minimumFractionDigits: 0, 
-      maximumFractionDigits: 3 
-    });
+    // Usar el mismo formato que formatDimensionTotal para consistencia
+    return this.formatDimensionTotal(currentHectares);
   }
 
   // Verificar si la tarea está en modo kilos (horas_kilos = 1)
@@ -617,9 +611,6 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
 
   // Formatear dimension_total para mostrar con coma decimal (hasta 4 decimales)
   formatDimensionTotal(value: string | number): string {
-    // DEBUG: Ver qué valor está llegando
-    console.log('formatDimensionTotal recibió:', value, 'tipo:', typeof value);
-    
     if (!value || value === 0) return '0,00';
     const numValue = typeof value === 'string' ? parseFloat(value) : value;
     
@@ -638,8 +629,32 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     }
     
     // Reemplazar punto por coma
-    const result = formatted.replace('.', ',');
-    console.log('formatDimensionTotal resultado:', result);
-    return result;
+    return formatted.replace('.', ',');
+  }
+
+  // Método helper para convertir dimensión a número de manera consistente
+  private parseDimension(value: any): number {
+    if (!value) return 0;
+    if (typeof value === 'number') return value;
+    // Convertir string a número manejando comas europeas
+    return parseFloat(String(value).replace(',', '.')) || 0;
+  }
+
+  // Método para mostrar progreso detallado como "7,8/14,35 (45%)"
+  getDetailedProgress(task: any): string {
+    if (!task.dimension_total || !task.desarrollo_actual || !task.progreso) {
+      return '';
+    }
+
+    // Solo mostrar para tareas con progreso numérico (no "No iniciado", "Terminada", etc.)
+    const progressNum = parseFloat(task.progreso);
+    if (isNaN(progressNum)) {
+      return '';
+    }
+
+    const desarrolloActual = this.formatDimensionTotal(task.desarrollo_actual);
+    const dimensionTotal = this.formatDimensionTotal(task.dimension_total);
+    
+    return `${desarrolloActual}/${dimensionTotal} (${task.progreso}%)`;
   }
 }

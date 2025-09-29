@@ -252,7 +252,10 @@
                             </ng-container>
                             <!-- Tareas normales (hectáreas): Mostrar progreso normal -->
                             <ng-container *ngIf="!isKilosMode(task)">
-                                <span *ngIf="isNumber(task.progreso)" class="progress-value">{{task.progreso}}%</span>
+                                <span *ngIf="isNumber(task.progreso)" class="progress-value">
+                                    {{task.progreso}}%
+                                    <span *ngIf="getDetailedProgress(task)" class="detailed-progress"> - {{getDetailedProgress(task)}}</span>
+                                </span>
                                 <span *ngIf="!isNumber(task.progreso)">{{task.progreso}}</span>
                             </ng-container>
                         </b>

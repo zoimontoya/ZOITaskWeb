@@ -623,6 +623,14 @@
   white-space: nowrap;
   display: inline-block;
 }
+
+/* Estilo para el progreso detallado */
+.detailed-progress {
+  font-size: 0.9em;
+  color: var(--secondary-text);
+  font-weight: normal;
+  margin-left: 0.3em;
+}
 /* Ajustar el ancho para ocupar toda la pantalla */
 #tasks {
   padding: 1rem;
