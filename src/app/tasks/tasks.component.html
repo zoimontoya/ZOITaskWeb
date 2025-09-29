@@ -47,9 +47,6 @@
                         </span>
                     </div>
                 </div>
-                <div class="dimension-info" *ngIf="taskToComplete && !isKilosMode(taskToComplete)">
-                    <small>Dimensión total: {{formatDimensionTotal(taskToComplete.dimension_total)}} Ha</small>
-                </div>
             </div>
             
             <!-- MODO KILOS: Input directo para kilos recogidos -->
@@ -254,7 +251,7 @@
                             <ng-container *ngIf="!isKilosMode(task)">
                                 <span *ngIf="isNumber(task.progreso)" class="progress-value">
                                     {{task.progreso}}%
-                                    <span *ngIf="getDetailedProgress(task)" class="detailed-progress"> - {{getDetailedProgress(task)}}</span>
+                                    <span *ngIf="getDetailedProgress(task)" class="detailed-progress"></span>
                                 </span>
                                 <span *ngIf="!isNumber(task.progreso)">{{task.progreso}}</span>
                             </ng-container>
