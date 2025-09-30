@@ -52,6 +52,11 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   trabajadoresAsignados: TrabajadorAsignado[] = [];
   trabajadoresValidados = false; // Flag para saber si las horas cuadran
 
+  // Protección contra double-click
+  isProcessing = false;
+  
+
+
   constructor(private taskService: TasksService, private greenhouseService: GreenhouseService, private userService: UserService, private trabajadoresService: TrabajadoresService) {}
 
   ngOnInit() {
@@ -154,9 +159,6 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     this.loading = true;
     this.taskService.getTasks().subscribe({
       next: (tasks) => {
-        // DEBUG: log userId y encargado_id de cada tarea
-        console.log('userId recibido:', this.userId);
-        console.log('Tareas recibidas:', tasks.map(t => t.encargado_id));
         
         // CONVERSIÓN DE HORAS A JORNALES EN EL FRONTEND
         const tasksConvertidas = tasks.map(t => {
@@ -172,24 +174,30 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
           };
         });
         
-        // DEBUG: Verificar conversión
-        console.log('DEBUG conversión:', tasksConvertidas.slice(0, 2).map(t => ({ 
-          id: t.id, 
-          hora_jornal: t.hora_jornal,
-          horas_almacenadas: tasks.find(orig => orig.id === t.id)?.estimacion_horas,
-          jornales_calculados: t.estimacion_horas,
-          factor: t.hora_jornal === 1 ? '8h' : '6h'
-        })));
-        
-
         
         if (this.isEncargado && this.userId) {
           // Para encargados: filtrar solo sus tareas
           const userIdNorm = String(this.userId).trim().toLowerCase();
           this.tasks = tasksConvertidas.filter(t => String(t.encargado_id).trim().toLowerCase() === userIdNorm);
         } else {
-          // Para supervisores: mostrar todas las tareas
-          this.tasks = tasksConvertidas;
+          // Para superiores: filtrar solo las tareas que han creado ellos
+          const userNameNorm = String(this.name || '').trim().toLowerCase();
+          const userFullName = String(this.loggedUser?.nombre_completo || '').trim().toLowerCase();
+          const userIdStr = String(this.userId || '').trim().toLowerCase();
+          
+          this.tasks = tasksConvertidas.filter(t => {
+            const taskSuperior = String(t.nombre_superior || '').trim().toLowerCase();
+            
+            // Si nombre_superior está vacío o es null, NO mostrar la tarea
+            if (!taskSuperior || taskSuperior === '') {
+              return false;
+            }
+            
+            // Comparación exacta con todos los identificadores posibles
+            return taskSuperior === userNameNorm || 
+                   taskSuperior === userFullName ||
+                   taskSuperior === userIdStr;
+          });
         }
         this.invernaderos = Array.from(new Set(this.tasks.map(t => t.invernadero).filter(Boolean)));
         this.tiposTarea = Array.from(new Set(this.tasks.map(t => t.tipo_tarea).filter(Boolean)));
@@ -330,9 +338,11 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     
     // CORRECCIÓN: Usar el dimension_total del formulario, no del invernadero
     // El usuario puede haber editado el área de trabajo específica
+    const superiorId = this.loggedUser?.nombre_completo || this.name || this.userId || '';
+    
     const tareaCompleta = {
       ...tarea,
-      nombre_superior: this.name || '',
+      nombre_superior: superiorId,
       // Usar el dimension_total que viene del formulario de edición
       dimension_total: tarea.dimension_total || this.editingTask.dimension_total || '0'
     };
@@ -374,14 +384,16 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
 
   onAddTask(taskData: any) {
     // taskData es un array de tareas. Agregar nombre_superior a cada una
+    const superiorId = this.loggedUser?.nombre_completo || this.name || this.userId || '';
+    
     const tareasConSuperior = Array.isArray(taskData) 
       ? taskData.map(tarea => ({
           ...tarea,
-          nombre_superior: this.name || ''
+          nombre_superior: superiorId
         }))
       : [{
           ...taskData,
-          nombre_superior: this.name || ''
+          nombre_superior: superiorId
         }];
     
     this.taskService.addTask(tareasConSuperior).subscribe({
@@ -429,17 +441,20 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   }
 
   onUpdateProgressOnly() {
-    if (!this.taskToComplete) return;
+    if (!this.taskToComplete || this.isProcessing) return;
+    this.isProcessing = true;
     
     // Validar que se haya ingresado el número de horas reales
     if (!this.jornalesRealesValue || this.jornalesRealesValue <= 0) {
       alert('Por favor, ingresa el número de horas realmente trabajadas.');
+      this.isProcessing = false;
       return;
     }
 
     // Validar que se hayan asignado trabajadores
     if (!this.canProceedWithUpdate()) {
       alert('Debe asignar trabajadores y validar que las horas cuadren antes de actualizar el progreso.');
+      this.isProcessing = false;
       return;
     }
     
@@ -482,26 +497,31 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
           this.jornalesRealesValue = 0; // Limpiar jornales reales
           this.kilosRecogidosValue = 0; // Limpiar kilos recogidos
           this.loadTasks(); // Recargar para ver cambios
+          this.isProcessing = false;
         },
         error: (err: any) => {
           console.error('Error al actualizar progreso:', err);
           alert('Error al actualizar el progreso. Inténtalo de nuevo.');
+          this.isProcessing = false;
         }
       });
   }
 
   onConfirmCompleteTask() {
-    if (!this.taskToComplete) return;
+    if (!this.taskToComplete || this.isProcessing) return;
+    this.isProcessing = true;
     
     // Validar que se haya ingresado el número de horas reales
     if (!this.jornalesRealesValue || this.jornalesRealesValue <= 0) {
       alert('Por favor, ingresa el número de horas realmente trabajadas para completar la tarea.');
+      this.isProcessing = false;
       return;
     }
 
     // Validar que se hayan asignado trabajadores
     if (!this.canProceedWithUpdate()) {
       alert('Debe asignar trabajadores y validar que las horas cuadren antes de completar la tarea.');
+      this.isProcessing = false;
       return;
     }
     
@@ -525,32 +545,22 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
       console.log(`COMPLETANDO MODO HECTÁREAS: ${desarrolloValue} Ha (100%)`);
     }
     
-    // Actualizar el progreso al 100% y completar
-    this.taskService.updateTaskProgress(this.taskToComplete.id, progressValue, desarrolloValue, this.jornalesRealesValue, this.trabajadoresAsignados, this.name).subscribe({
+    // Completar directamente (actualizar progreso al 100% y completar en una sola operación)
+    this.taskService.completeTaskDirect(this.taskToComplete.id, progressValue, desarrolloValue, this.jornalesRealesValue, this.trabajadoresAsignados, this.name).subscribe({
         next: () => {
-          console.log('Progreso actualizado al 100%');
-          // Después completar la tarea (cambiar estado)
-          if (this.taskToComplete) {
-            this.taskService.completeTask(this.taskToComplete.id, this.trabajadoresAsignados, this.name).subscribe({
-              next: () => {
-                console.log('Tarea completada correctamente');
-                this.showCompleteModal = false;
-                this.taskToComplete = null;
-                this.progressValue = 0;
-                this.jornalesRealesValue = 0; // Limpiar jornales reales
-                this.kilosRecogidosValue = 0; // Limpiar kilos recogidos
-                this.loadTasks(); // Recargar para ver cambios
-              },
-              error: (err) => {
-                console.error('Error al completar tarea:', err);
-                alert('Error al completar la tarea. Inténtalo de nuevo.');
-              }
-            });
-          }
+          console.log('Tarea completada correctamente (operación única)');
+          this.showCompleteModal = false;
+          this.taskToComplete = null;
+          this.progressValue = 0;
+          this.jornalesRealesValue = 0; // Limpiar jornales reales
+          this.kilosRecogidosValue = 0; // Limpiar kilos recogidos
+          this.loadTasks(); // Recargar para ver cambios
+          this.isProcessing = false;
         },
         error: (err: any) => {
-          console.error('Error al actualizar progreso final:', err);
-          alert('Error al actualizar el progreso final. Inténtalo de nuevo.');
+          console.error('Error al completar tarea:', err);
+          alert('Error al completar la tarea. Inténtalo de nuevo.');
+          this.isProcessing = false;
         }
       });
   }

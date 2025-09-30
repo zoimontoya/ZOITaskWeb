@@ -125,16 +125,16 @@
             <button 
                 class="task-action-btn update-btn" 
                 (click)="onUpdateProgressOnly()"
-                [disabled]="!canProceedWithUpdate() || (!isKilosMode(taskToComplete) && (progressValue === (taskToComplete?.progreso || 0) || progressValue === 100))">
-                📊 <span *ngIf="isKilosMode(taskToComplete)">Registrar kilos</span><span *ngIf="!isKilosMode(taskToComplete)">Actualizar progreso</span>
+                [disabled]="isProcessing || !canProceedWithUpdate() || (!isKilosMode(taskToComplete) && (progressValue === (taskToComplete?.progreso || 0) || progressValue === 100))">
+                📊 <span *ngIf="isKilosMode(taskToComplete)">{{isProcessing ? 'Registrando...' : 'Registrar kilos'}}</span><span *ngIf="!isKilosMode(taskToComplete)">{{isProcessing ? 'Actualizando...' : 'Actualizar progreso'}}</span>
             </button>
             <button 
                 class="task-action-btn complete-btn" 
                 (click)="onConfirmCompleteTask()"
-                [disabled]="!canProceedWithUpdate() || (!isKilosMode(taskToComplete) && progressValue !== 100)">
-                🏁 Terminar tarea
+                [disabled]="isProcessing || !canProceedWithUpdate() || (!isKilosMode(taskToComplete) && progressValue !== 100)">
+                🏁 {{isProcessing ? 'Terminando...' : 'Terminar tarea'}}
             </button>
-            <button class="task-action-btn" (click)="onCancelCompleteTask()">Cancelar</button>
+            <button class="task-action-btn" (click)="onCancelCompleteTask()" [disabled]="isProcessing">{{isProcessing ? 'Procesando...' : 'Cancelar'}}</button>
         </div>
     </div>
 </div>

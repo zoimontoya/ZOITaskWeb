@@ -49,6 +49,9 @@ export class newTaskComponent implements OnInit, OnChanges {
   useIndividualDates = false; // false = global, true = individual
   singleDate = ''; // Fecha global cuando useIndividualDates es false
   
+  // Detectar si estamos en modo ALMACÉN
+  isAlmacenMode = false;
+  
   // Nueva funcionalidad para encargados: por defecto global, toggle activa individual  
   useIndividualEncargados = false; // false = global, true = individual
   
@@ -82,8 +85,6 @@ export class newTaskComponent implements OnInit, OnChanges {
   grupoTrabajo: string = '';
 
   ngOnInit() {
-    console.log(`INIT: useEightHourJornal = ${this.useEightHourJornal}`);
-    
     // Establecer grupo de trabajo del usuario logueado
     if (this.loggedUser?.grupo_trabajo) {
       this.grupoTrabajo = this.loggedUser.grupo_trabajo;
@@ -215,11 +216,53 @@ export class newTaskComponent implements OnInit, OnChanges {
   onInvernaderoSelectionChange(selection: InvernaderoSelection) {
     this.invernaderoSelection = selection;
     
+    // Detectar si estamos en modo ALMACÉN
+    this.detectAlmacenMode();
+    
     // Limpiar fechas anteriores y crear nuevas entradas según el modo
     this.updateDateFields();
     
     // Sincronizar fechas y encargados si están en modo único
     this.syncSingleValues();
+  }
+  
+  private detectAlmacenMode() {
+    // Detectar modo ALMACÉN basado en cabezales Y grupo de trabajo
+    this.isAlmacenMode = false;
+    
+    // MÉTODO 1: Detectar por grupo de trabajo
+    if (this.grupoTrabajo && this.grupoTrabajo.toUpperCase().includes('ALMACEN')) {
+      this.isAlmacenMode = true;
+    }
+    
+    // MÉTODO 2: Detectar por cabezales seleccionados
+    if (this.invernaderoSelection && this.invernaderoSelection.cabezales && this.invernaderoSelection.cabezales.length > 0) {
+      this.invernaderoSelection.cabezales.forEach(cabezal => {
+        const cabezalUpper = cabezal.toUpperCase().trim();
+        
+        // Buscar ALMACEN de forma más flexible
+        if (cabezalUpper.includes('ALMACEN') || cabezalUpper.includes('ALMACÉN') || 
+            cabezalUpper.includes('WAREHOUSE') || cabezalUpper.includes('DEPOSITO') ||
+            cabezalUpper.includes('ALMAC')) {
+          this.isAlmacenMode = true;
+        }
+      });
+    }
+    
+    // MÉTODO 3: Detectar por nombres de invernaderos que contengan patrones de almacén
+    if (this.invernaderoSelection && this.invernaderoSelection.invernaderos && this.invernaderoSelection.invernaderos.length > 0) {
+      this.invernaderoSelection.invernaderos.forEach(invernadero => {
+        const invUpper = invernadero.toUpperCase().trim();
+        if (invUpper.includes('ALM') || invUpper.includes('WAREHOUSE') || invUpper.includes('DEPOSITO')) {
+          this.isAlmacenMode = true;
+        }
+      });
+    }
+    
+    // Log mínimo para confirmar funcionamiento
+    if (this.isAlmacenMode) {
+      console.log('📦 Modo ALMACÉN activado');
+    }
   }
   
   private syncSingleValues() {
@@ -401,6 +444,9 @@ export class newTaskComponent implements OnInit, OnChanges {
     this.selectedTaskType = tareaData.nombre; // Mantener compatibilidad
     this.selectedTaskJornalUnidad = tareaData.jornal_unidad;
     
+    // Verificar modo ALMACÉN cada vez que cambie la tarea (por si acaso)
+    this.detectAlmacenMode();
+    
     // Actualizar estimaciones automáticamente basadas en jornal_unidad
     this.updateEstimationsBasedOnJornalUnidad();
   }
@@ -490,15 +536,17 @@ export class newTaskComponent implements OnInit, OnChanges {
       return;
     }
 
-    // 3. Validar estimaciones de jornales por invernadero
-    const invalidEstimations = selectedInvernaderos.filter((inv: string) => {
-      const estimation = this.estimations[inv];
-      return !estimation || estimation <= 0;
-    });
-    
-    if (invalidEstimations.length > 0) {
-      alert(`Por favor, ingresa una estimación de jornales válida (mayor que 0) para: ${invalidEstimations.join(', ')}`);
-      return;
+    // 3. Validar estimaciones de jornales por invernadero (saltar en modo ALMACÉN)
+    if (!this.isAlmacenMode) {
+      const invalidEstimations = selectedInvernaderos.filter((inv: string) => {
+        const estimation = this.estimations[inv];
+        return !estimation || estimation <= 0;
+      });
+      
+      if (invalidEstimations.length > 0) {
+        alert(`Por favor, ingresa una estimación de jornales válida (mayor que 0) para: ${invalidEstimations.join(', ')}`);
+        return;
+      }
     }
 
     // 4. Validar encargados según el modo
@@ -536,51 +584,79 @@ export class newTaskComponent implements OnInit, OnChanges {
       }
     }
     
-    // 6. Validar dimensiones según el tipo de medición
-    if (this.useKilosMode) {
-      // MODO KILOS: Validar que se hayan ingresado kilos esperados
-      const invalidKilos = selectedInvernaderos.filter((g: string) => {
-        const kilos = this.expectedKilos[g];
-        return !kilos || kilos <= 0;
-      });
-      
-      if (invalidKilos.length > 0) {
-        alert(`Por favor, ingresa los kilos esperados (mayor que 0) para: ${invalidKilos.join(', ')}`);
-        return;
-      }
-    } else {
-      // MODO HECTÁREAS: Validar áreas como antes
-      const invalidAreas = selectedInvernaderos.filter((g: string) => {
-        const area = this.workingAreas[g];
-        return !area || area <= 0;
-      });
-      
-      if (invalidAreas.length > 0) {
-        alert(`Por favor, selecciona un área de trabajo válida (mayor que 0) para: ${invalidAreas.join(', ')}`);
-        return;
-      }
+    // 6. Validar dimensiones según el tipo de medición (saltar en modo ALMACÉN)
+    if (!this.isAlmacenMode) {
+      if (this.useKilosMode) {
+        // MODO KILOS: Validar que se hayan ingresado kilos esperados
+        const invalidKilos = selectedInvernaderos.filter((g: string) => {
+          const kilos = this.expectedKilos[g];
+          return !kilos || kilos <= 0;
+        });
+        
+        if (invalidKilos.length > 0) {
+          alert(`Por favor, ingresa los kilos esperados (mayor que 0) para: ${invalidKilos.join(', ')}`);
+          return;
+        }
+      } else {
+        // MODO HECTÁREAS: Validar áreas como antes
+        const invalidAreas = selectedInvernaderos.filter((g: string) => {
+          const area = this.workingAreas[g];
+          return !area || area <= 0;
+        });
+        
+        if (invalidAreas.length > 0) {
+          alert(`Por favor, selecciona un área de trabajo válida (mayor que 0) para: ${invalidAreas.join(', ')}`);
+          return;
+        }
 
-      // Validar que las áreas no excedan el máximo disponible
-      const exceedingAreas = selectedInvernaderos.filter((g: string) => {
-        const area = this.workingAreas[g];
-        const maxArea = this.getMaxArea(g);
-        return area > maxArea;
-      });
+        // Validar que las áreas no excedan el máximo disponible
+        const exceedingAreas = selectedInvernaderos.filter((g: string) => {
+          const area = this.workingAreas[g];
+          const maxArea = this.getMaxArea(g);
+          return area > maxArea;
+        });
 
-      if (exceedingAreas.length > 0) {
-        alert(`El área seleccionada excede el máximo disponible para: ${exceedingAreas.join(', ')}`);
-        return;
+        if (exceedingAreas.length > 0) {
+          alert(`El área seleccionada excede el máximo disponible para: ${exceedingAreas.join(', ')}`);
+          return;
+        }
       }
     }
     
     // Emitir un array de tareas, una por invernadero
     const tareas = selectedInvernaderos.map((g: string) => {
-      // Usar estimación individual del invernadero
-      let estimationNum = Number(this.estimations[g]);
-      if (isNaN(estimationNum)) estimationNum = 0;
+      // En modo ALMACÉN, usar valores por defecto simplificados
+      let estimationNum: number;
+      let estimacionEnHoras: number;
+      let dimensionValue: number;
+      let horaJornal: number;
+      let horasKilos: number;
       
-      // Usar el área de trabajo definida por el usuario en la barra
-      const workingArea = this.workingAreas[g] || 0;
+      if (this.isAlmacenMode) {
+        // MODO ALMACÉN: Valores por defecto
+        estimationNum = 1; // 1 jornal por defecto
+        horaJornal = 1; // 8 horas por defecto para almacén
+        const factor = 8; // Siempre 8 horas en ALMACÉN
+        estimacionEnHoras = estimationNum * factor; // 8 horas
+        horasKilos = 0; // Siempre hectáreas (aunque no se use)
+        dimensionValue = 0; // Sin dimensiones
+      } else {
+        // MODO NORMAL: Usar valores del formulario
+        estimationNum = Number(this.estimations[g]);
+        if (isNaN(estimationNum)) estimationNum = 0;
+        
+        // CONVERSIÓN SIMPLE: Jornales a Horas
+        horaJornal = this.useEightHourJornal ? 1 : 0; // 0=6h, 1=8h
+        const factor = this.useEightHourJornal ? 8 : 6; // Horas por jornal
+        estimacionEnHoras = estimationNum * factor; // Conversión
+        
+        // TIPO DE MEDICIÓN: Hectáreas vs Kilos
+        horasKilos = this.useKilosMode ? 1 : 0; // 0=Hectáreas, 1=Kilos
+        const workingArea = this.workingAreas[g] || 0;
+        dimensionValue = this.useKilosMode ? 
+          (this.expectedKilos[g] || 0) :  // Kilos esperados
+          workingArea;                     // Hectáreas seleccionadas
+      }
       
       // Usar fecha según el modo (global o individual)
       const fechaLimite = (selectedInvernaderos.length > 1 && !this.useIndividualDates) 
@@ -592,19 +668,8 @@ export class newTaskComponent implements OnInit, OnChanges {
         ? this.selectedEncargado 
         : this.selectedEncargados[g];
       
-      // CONVERSIÓN SIMPLE: Jornales a Horas
-      const horaJornal = this.useEightHourJornal ? 1 : 0; // 0=6h, 1=8h
-      const factor = this.useEightHourJornal ? 8 : 6;     // Horas por jornal
-      const estimacionEnHoras = estimationNum * factor;   // Conversión
-      
-      // TIPO DE MEDICIÓN: Hectáreas vs Kilos
-      const horasKilos = this.useKilosMode ? 1 : 0; // 0=Hectáreas, 1=Kilos
-      const dimensionValue = this.useKilosMode ? 
-        (this.expectedKilos[g] || 0) :  // Kilos esperados
-        workingArea;                     // Hectáreas seleccionadas
-      
-      console.log(`CONVERSIÓN ${g}: ${estimationNum} jornales × ${factor}h = ${estimacionEnHoras}h (hora_jornal=${horaJornal})`);
-      console.log(`MEDICIÓN ${g}: ${this.useKilosMode ? 'KILOS' : 'HECTÁREAS'} = ${dimensionValue} (horas_kilos=${horasKilos})`);
+      console.log(`${this.isAlmacenMode ? '[ALMACÉN]' : '[NORMAL]'} ${g}: ${estimationNum} jornales × ${this.isAlmacenMode ? 8 : (this.useEightHourJornal ? 8 : 6)}h = ${estimacionEnHoras}h`);
+      console.log(`MEDICIÓN ${g}: ${this.isAlmacenMode ? 'SIN DIMENSIONES' : (this.useKilosMode ? 'KILOS' : 'HECTÁREAS')} = ${dimensionValue}`);
       console.log(`ENCARGADO ${g}: ${encargadoId}`);
       
       const data: any = {
@@ -616,7 +681,7 @@ export class newTaskComponent implements OnInit, OnChanges {
         fecha_limite: fechaLimite,
         encargado_id: encargadoId,
         descripcion: this.description,
-        dimension_total: dimensionValue // Hectáreas O Kilos esperados
+        dimension_total: dimensionValue // Hectáreas O Kilos esperados (0 en ALMACÉN)
       };
       if (this.task && this.task.id) {
         data.id = this.task.id;

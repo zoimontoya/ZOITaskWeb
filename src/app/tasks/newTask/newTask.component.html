@@ -16,85 +16,91 @@
       (tareaSelected)="onTareaJerarquicaSelected($event)">
     </app-hierarchical-task-selector>
     
-    <!-- Información de jornal_unidad -->
-    <div *ngIf="selectedTaskJornalUnidad > 0" class="jornal-info">
+    <!-- Información de jornal_unidad (ocultar en modo ALMACÉN) -->
+    <div *ngIf="selectedTaskJornalUnidad > 0 && !isAlmacenMode" class="jornal-info">
       <small class="jornal-info-text">
         <strong>Jornales por hectárea:</strong> {{ selectedTaskJornalUnidad.toFixed(2).replace('.', ',') }} jornales/Ha
       </small>
     </div>
     
-    <!-- Configuraciones globales -->
-    <div class="global-settings">
-      <!-- Interruptor para horas por jornal -->
-      <div class="hour-jornal-toggle">
-        <label class="toggle-container">
-          <span class="toggle-label">Horas por jornal:</span>
-          <div class="toggle-switch">
-            <input 
-              type="checkbox" 
-              [(ngModel)]="useEightHourJornal"
-              name="useEightHourJornal"
-              class="toggle-input">
-            <span class="toggle-slider"></span>
-          </div>
-          <span class="toggle-description">
-            {{ useEightHourJornal ? '8 horas por jornal' : '6 horas por jornal' }}
-          </span>
-        </label>
+    <!-- Configuraciones globales (mostrar solo si hay controles relevantes) -->
+    <div *ngIf="!isAlmacenMode || getSelectedInvernaderos().length > 1" class="global-settings">
+      <!-- Controles de dimensiones (solo en modo normal) -->
+      <div *ngIf="!isAlmacenMode" class="dimension-controls">
+        <!-- Interruptor para horas por jornal -->
+        <div class="hour-jornal-toggle">
+          <label class="toggle-container">
+            <span class="toggle-label">Horas por jornal:</span>
+            <div class="toggle-switch">
+              <input 
+                type="checkbox" 
+                [(ngModel)]="useEightHourJornal"
+                name="useEightHourJornal"
+                class="toggle-input">
+              <span class="toggle-slider"></span>
+            </div>
+            <span class="toggle-description">
+              {{ useEightHourJornal ? '8 horas por jornal' : '6 horas por jornal' }}
+            </span>
+          </label>
+        </div>
+        
+        <!-- Interruptor para tipo de medición: Hectáreas vs Kilos -->
+        <div class="measurement-type-toggle">
+          <label class="toggle-container">
+            <span class="toggle-label">Tipo de medición:</span>
+            <div class="toggle-switch">
+              <input 
+                type="checkbox" 
+                [(ngModel)]="useKilosMode"
+                name="useKilosMode"
+                class="toggle-input">
+              <span class="toggle-slider"></span>
+            </div>
+            <span class="toggle-description">
+              {{ useKilosMode ? 'Kilos esperados' : 'Hectáreas del terreno' }}
+            </span>
+          </label>
+        </div>
       </div>
       
-      <!-- Interruptor para tipo de medición: Hectáreas vs Kilos -->
-      <div class="measurement-type-toggle">
-        <label class="toggle-container">
-          <span class="toggle-label">Tipo de medición:</span>
-          <div class="toggle-switch">
-            <input 
-              type="checkbox" 
-              [(ngModel)]="useKilosMode"
-              name="useKilosMode"
-              class="toggle-input">
-            <span class="toggle-slider"></span>
-          </div>
-          <span class="toggle-description">
-            {{ useKilosMode ? 'Kilos esperados' : 'Hectáreas del terreno' }}
-          </span>
-        </label>
-      </div>
-      
-      <!-- Toggle para modo de fechas (solo mostrar si hay invernaderos seleccionados) -->
-      <div *ngIf="getSelectedInvernaderos().length > 1" class="date-mode-toggle">
-        <label class="toggle-container">
-          <span class="toggle-label">Fechas límite:</span>
-          <div class="toggle-switch">
-            <input 
-              type="checkbox" 
-              [checked]="useIndividualDates"
-              (click)="onToggleClick()"
-              class="toggle-input">
-            <span class="toggle-slider"></span>
-          </div>
-          <span class="toggle-description">
-            {{ useIndividualDates ? 'Fecha individual por invernadero' : 'Misma fecha para todos' }}
-          </span>
-        </label>
-      </div>
-      
-      <!-- Toggle para encargados (solo mostrar si hay invernaderos seleccionados) -->
-      <div *ngIf="getSelectedInvernaderos().length > 1" class="encargado-mode-toggle">
-        <label class="toggle-container">
-          <span class="toggle-label">Encargados:</span>
-          <div class="toggle-switch">
-            <input 
-              type="checkbox" 
-              [checked]="useIndividualEncargados"
-              (click)="onEncargadoToggleClick()"
-              class="toggle-input">
-            <span class="toggle-slider"></span>
-          </div>
-          <span class="toggle-description">
-            {{ useIndividualEncargados ? 'Encargado individual por invernadero' : 'Mismo encargado para todos' }}
-          </span>
-        </label>
+      <!-- Controles de organización (siempre visibles cuando hay múltiples invernaderos) -->
+      <div class="organization-controls">
+        <!-- Toggle para modo de fechas (solo mostrar si hay invernaderos seleccionados) -->
+        <div *ngIf="getSelectedInvernaderos().length > 1" class="date-mode-toggle">
+          <label class="toggle-container">
+            <span class="toggle-label">Fechas límite:</span>
+            <div class="toggle-switch">
+              <input 
+                type="checkbox" 
+                [checked]="useIndividualDates"
+                (click)="onToggleClick()"
+                class="toggle-input">
+              <span class="toggle-slider"></span>
+            </div>
+            <span class="toggle-description">
+              {{ useIndividualDates ? 'Fecha individual por invernadero' : 'Misma fecha para todos' }}
+            </span>
+          </label>
+        </div>
+        
+        <!-- Toggle para encargados (solo mostrar si hay invernaderos seleccionados) -->
+        <div *ngIf="getSelectedInvernaderos().length > 1" class="encargado-mode-toggle">
+          <label class="toggle-container">
+            <span class="toggle-label">Encargados:</span>
+            <div class="toggle-switch">
+              <input 
+                type="checkbox" 
+                [checked]="useIndividualEncargados"
+                (click)="onEncargadoToggleClick()"
+                class="toggle-input">
+              <span class="toggle-slider"></span>
+            </div>
+            <span class="toggle-description">
+              {{ useIndividualEncargados ? 'Encargado individual por invernadero' : 'Mismo encargado para todos' }}
+            </span>
+          </label>
+        </div>
       </div>
     </div>
 
@@ -129,14 +135,23 @@
 
     <!-- Bloques por invernadero -->
     <div *ngIf="getSelectedInvernaderos().length > 0" class="invernaderos-blocks">
-      <h3 *ngIf="getSelectedInvernaderos().length > 1">Configuración por Invernadero</h3>
-      <h3 *ngIf="getSelectedInvernaderos().length === 1">Configuración de la Tarea</h3>
+      <h3 *ngIf="getSelectedInvernaderos().length > 1 && !isAlmacenMode">Configuración por Invernadero</h3>
+      <h3 *ngIf="getSelectedInvernaderos().length === 1 && !isAlmacenMode">Configuración de la Tarea</h3>
+      <h3 *ngIf="isAlmacenMode && getSelectedInvernaderos().length > 1">Asignación por Almacén</h3>
+      <h3 *ngIf="isAlmacenMode && getSelectedInvernaderos().length === 1">Configuración del Almacén</h3>
       
       <div *ngFor="let invernadero of getSelectedInvernaderos()" class="invernadero-block">
         <h4 class="invernadero-block-title">{{ invernadero }}</h4>
         
-        <!-- Área de trabajo -->
-        <div class="working-area-section">
+        <!-- Mensaje informativo para modo ALMACÉN -->
+        <div *ngIf="isAlmacenMode" class="almacen-info-message">
+          <p class="info-text">
+            📦 <strong>Modo Almacén:</strong> Esta tarea no requiere especificar dimensiones ni estimaciones.
+          </p>
+        </div>
+        
+        <!-- Área de trabajo (ocultar en modo ALMACÉN) -->
+        <div *ngIf="!isAlmacenMode" class="working-area-section">
           <div class="working-area-header">
             <span class="area-label">{{ useKilosMode ? 'Producción esperada' : 'Área de trabajo' }}</span>
             <span *ngIf="!useKilosMode" class="area-info">
@@ -195,8 +210,8 @@
           </div>
         </div>
 
-        <!-- Estimación de jornales por invernadero -->
-        <div class="jornal-estimation-section">
+        <!-- Estimación de jornales por invernadero (ocultar en modo ALMACÉN) -->
+        <div *ngIf="!isAlmacenMode" class="jornal-estimation-section">
           <label [for]="'estimation_' + invernadero">Estimación jornales *</label>
           <input 
             type="number" 

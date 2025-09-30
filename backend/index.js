@@ -7,6 +7,42 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Sistema de protección contra peticiones duplicadas
+const activeRequests = new Map();
+
+// Middleware para prevenir peticiones duplicadas
+const preventDuplicateRequests = (req, res, next) => {
+  // Solo aplicar a operaciones críticas (POST/PUT/DELETE)
+  if (!['POST', 'PUT', 'DELETE'].includes(req.method)) {
+    return next();
+  }
+  
+  // Crear clave única basada en método, URL y datos críticos
+  const key = `${req.method}:${req.url}:${JSON.stringify(req.body)}`;
+  
+  if (activeRequests.has(key)) {
+    console.log('🚫 Petición duplicada detectada y bloqueada:', key);
+    return res.status(429).json({ error: 'Petición duplicada detectada. Espere unos segundos antes de volver a intentar.' });
+  }
+  
+  // Marcar petición como activa
+  activeRequests.set(key, Date.now());
+  
+  // Limpiar después de 30 segundos (tiempo máximo esperado para completar)
+  setTimeout(() => {
+    activeRequests.delete(key);
+  }, 30000);
+  
+  // Limpiar al finalizar la respuesta
+  res.on('finish', () => {
+    activeRequests.delete(key);
+  });
+  
+  next();
+};
+
+app.use(preventDuplicateRequests);
+
 // Middleware para logging de todas las peticiones
 app.use((req, res, next) => {
   console.log(`📡 ${new Date().toISOString()} - ${req.method} ${req.url} from ${req.ip || req.connection.remoteAddress}`);
@@ -1199,6 +1235,117 @@ app.post('/tasks/:id/accept', async (req, res) => {
     res.json({ result: 'success', accepted: taskId });
   } catch (err) {
     console.error('Error aceptando tarea:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Endpoint para completar tarea directamente (actualizar progreso al 100% y completar en una sola operación)
+app.post('/tasks/:id/complete-direct', async (req, res) => {
+  console.log('🎯 ENDPOINT /tasks/:id/complete-direct ALCANZADO');
+  console.log('📋 Task ID recibido:', req.params.id);
+  console.log('📦 Body recibido:', JSON.stringify(req.body, null, 2));
+  
+  try {
+    const taskId = req.params.id;
+    const client = await auth.getClient();
+    const sheets = google.sheets({ version: 'v4', auth: client });
+    
+    console.log('=== COMPLETAR TAREA DIRECTAMENTE ===');
+    console.log('Task ID:', taskId);
+    console.log('Datos recibidos:', req.body);
+    
+    // Buscar la hoja de tareas
+    const spreadsheetMeta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
+    const tareasSheet = spreadsheetMeta.data.sheets.find(s =>
+      s.properties && (s.properties.title === 'Tareas' || s.properties.title === 'tareas')
+    );
+    
+    if (!tareasSheet) {
+      return res.status(500).json({ error: 'No se encontró la hoja "Tareas" en el spreadsheet.' });
+    }
+    
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: tareasSheet.properties.title,
+    });
+    
+    const rows = response.data.values || [];
+    const headers = rows[0] || [];
+    const rowIndex = rows.findIndex((row, idx) => idx > 0 && String(row[0]) === String(taskId));
+    
+    if (rowIndex === -1) {
+      return res.status(404).json({ error: 'Tarea no encontrada' });
+    }
+    
+    const currentRow = rows[rowIndex];
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    const fechaActual = new Date().toLocaleDateString('es-ES'); // Formato DD/MM/YYYY
+    
+    // Asegurar que el array tenga suficientes elementos
+    while (currentRow.length < 17) {
+      currentRow.push('');
+    }
+    
+    // PASO 1: Actualizar progreso al 100% si se proporcionan datos
+    if (req.body.progreso !== undefined || req.body.desarrollo_actual !== undefined || req.body.jornales_reales !== undefined) {
+      // Buscar índices de columnas
+      const jornalesRealesIndex = headers.findIndex(h => 
+        h && (h.toLowerCase().includes('jornales_reales') || 
+              h.toLowerCase().includes('jornales reales') ||
+              h.toLowerCase() === 'jornales_reales')
+      );
+      const desarrolloActualIndex = headers.findIndex(h => 
+        h && (h.toLowerCase().includes('desarrollo_actual') || 
+              h.toLowerCase().includes('desarrollo actual') ||
+              h.toLowerCase() === 'desarrollo_actual')
+      );
+      const progresoIndex = headers.findIndex(h => 
+        h && (h.toLowerCase() === 'progreso' || 
+              h.toLowerCase().includes('progreso'))
+      );
+      
+      // Actualizar jornales_reales si se proporciona
+      if (req.body.jornales_reales !== undefined) {
+        const jornalesCol = jornalesRealesIndex >= 0 ? jornalesRealesIndex : 6;
+        currentRow[jornalesCol] = Number(req.body.jornales_reales) || 0;
+      }
+      
+      // Actualizar desarrollo_actual si se proporciona
+      if (req.body.desarrollo_actual !== undefined) {
+        const desarrolloCol = desarrolloActualIndex >= 0 ? desarrolloActualIndex : 13;
+        currentRow[desarrolloCol] = Number(req.body.desarrollo_actual) || 0;
+      }
+      
+      // Actualizar progreso (siempre al 100% al completar)
+      if (progresoIndex >= 0) {
+        currentRow[progresoIndex] = req.body.progreso || 100;
+      }
+    }
+    
+    // PASO 2: Completar la tarea
+    currentRow[12] = today; // fecha_fin (columna M)
+    currentRow[15] = 'Terminada'; // proceso (columna P)
+    currentRow[16] = fechaActual; // fecha_actualizacion (columna Q)
+    
+    // Actualizar toda la fila de una vez
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${tareasSheet.properties.title}!A${rowIndex + 1}:Q${rowIndex + 1}`,
+      valueInputOption: 'RAW',
+      resource: { values: [currentRow] }
+    });
+    
+    // PASO 3: Registrar horas trabajadas UNA SOLA VEZ
+    if (req.body.trabajadores_asignados && req.body.trabajadores_asignados.length > 0) {
+      const encargadoNombre = req.body.encargado_nombre || 'Encargado';
+      await registrarHorasTrabajadas(client, req.body.trabajadores_asignados, encargadoNombre, fechaActual);
+    }
+    
+    console.log('Tarea completada directamente:', taskId, 'fecha_fin:', today, 'fecha_actualizacion:', fechaActual);
+    res.json({ result: 'success', completed: taskId, fecha_actualizacion: fechaActual });
+    
+  } catch (err) {
+    console.error('Error completando tarea directamente:', err);
     res.status(500).json({ error: err.message });
   }
 });
