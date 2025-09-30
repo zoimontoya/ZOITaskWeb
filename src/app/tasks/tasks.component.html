@@ -91,18 +91,47 @@
                     *Estimación inicial: {{taskToComplete?.estimacion_horas || 0}} jornales
                 </small>
             </div>
+
+            <!-- Sección de asignación de trabajadores -->
+            <div class="workers-section">
+                <div class="workers-header">
+                    <h4>Asignación de Trabajadores</h4>
+                    <button 
+                        type="button"
+                        class="workers-btn" 
+                        (click)="onOpenWorkersModal()"
+                        [disabled]="jornalesRealesValue <= 0">
+                        👥 Horas trabajadores
+                    </button>
+                </div>
+                
+                <div class="workers-status">
+                    <p class="status-message" [class.valid]="trabajadoresValidados" [class.invalid]="!trabajadoresValidados">
+                        {{getWorkersValidationMessage()}}
+                    </p>
+                    
+                    <div *ngIf="trabajadoresAsignados.length > 0" class="workers-summary">
+                        <h5>Trabajadores asignados:</h5>
+                        <ul class="workers-list-summary">
+                            <li *ngFor="let asignado of trabajadoresAsignados">
+                                <strong>{{asignado.trabajador.nombre}}</strong> - {{asignado.horas}}h
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
         </div>
         <div class="modal-actions">
             <button 
                 class="task-action-btn update-btn" 
                 (click)="onUpdateProgressOnly()"
-                [disabled]="!isKilosMode(taskToComplete) && (progressValue === (taskToComplete?.progreso || 0) || progressValue === 100)">
+                [disabled]="!canProceedWithUpdate() || (!isKilosMode(taskToComplete) && (progressValue === (taskToComplete?.progreso || 0) || progressValue === 100))">
                 📊 <span *ngIf="isKilosMode(taskToComplete)">Registrar kilos</span><span *ngIf="!isKilosMode(taskToComplete)">Actualizar progreso</span>
             </button>
             <button 
                 class="task-action-btn complete-btn" 
                 (click)="onConfirmCompleteTask()"
-                [disabled]="!isKilosMode(taskToComplete) && progressValue !== 100">
+                [disabled]="!canProceedWithUpdate() || (!isKilosMode(taskToComplete) && progressValue !== 100)">
                 🏁 Terminar tarea
             </button>
             <button class="task-action-btn" (click)="onCancelCompleteTask()">Cancelar</button>
@@ -273,15 +302,13 @@
                     </button>
                     <button *ngIf="task.progreso === 'Iniciada' || (isNumber(task.progreso) && toNumber(task.progreso) >= 0)" 
                                     class="task-action-btn progress-btn" 
-                                    [class.disabled]="!canUpdateProgressToday(task)"
-                                    [disabled]="!canUpdateProgressToday(task)"
-                                    (click)="canUpdateProgressToday(task) && onOpenProgressModal(task)">
-                        <span class="icon">{{ canUpdateProgressToday(task) ? '📊' : '🕐' }}</span> 
-                        {{ canUpdateProgressToday(task) ? 'Actualizar progreso' : 'Ya actualizado hoy' }}
+                                    (click)="onOpenProgressModal(task)">
+                        <span class="icon">📊</span> 
+                        Actualizar progreso
                     </button>
-                    <small *ngIf="!canUpdateProgressToday(task) && (task.progreso === 'Iniciada' || (isNumber(task.progreso) && toNumber(task.progreso) >= 0))" 
-                           class="update-restriction-message">
-                        {{getUpdateStatusMessage(task)}}
+                    <small *ngIf="task.fecha_actualizacion && (task.progreso === 'Iniciada' || (isNumber(task.progreso) && toNumber(task.progreso) >= 0))" 
+                           class="last-update-info">
+                        {{getLastUpdateInfo(task)}}
                     </small>
                 </div>
                 <div *ngIf="!isEncargado && task.progreso !== 'Terminada'" class="task-actions">
@@ -297,4 +324,13 @@
         </li>
     </ul>
 </section>
+
+<!-- Modal de asignación de trabajadores -->
+<app-asignar-trabajadores
+    [showModal]="showWorkersModal"
+    [horasRequeridas]="jornalesRealesValue"
+    [trabajadoresAsignados]="trabajadoresAsignados"
+    (closeModal)="onCloseWorkersModal()"
+    (saveAssignments)="onSaveWorkerAssignments($event)">
+</app-asignar-trabajadores>
 

@@ -126,6 +126,85 @@ async function getInvernaderosDimensions(client) {
   }
 }
 
+// Función auxiliar para registrar horas trabajadas en la hoja "Horas"
+async function registrarHorasTrabajadas(client, trabajadoresAsignados, encargadoNombre, fechaActualizacion) {
+  try {
+    const sheets = google.sheets({ version: 'v4', auth: client });
+    
+    // Buscar la hoja "Horas"
+    const spreadsheetMeta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
+    const horasSheet = spreadsheetMeta.data.sheets.find(s =>
+      s.properties && (s.properties.title === 'Horas' || s.properties.title === 'horas')
+    );
+    
+    if (!horasSheet) {
+      console.log('⚠️ No se encontró la hoja "Horas"');
+      return;
+    }
+    
+    // Obtener datos de trabajadores para conseguir las empresas
+    const trabajadoresResponse = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: 'Trabajadores',
+      valueRenderOption: 'FORMATTED_VALUE'
+    });
+    
+    const trabajadoresRows = trabajadoresResponse.data.values;
+    const trabajadoresMap = {};
+    
+    if (trabajadoresRows && trabajadoresRows.length > 1) {
+      const trabajadoresHeaders = trabajadoresRows[0];
+      const codigoIdx = trabajadoresHeaders.findIndex(h => h && h.toLowerCase().includes('codigo'));
+      const empresaIdx = trabajadoresHeaders.findIndex(h => h && h.toLowerCase().includes('empresa'));
+      
+      trabajadoresRows.slice(1).forEach(row => {
+        if (row[codigoIdx]) {
+          trabajadoresMap[row[codigoIdx]] = {
+            empresa: row[empresaIdx] || ''
+          };
+        }
+      });
+    }
+    
+    // Preparar las filas a insertar (una por trabajador)
+    const filasAInsertar = [];
+    
+    trabajadoresAsignados.forEach(trabajadorAsignado => {
+      const trabajadorData = trabajadoresMap[trabajadorAsignado.trabajador.codigo] || {};
+      
+      filasAInsertar.push([
+        fechaActualizacion,                    // Fecha
+        encargadoNombre,                      // Grupo (nombre del encargado)
+        trabajadorAsignado.trabajador.nombre, // Nombre del empleado
+        trabajadorAsignado.horas,             // Tiempo (horas)
+        '',                                   // Ranking (vacío)
+        trabajadorData.empresa || trabajadorAsignado.trabajador.empresa || '' // Empresa
+      ]);
+    });
+    
+    if (filasAInsertar.length === 0) {
+      console.log('No hay trabajadores asignados para registrar');
+      return;
+    }
+    
+    // Insertar las filas en la hoja "Horas"
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${horasSheet.properties.title}!A:F`, // Columnas: Fecha, Grupo, Nombre, Tiempo, Ranking, Empresa
+      valueInputOption: 'RAW',
+      insertDataOption: 'INSERT_ROWS',
+      resource: {
+        values: filasAInsertar
+      }
+    });
+    
+    console.log(`✅ Registradas ${filasAInsertar.length} filas de horas trabajadas en la hoja "Horas"`);
+    
+  } catch (err) {
+    console.error('❌ Error registrando horas trabajadas:', err);
+  }
+}
+
 // Endpoint para obtener invernaderos filtrados por cabezal
 app.get('/invernaderos/:cabezal', async (req, res) => {
   try {
@@ -901,7 +980,7 @@ app.post('/tasks', async (req, res) => {
         console.log('Columnas disponibles:', headers.map((h, i) => `${String.fromCharCode(65 + i)}: ${h}`));
       }
 
-      // Actualizar fecha_actualizacion (columna Q - posición 16)
+      // Actualizar fecha_actualizacion (columna Q - posición 16) - SOLO para tracking, sin restricciones
       const fechaActualizacionIndex = headers.findIndex(h => 
         h && (h.toLowerCase().includes('fecha_actualizacion') || 
               h.toLowerCase().includes('fecha actualizacion') ||
@@ -918,6 +997,12 @@ app.post('/tasks', async (req, res) => {
         valueInputOption: 'RAW',
         resource: { values: [[fechaActual]] }
       });
+
+      // Registrar horas trabajadas si hay trabajadores asignados
+      if (req.body.trabajadores_asignados && req.body.trabajadores_asignados.length > 0) {
+        const encargadoNombre = req.body.encargado_nombre || 'Encargado'; // Obtener el nombre del encargado que actualiza
+        await registrarHorasTrabajadas(client, req.body.trabajadores_asignados, encargadoNombre, fechaActual);
+      }
 
       console.log('Progreso actualizado para tarea:', idToUpdate, 'porcentaje:', req.body.progreso, 'hectáreas:', req.body.desarrollo_actual, 'jornales_reales:', req.body.jornales_reales, 'fecha_actualizacion:', fechaActual);
       return res.json({ 
@@ -1155,11 +1240,11 @@ app.post('/tasks/:id/complete', async (req, res) => {
     }
     
     const fechaActual = new Date().toLocaleDateString('es-ES'); // Formato DD/MM/YYYY
-    
+
     // Actualizar fecha_fin (columna M = índice 12), proceso (columna P = índice 15) y fecha_actualizacion (columna Q = índice 16)
     currentRow[12] = today; // fecha_fin (columna M) - YYYY-MM-DD
     currentRow[15] = 'Terminada'; // proceso (columna P)
-    currentRow[16] = fechaActual; // fecha_actualizacion (columna Q) - DD/MM/YYYY
+    currentRow[16] = fechaActual; // fecha_actualizacion (columna Q) - DD/MM/YYYY - para tracking
     
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
@@ -1167,6 +1252,12 @@ app.post('/tasks/:id/complete', async (req, res) => {
       valueInputOption: 'RAW',
       resource: { values: [currentRow] }
     });
+    
+    // Registrar horas trabajadas si hay trabajadores asignados al completar
+    if (req.body.trabajadores_asignados && req.body.trabajadores_asignados.length > 0) {
+      const encargadoNombre = req.body.encargado_nombre || 'Encargado'; // Obtener el nombre del encargado que completa la tarea
+      await registrarHorasTrabajadas(client, req.body.trabajadores_asignados, encargadoNombre, fechaActual);
+    }
     
     console.log('Tarea completada:', taskId, 'fecha_fin:', today, 'fecha_actualizacion:', fechaActual);
     res.json({ result: 'success', completed: taskId, fecha_actualizacion: fechaActual });
@@ -1177,6 +1268,51 @@ app.post('/tasks/:id/complete', async (req, res) => {
 });
 
 // Arranque del servidor
+// Endpoint para obtener trabajadores de la hoja "Trabajadores"
+app.get('/trabajadores', async (req, res) => {
+  try {
+    const client = await auth.getClient();
+    const sheets = google.sheets({ version: 'v4', auth: client });
+    
+    // Buscar la hoja de Trabajadores
+    const spreadsheetMeta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
+    const trabajadoresSheet = spreadsheetMeta.data.sheets.find(s =>
+      s.properties && (s.properties.title === 'Trabajadores' || s.properties.title === 'trabajadores')
+    );
+    
+    if (!trabajadoresSheet) {
+      console.log('No se encontró la hoja de Trabajadores');
+      return res.json([]);
+    }
+    
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: trabajadoresSheet.properties.title,
+      valueRenderOption: 'FORMATTED_VALUE',
+      dateTimeRenderOption: 'FORMATTED_STRING'
+    });
+    
+    const rows = response.data.values;
+    if (!rows || rows.length <= 1) {
+      console.log('No hay trabajadores o solo hay cabeceras');
+      return res.json([]);
+    }
+    
+    // Convertir filas a objetos (saltando la primera fila que son cabeceras)
+    const trabajadores = rows.slice(1).map(row => ({
+      codigo: row[0] || '',           // A: codigo_trabajador
+      nombre: row[1] || '',           // B: nombre_trabajador
+      empresa: row[2] || ''           // C: empresa
+    })).filter(t => t.codigo && t.nombre && t.empresa); // Solo trabajadores con código, nombre Y empresa
+    
+    console.log(`Trabajadores cargados: ${trabajadores.length}`);
+    res.json(trabajadores);
+  } catch (err) {
+    console.error('Error en /trabajadores:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // 🔍 Health check endpoint para Docker
 app.get('/health', (req, res) => {
   console.log('🩺 Health check request received from:', req.ip || req.connection.remoteAddress);

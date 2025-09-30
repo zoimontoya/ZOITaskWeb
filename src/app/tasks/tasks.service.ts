@@ -33,12 +33,24 @@ export class TasksService {
   }
 
   // Completar tarea (cambiar estado a "Terminada")
-  completeTask(taskId: string): Observable<any> {
-    return this.http.post<any>(`${this.apiUrl}/tasks/${taskId}/complete`, {});
+  completeTask(taskId: string, trabajadoresAsignados?: any[], encargadoNombre?: string): Observable<any> {
+    const body: any = {};
+    
+    // Incluir trabajadores asignados para registrar en hoja "Horas"
+    if (trabajadoresAsignados && trabajadoresAsignados.length > 0) {
+      body.trabajadores_asignados = trabajadoresAsignados;
+    }
+    
+    // Incluir nombre del encargado
+    if (encargadoNombre) {
+      body.encargado_nombre = encargadoNombre;
+    }
+    
+    return this.http.post<any>(`${this.apiUrl}/tasks/${taskId}/complete`, body);
   }
 
   // Actualizar solo el progreso de la tarea (sin cambiar estado)
-  updateTaskProgress(taskId: string, progress: number | string, hectareas: number, jornalesReales?: number): Observable<any> {
+  updateTaskProgress(taskId: string, progress: number | string, hectareas: number, jornalesReales?: number, trabajadoresAsignados?: any[], encargadoNombre?: string): Observable<any> {
     const body: any = {
       action: 'update-progress', 
       id: taskId,
@@ -49,6 +61,16 @@ export class TasksService {
     // Solo incluir jornales_reales si se proporciona un valor
     if (jornalesReales !== undefined) {
       body.jornales_reales = jornalesReales;
+    }
+    
+    // Incluir trabajadores asignados para registrar en hoja "Horas"
+    if (trabajadoresAsignados && trabajadoresAsignados.length > 0) {
+      body.trabajadores_asignados = trabajadoresAsignados;
+    }
+    
+    // Incluir nombre del encargado
+    if (encargadoNombre) {
+      body.encargado_nombre = encargadoNombre;
     }
     
     return this.http.post<any>(`${this.apiUrl}/tasks`, body);

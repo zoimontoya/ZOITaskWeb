@@ -3,15 +3,17 @@ import { TasksService } from './tasks.service';
 import { Task } from './task/task.model';
 import { GreenhouseService, Greenhouse } from './greenhouse.service';
 import { UserService } from '../user/user.service';
+import { TrabajadoresService, TrabajadorAsignado } from '../trabajadores/trabajadores.service';
 
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { newTaskComponent } from './newTask/newTask.component';
+import { AsignarTrabajadoresComponent } from '../trabajadores/asignar-trabajadores/asignar-trabajadores.component';
 
 @Component({
   selector: 'app-tasks',
   standalone: true,
-  imports: [CommonModule, FormsModule, newTaskComponent],
+  imports: [CommonModule, FormsModule, newTaskComponent, AsignarTrabajadoresComponent],
   templateUrl: './tasks.component.html',
   styleUrls: ['./tasks.component.css']
 })
@@ -45,7 +47,12 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   kilosRecogidosValue = 0; // Campo para kilos recogidos (modo kilos)
   greenhouses: Greenhouse[] = [];
 
-  constructor(private taskService: TasksService, private greenhouseService: GreenhouseService, private userService: UserService) {}
+  // Propiedades para asignación de trabajadores
+  showWorkersModal = false;
+  trabajadoresAsignados: TrabajadorAsignado[] = [];
+  trabajadoresValidados = false; // Flag para saber si las horas cuadran
+
+  constructor(private taskService: TasksService, private greenhouseService: GreenhouseService, private userService: UserService, private trabajadoresService: TrabajadoresService) {}
 
   ngOnInit() {
     this.loadTasks();
@@ -409,6 +416,10 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     this.progressValue = Number(task.progreso) || 0; // Usar el campo progreso para el porcentaje
     this.jornalesRealesValue = 0; // Siempre empezar vacío para que el encargado ingrese las horas del día
     
+    // Resetear validación de trabajadores
+    this.trabajadoresValidados = false;
+    this.trabajadoresAsignados = [];
+    
     // Si está en modo kilos, inicializar kilos recogidos desde desarrollo_actual
     if (this.isKilosMode(task)) {
       this.kilosRecogidosValue = Number(task.desarrollo_actual) || 0;
@@ -423,6 +434,12 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     // Validar que se haya ingresado el número de horas reales
     if (!this.jornalesRealesValue || this.jornalesRealesValue <= 0) {
       alert('Por favor, ingresa el número de horas realmente trabajadas.');
+      return;
+    }
+
+    // Validar que se hayan asignado trabajadores
+    if (!this.canProceedWithUpdate()) {
+      alert('Debe asignar trabajadores y validar que las horas cuadren antes de actualizar el progreso.');
       return;
     }
     
@@ -456,7 +473,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
       console.log(`MODO HECTÁREAS: ${this.progressValue}% = ${hectareasActuales}/${totalHectares} Ha`);
     }
     
-    this.taskService.updateTaskProgress(this.taskToComplete.id, progressValue, desarrolloValue, this.jornalesRealesValue).subscribe({
+    this.taskService.updateTaskProgress(this.taskToComplete.id, progressValue, desarrolloValue, this.jornalesRealesValue, this.trabajadoresAsignados, this.name).subscribe({
         next: () => {
           console.log('Progreso actualizado correctamente');
           this.showCompleteModal = false;
@@ -481,6 +498,12 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
       alert('Por favor, ingresa el número de horas realmente trabajadas para completar la tarea.');
       return;
     }
+
+    // Validar que se hayan asignado trabajadores
+    if (!this.canProceedWithUpdate()) {
+      alert('Debe asignar trabajadores y validar que las horas cuadren antes de completar la tarea.');
+      return;
+    }
     
     let progressValue: number | string = 100;
     let desarrolloValue: number;
@@ -503,12 +526,12 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     }
     
     // Actualizar el progreso al 100% y completar
-    this.taskService.updateTaskProgress(this.taskToComplete.id, progressValue, desarrolloValue, this.jornalesRealesValue).subscribe({
+    this.taskService.updateTaskProgress(this.taskToComplete.id, progressValue, desarrolloValue, this.jornalesRealesValue, this.trabajadoresAsignados, this.name).subscribe({
         next: () => {
           console.log('Progreso actualizado al 100%');
           // Después completar la tarea (cambiar estado)
           if (this.taskToComplete) {
-            this.taskService.completeTask(this.taskToComplete.id).subscribe({
+            this.taskService.completeTask(this.taskToComplete.id, this.trabajadoresAsignados, this.name).subscribe({
               next: () => {
                 console.log('Tarea completada correctamente');
                 this.showCompleteModal = false;
@@ -658,22 +681,52 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     return `${desarrolloActual}/${dimensionTotal} (${task.progreso}%)`;
   }
 
-  // Verificar si una tarea ya fue actualizada hoy
-  canUpdateProgressToday(task: any): boolean {
-    if (!task.fecha_actualizacion) return true; // Si no tiene fecha, puede actualizar
-    
-    const fechaActualizacion = task.fecha_actualizacion;
-    const hoy = new Date().toLocaleDateString('es-ES'); // Formato DD/MM/YYYY
-    
-    // Si la fecha de actualización es hoy, no puede actualizar
-    return fechaActualizacion !== hoy;
+
+
+  // Obtener información de última actualización (solo informativo, sin restricciones)
+  getLastUpdateInfo(task: any): string {
+    if (!task.fecha_actualizacion) return '';
+    return `Última actualización: ${task.fecha_actualizacion}`;
   }
 
-  // Obtener mensaje de estado de actualización
-  getUpdateStatusMessage(task: any): string {
-    if (this.canUpdateProgressToday(task)) {
-      return '';
+  // Métodos para asignación de trabajadores
+  onOpenWorkersModal(): void {
+    if (this.jornalesRealesValue <= 0) {
+      alert('Primero debe especificar las horas realmente trabajadas.');
+      return;
     }
-    return 'Ya actualizado hoy - Disponible mañana';
+    this.showWorkersModal = true;
+  }
+
+  onCloseWorkersModal(): void {
+    this.showWorkersModal = false;
+  }
+
+  onSaveWorkerAssignments(asignaciones: TrabajadorAsignado[]): void {
+    this.trabajadoresAsignados = asignaciones;
+    this.trabajadoresValidados = true;
+    this.showWorkersModal = false;
+    console.log('Trabajadores asignados:', asignaciones);
+  }
+
+  // Verificar si se pueden actualizar/completar las tareas
+  canProceedWithUpdate(): boolean {
+    return this.trabajadoresValidados && this.jornalesRealesValue > 0;
+  }
+
+  getWorkersValidationMessage(): string {
+    if (this.jornalesRealesValue <= 0) {
+      return 'Especifique las horas trabajadas';
+    }
+    if (!this.trabajadoresValidados) {
+      return 'Debe asignar trabajadores antes de continuar';
+    }
+    return `✅ ${this.trabajadoresAsignados.length} trabajador(es) asignado(s)`;
+  }
+
+  // Resetear validación cuando cambian las horas
+  onJornalesRealesChange(): void {
+    this.trabajadoresValidados = false;
+    this.trabajadoresAsignados = [];
   }
 }

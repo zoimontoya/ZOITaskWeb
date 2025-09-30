@@ -1,0 +1,134 @@
+<div *ngIf="showModal" class="modal-overlay" (click)="onModalOverlayClick($event)">
+    <div class="modal-workers" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+            <h3>Asignar Trabajadores</h3>
+            <button class="close-btn" (click)="onClose()">✕</button>
+        </div>
+        
+        <div class="modal-body">
+            <div class="hours-summary">
+                <p><strong>Horas requeridas:</strong> {{horasRequeridas}}</p>
+                <p><strong>Horas asignadas:</strong> {{getTotalHoras()}}</p>
+                <p class="validation-message" [class.valid]="isValid()" [class.invalid]="!isValid()">
+                    {{getValidationMessage()}}
+                </p>
+            </div>
+
+            <!-- Formulario para seleccionar trabajadores -->
+            <div class="add-worker-form">
+                <h4>Seleccionar Trabajadores</h4>
+                <div class="form-section">
+                    <div class="worker-selector">
+                        <label>Buscar trabajadores:</label>
+                        <div class="dropdown-container">
+                            <div class="search-input-container">
+                                <input 
+                                    type="text" 
+                                    [(ngModel)]="searchTerm" 
+                                    (input)="filterTrabajadores()" 
+                                    placeholder="Buscar por nombre, código o empresa..."
+                                    class="worker-search">
+                                <button 
+                                    type="button" 
+                                    class="dropdown-toggle-btn" 
+                                    (click)="toggleDropdown()">
+                                    {{isDropdownOpen ? '▲' : '▼'}}
+                                </button>
+                            </div>
+                            
+                            <div *ngIf="isDropdownOpen && filteredTrabajadores.length > 0" class="dropdown-list">
+                                <div *ngFor="let trabajador of filteredTrabajadores" 
+                                     class="dropdown-item" 
+                                     [class.selected]="isTrabajadorSelected(trabajador)"
+                                     (click)="toggleTrabajador(trabajador)">
+                                    <div class="worker-item-content">
+                                        <span class="checkbox">{{isTrabajadorSelected(trabajador) ? '✅' : '☐'}}</span>
+                                        <div class="worker-details">
+                                            <strong>{{trabajador.nombre}}</strong>
+                                            <small>{{trabajador.codigo}} - {{trabajador.empresa}}</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="selected-count" *ngIf="selectedTrabajadores.length > 0">
+                        <span class="count-badge">{{selectedTrabajadores.length}} seleccionado(s)</span>
+                    </div>
+                    
+                    <button 
+                        class="add-btn" 
+                        (click)="addSelectedTrabajadores()"
+                        [disabled]="selectedTrabajadores.length === 0">
+                        ➕ Añadir Seleccionados
+                    </button>
+                </div>
+            </div>
+
+            <!-- Asignación masiva de horas -->
+            <div class="bulk-hours-section" *ngIf="tempAsignados.length > 0">
+                <h4>Asignación Masiva de Horas</h4>
+                <div class="bulk-hours-form">
+                    <div class="bulk-input-group">
+                        <label>Horas para todos:</label>
+                        <input 
+                            type="number" 
+                            [(ngModel)]="horasMasivas" 
+                            min="0.1" 
+                            step="0.1" 
+                            placeholder="Ej: 8"
+                            class="bulk-hours-input">
+                        <button 
+                            class="bulk-assign-btn" 
+                            (click)="asignarHorasMasivas()"
+                            [disabled]="horasMasivas <= 0">
+                            ⚡ Asignar a Todos
+                        </button>
+                    </div>
+                    <small class="bulk-help-text">
+                        Asigna el mismo número de horas a todos los trabajadores seleccionados
+                    </small>
+                </div>
+            </div>
+
+            <!-- Lista de trabajadores asignados -->
+            <div class="assigned-workers" *ngIf="tempAsignados.length > 0">
+                <h4>Trabajadores Asignados</h4>
+                <div class="workers-list">
+                    <div *ngFor="let asignado of tempAsignados; let i = index" class="worker-item">
+                        <div class="worker-info">
+                            <strong>{{asignado.trabajador.nombre}}</strong>
+                            <small>{{asignado.trabajador.codigo}} - {{asignado.trabajador.empresa}}</small>
+                        </div>
+                        <div class="worker-hours">
+                            <input 
+                                type="number" 
+                                [value]="asignado.horas" 
+                                (input)="updateHoras(i, +$any($event.target).value)"
+                                min="0.1" 
+                                step="0.1" 
+                                class="hours-edit">
+                            <span>horas</span>
+                        </div>
+                        <button class="remove-btn" (click)="removeTrabajador(i)">🗑️</button>
+                    </div>
+                </div>
+            </div>
+
+            <div *ngIf="tempAsignados.length === 0" class="no-workers">
+                <p>No hay trabajadores asignados</p>
+            </div>
+        </div>
+
+        <div class="modal-actions">
+            <button class="cancel-btn" (click)="onClose()">Cancelar</button>
+            <button 
+                class="save-btn" 
+                (click)="onSave()"
+                [disabled]="!isValid()">
+                Guardar Asignaciones
+            </button>
+        </div>
+    </div>
+</div>
