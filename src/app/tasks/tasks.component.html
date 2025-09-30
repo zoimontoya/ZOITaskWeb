@@ -273,9 +273,16 @@
                     </button>
                     <button *ngIf="task.progreso === 'Iniciada' || (isNumber(task.progreso) && toNumber(task.progreso) >= 0)" 
                                     class="task-action-btn progress-btn" 
-                                    (click)="onOpenProgressModal(task)">
-                        <span class="icon">📊</span> Actualizar progreso
+                                    [class.disabled]="!canUpdateProgressToday(task)"
+                                    [disabled]="!canUpdateProgressToday(task)"
+                                    (click)="canUpdateProgressToday(task) && onOpenProgressModal(task)">
+                        <span class="icon">{{ canUpdateProgressToday(task) ? '📊' : '🕐' }}</span> 
+                        {{ canUpdateProgressToday(task) ? 'Actualizar progreso' : 'Ya actualizado hoy' }}
                     </button>
+                    <small *ngIf="!canUpdateProgressToday(task) && (task.progreso === 'Iniciada' || (isNumber(task.progreso) && toNumber(task.progreso) >= 0))" 
+                           class="update-restriction-message">
+                        {{getUpdateStatusMessage(task)}}
+                    </small>
                 </div>
                 <div *ngIf="!isEncargado && task.progreso !== 'Terminada'" class="task-actions">
                     <button class="task-action-btn delete-btn" (click)="onConfirmDeleteTask(task)"><span class="icon">🗑️</span> Eliminar</button>

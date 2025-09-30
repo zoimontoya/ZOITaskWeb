@@ -17,6 +17,7 @@ export interface Task {
   dimension_total: string;
   proceso: string;
   progreso?: string; // Propiedad opcional para manejar ambos nombres de columna
+  fecha_actualizacion?: string; // Nueva columna para fecha de última actualización
 }
 
 export interface NewTask {

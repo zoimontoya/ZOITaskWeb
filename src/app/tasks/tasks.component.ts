@@ -657,4 +657,23 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     
     return `${desarrolloActual}/${dimensionTotal} (${task.progreso}%)`;
   }
+
+  // Verificar si una tarea ya fue actualizada hoy
+  canUpdateProgressToday(task: any): boolean {
+    if (!task.fecha_actualizacion) return true; // Si no tiene fecha, puede actualizar
+    
+    const fechaActualizacion = task.fecha_actualizacion;
+    const hoy = new Date().toLocaleDateString('es-ES'); // Formato DD/MM/YYYY
+    
+    // Si la fecha de actualización es hoy, no puede actualizar
+    return fechaActualizacion !== hoy;
+  }
+
+  // Obtener mensaje de estado de actualización
+  getUpdateStatusMessage(task: any): string {
+    if (this.canUpdateProgressToday(task)) {
+      return '';
+    }
+    return 'Ya actualizado hoy - Disponible mañana';
+  }
 }

@@ -718,6 +718,27 @@ menu button:hover, menu button:active,
   background-color: #2980b9;
 }
 
+/* Botón de progreso deshabilitado */
+.task-action-btn.progress-btn.disabled {
+  background-color: #7f8c8d;
+  color: #bdc3c7;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.task-action-btn.progress-btn.disabled:hover {
+  background-color: #7f8c8d;
+  color: #bdc3c7;
+}
+
+/* Mensaje de restricción de actualización */
+.update-restriction-message {
+  display: block;
+  color: #e67e22;
+  font-size: 0.8em;
+  margin-top: 0.3em;
+  font-style: italic;
+}
+
 .task-action-btn.update-btn {
   background-color: #f39c12;
   color: #fff;

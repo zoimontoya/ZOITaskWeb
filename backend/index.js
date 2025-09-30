@@ -571,7 +571,8 @@ app.get('/tasks', async (req, res) => {
         fecha_fin: row[12] || '',                      // M
         desarrollo_actual: row[13] || '',              // N
         dimension_total: row[14] || '',                // O
-        proceso: row[15] || 'No iniciado'              // P
+        proceso: row[15] || 'No iniciado',             // P
+        fecha_actualizacion: row[16] || ''             // Q - Nueva columna para fecha de actualización
       };
       
       // Combinar mapeo dinámico con mapeo explícito (prioridad al explícito)
@@ -790,11 +791,12 @@ app.post('/tasks', async (req, res) => {
         req.body.fecha_fin || '',                      // M: fecha_fin
         Number(req.body.desarrollo_actual) || 0,      // N: desarrollo_actual
         req.body.dimension_total || '0',               // O: dimension_total
-        req.body.proceso || 'No iniciado'              // P: proceso
+        req.body.proceso || 'No iniciado',             // P: proceso
+        req.body.fecha_actualizacion || ''             // Q: fecha_actualizacion (se mantiene el valor existente al editar)
       ];
       await sheets.spreadsheets.values.update({
         spreadsheetId: SPREADSHEET_ID,
-        range: `${tareasSheet.properties.title}!A${rowIndex + 1}:P${rowIndex + 1}`, // Actualizado a columna P (16 columnas)
+        range: `${tareasSheet.properties.title}!A${rowIndex + 1}:Q${rowIndex + 1}`, // Actualizado a columna Q (17 columnas)
         valueInputOption: 'RAW',
         resource: { values: [updatedRow] }
       });
@@ -899,13 +901,32 @@ app.post('/tasks', async (req, res) => {
         console.log('Columnas disponibles:', headers.map((h, i) => `${String.fromCharCode(65 + i)}: ${h}`));
       }
 
-      console.log('Progreso actualizado para tarea:', idToUpdate, 'porcentaje:', req.body.progreso, 'hectáreas:', req.body.desarrollo_actual, 'jornales_reales:', req.body.jornales_reales);
+      // Actualizar fecha_actualizacion (columna Q - posición 16)
+      const fechaActualizacionIndex = headers.findIndex(h => 
+        h && (h.toLowerCase().includes('fecha_actualizacion') || 
+              h.toLowerCase().includes('fecha actualizacion') ||
+              h.toLowerCase() === 'fecha_actualizacion')
+      );
+      
+      const fechaActualizacionCol = fechaActualizacionIndex >= 0 ? fechaActualizacionIndex : 16; // Columna Q = índice 16
+      const fechaActualizacionColLetter = String.fromCharCode(65 + fechaActualizacionCol);
+      const fechaActual = new Date().toLocaleDateString('es-ES'); // Formato DD/MM/YYYY
+      
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `${tareasSheet.properties.title}!${fechaActualizacionColLetter}${rowIndex + 1}`,
+        valueInputOption: 'RAW',
+        resource: { values: [[fechaActual]] }
+      });
+
+      console.log('Progreso actualizado para tarea:', idToUpdate, 'porcentaje:', req.body.progreso, 'hectáreas:', req.body.desarrollo_actual, 'jornales_reales:', req.body.jornales_reales, 'fecha_actualizacion:', fechaActual);
       return res.json({ 
         result: 'success', 
         updated: idToUpdate, 
         progress: req.body.progreso, 
         hectares: req.body.desarrollo_actual,
-        jornales_reales: req.body.jornales_reales
+        jornales_reales: req.body.jornales_reales,
+        fecha_actualizacion: fechaActual
       });
     }
 
@@ -1022,7 +1043,8 @@ app.post('/tasks', async (req, res) => {
         '',                                          // M: fecha_fin (vacía al crear)
         0,                                           // N: desarrollo_actual (inicia en 0)
         dimensionTotalSeleccionada,                  // O: dimension_total (seleccionada por el usuario)
-        'No iniciado'                                // P: proceso (por defecto)
+        'No iniciado',                               // P: proceso (por defecto)
+        ''                                           // Q: fecha_actualizacion (vacía al crear, se llenará al actualizar)
       ]);
     }
     await sheets.spreadsheets.values.append({
@@ -1071,18 +1093,19 @@ app.post('/tasks/:id/accept', async (req, res) => {
     const currentRow = rows[rowIndex];
     const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
     
-    // Asegurar que el array tenga suficientes elementos para la nueva estructura de 16 columnas
-    while (currentRow.length < 16) {
+    // Asegurar que el array tenga suficientes elementos para la nueva estructura de 17 columnas
+    while (currentRow.length < 17) {
       currentRow.push('');
     }
     
     // Actualizar fecha_inicio (columna L = índice 11) y proceso (columna P = índice 15)
+    // NO actualizamos fecha_actualizacion aquí porque "aceptar" no es lo mismo que "actualizar progreso"
     currentRow[11] = today; // fecha_inicio (columna L)
     currentRow[15] = 'Iniciada'; // proceso (columna P)
     
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${tareasSheet.properties.title}!A${rowIndex + 1}:P${rowIndex + 1}`, // Actualizado a columna P (16 columnas)
+      range: `${tareasSheet.properties.title}!A${rowIndex + 1}:Q${rowIndex + 1}`, // Actualizado a columna Q (17 columnas)
       valueInputOption: 'RAW',
       resource: { values: [currentRow] }
     });
@@ -1126,24 +1149,27 @@ app.post('/tasks/:id/complete', async (req, res) => {
     const currentRow = rows[rowIndex];
     const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
     
-    // Asegurar que el array tenga suficientes elementos para la nueva estructura de 16 columnas
-    while (currentRow.length < 16) {
+    // Asegurar que el array tenga suficientes elementos para la nueva estructura de 17 columnas
+    while (currentRow.length < 17) {
       currentRow.push('');
     }
     
-    // Actualizar fecha_fin (columna M = índice 12) y proceso (columna P = índice 15)
-    currentRow[12] = today; // fecha_fin (columna M)
+    const fechaActual = new Date().toLocaleDateString('es-ES'); // Formato DD/MM/YYYY
+    
+    // Actualizar fecha_fin (columna M = índice 12), proceso (columna P = índice 15) y fecha_actualizacion (columna Q = índice 16)
+    currentRow[12] = today; // fecha_fin (columna M) - YYYY-MM-DD
     currentRow[15] = 'Terminada'; // proceso (columna P)
+    currentRow[16] = fechaActual; // fecha_actualizacion (columna Q) - DD/MM/YYYY
     
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${tareasSheet.properties.title}!A${rowIndex + 1}:P${rowIndex + 1}`, // Actualizado a columna P (16 columnas)
+      range: `${tareasSheet.properties.title}!A${rowIndex + 1}:Q${rowIndex + 1}`, // Actualizado a columna Q (17 columnas)
       valueInputOption: 'RAW',
       resource: { values: [currentRow] }
     });
     
-    console.log('Tarea completada:', taskId);
-    res.json({ result: 'success', completed: taskId });
+    console.log('Tarea completada:', taskId, 'fecha_fin:', today, 'fecha_actualizacion:', fechaActual);
+    res.json({ result: 'success', completed: taskId, fecha_actualizacion: fechaActual });
   } catch (err) {
     console.error('Error completando tarea:', err);
     res.status(500).json({ error: err.message });
