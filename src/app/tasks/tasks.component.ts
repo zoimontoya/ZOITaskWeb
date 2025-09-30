@@ -4,11 +4,22 @@ import { Task } from './task/task.model';
 import { GreenhouseService, Greenhouse } from './greenhouse.service';
 import { UserService } from '../user/user.service';
 import { TrabajadoresService, TrabajadorAsignado } from '../trabajadores/trabajadores.service';
+import { HttpClient } from '@angular/common/http';
+import { environment } from '../../environments/environment';
 
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { newTaskComponent } from './newTask/newTask.component';
 import { AsignarTrabajadoresComponent } from '../trabajadores/asignar-trabajadores/asignar-trabajadores.component';
+
+interface TipoTarea {
+  grupo_trabajo: string;
+  familia: string;
+  tipo: string;
+  subtipo: string;
+  tarea_nombre: string;
+  jornal_unidad: string;
+}
 
 @Component({
   selector: 'app-tasks',
@@ -51,18 +62,170 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   showWorkersModal = false;
   trabajadoresAsignados: TrabajadorAsignado[] = [];
   trabajadoresValidados = false; // Flag para saber si las horas cuadran
+  
+  // Encargados del mismo cabezal (para validación de tareas urgentes)
+  encargadosDelCabezal: string[] = [];
 
   // Protección contra double-click
   isProcessing = false;
   
+  // Propiedades para Tareas Urgentes
+  isUrgentTaskWorkersMode = false;
+  showUrgentTaskModal = false;
+  urgentTask = {
+    invernadero: '',
+    tipo_tarea: '',
+    horas_trabajadas: 0,
+    descripcion: ''
+  };
+  urgentTaskWorkers: TrabajadorAsignado[] = [];
+  isCreatingUrgentTask = false;
+  
+  // Propiedades para selectores de tarea urgente
+  isUrgentInvernaderoOpen = false;
+  isUrgentTipoOpen = false;
+  urgentInvernaderoSearch = '';
+  urgentTipoSearch = '';
+  allUrgentInvernaderos: string[] = [];
+  allUrgentTipos: string[] = [];
+  filteredUrgentInvernaderos: string[] = [];
+  filteredUrgentTipos: string[] = [];
+  
 
 
-  constructor(private taskService: TasksService, private greenhouseService: GreenhouseService, private userService: UserService, private trabajadoresService: TrabajadoresService) {}
+  constructor(private taskService: TasksService, private greenhouseService: GreenhouseService, private userService: UserService, private trabajadoresService: TrabajadoresService, private http: HttpClient) {}
+  
+  // ===== MÉTODOS PARA TAREAS URGENTES =====
+  
+  onStartUrgentTask() {
+    this.showUrgentTaskModal = true;
+    this.urgentTask = {
+      invernadero: '',
+      tipo_tarea: '',
+      horas_trabajadas: 0,
+      descripcion: ''
+    };
+    this.urgentTaskWorkers = [];
+    this.isUrgentTaskWorkersMode = false; // Resetear flag
+    
+    // Inicializar selectores
+    this.isUrgentInvernaderoOpen = false;
+    this.isUrgentTipoOpen = false;
+    this.urgentInvernaderoSearch = '';
+    this.urgentTipoSearch = '';
+    this.loadUrgentInvernaderos();
+    this.loadUrgentTiposTarea();
+  }
+  
+  onCancelUrgentTask() {
+    this.showUrgentTaskModal = false;
+    this.urgentTask = {
+      invernadero: '',
+      tipo_tarea: '',
+      horas_trabajadas: 0,
+      descripcion: ''
+    };
+    this.urgentTaskWorkers = [];
+    this.isUrgentTaskWorkersMode = false; // Resetear flag
+  }
+  
+  onUrgentTaskModalOverlayClick(event: MouseEvent) {
+    // Solo cerrar si se hace clic en el overlay, no en el contenido del modal
+    if (event.target === event.currentTarget) {
+      this.onCancelUrgentTask();
+    }
+  }
+  
+  onOpenWorkersForUrgentTask() {
+    // Validar que hay horas especificadas
+    if (this.urgentTask.horas_trabajadas <= 0) {
+      alert('Por favor, especifica primero las horas trabajadas antes de asignar trabajadores.');
+      return;
+    }
+    
+    // Abrir modal de trabajadores para la tarea urgente
+    this.isUrgentTaskWorkersMode = true;
+    this.trabajadoresAsignados = [...this.urgentTaskWorkers]; // Copiar los trabajadores actuales
+    this.jornalesRealesValue = this.urgentTask.horas_trabajadas; // Pasar las horas totales
+    this.trabajadoresValidados = false; // Resetear validación
+    this.showWorkersModal = true;
+  }
+  
+  onSubmitUrgentTask() {
+    if (this.isCreatingUrgentTask) return; // Evitar doble envío
+    
+    // Validaciones básicas
+    if (!this.urgentTask.invernadero.trim() || 
+        !this.urgentTask.tipo_tarea.trim() || 
+        !this.urgentTask.descripcion.trim() ||
+        this.urgentTask.horas_trabajadas <= 0) {
+      alert('Por favor, completa todos los campos obligatorios.');
+      return;
+    }
+    
+    this.isCreatingUrgentTask = true;
+    
+    // Crear tarea con estado "Por validar"  
+    // Para tareas urgentes, el encargado que la crea será quien aparezca como creador
+    const encargadoNombre = this.loggedUser?.nombre_completo || this.name || this.userId || '';
+    const tareaUrgente = {
+      invernadero: this.urgentTask.invernadero.trim(),
+      tipo_tarea: `[URGENTE] ${this.urgentTask.tipo_tarea.trim()}`,
+      estimacion_horas: this.urgentTask.horas_trabajadas,
+      hora_jornal: 1, // 8 horas por jornal por defecto
+      horas_kilos: 0, // Hectáreas por defecto
+      fecha_limite: new Date().toISOString().split('T')[0], // Fecha actual
+      encargado_id: this.userId,
+      descripcion: this.urgentTask.descripcion.trim(),
+      nombre_superior: encargadoNombre, // El encargado aparece como creador de la tarea urgente
+      desarrollo_actual: '',
+      dimension_total: '0', // Sin dimensiones para tareas urgentes
+      proceso: 'Por validar', // Estado especial para validación
+      progreso: 'Por validar'
+    };
+    
+    console.log('Creando tarea urgente:', tareaUrgente);
+    
+    this.taskService.addTask([tareaUrgente]).subscribe({
+      next: () => {
+        this.isCreatingUrgentTask = false;
+        this.showUrgentTaskModal = false;
+        
+        // Si hay trabajadores asignados, registrarlos
+        if (this.urgentTaskWorkers.length > 0) {
+          // Aquí registrarías las horas de los trabajadores
+          console.log('Trabajadores para tarea urgente:', this.urgentTaskWorkers);
+        }
+        
+        this.loadTasks();
+        alert('Tarea urgente registrada exitosamente. Esperando validación del superior.');
+      },
+      error: (err) => {
+        this.isCreatingUrgentTask = false;
+        if (err.status === 200) {
+          // Manejar respuesta exitosa que viene como error
+          this.showUrgentTaskModal = false;
+          this.loadTasks();
+          alert('Tarea urgente registrada exitosamente. Esperando validación del superior.');
+        } else {
+          console.error('Error creando tarea urgente:', err);
+          alert('Error al registrar la tarea urgente. Intenta nuevamente.');
+        }
+      }
+    });
+  }
 
   ngOnInit() {
-    this.loadTasks();
     this.greenhouseService.getGreenhouses().subscribe(data => this.greenhouses = data);
     document.addEventListener('mousedown', this.handleClickOutside);
+    
+    // Para superiores, cargar encargados del mismo cabezal PRIMERO, luego las tareas
+    if (!this.isEncargado && this.loggedUser?.grupo_trabajo && this.loggedUser?.cabezal) {
+      this.loadEncargadosDelCabezal();
+    } else {
+      // Para encargados, cargar tareas directamente
+      this.loadTasks();
+    }
   }
 
   ngOnDestroy() {
@@ -84,41 +247,54 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
         this.showFilterMenu = false;
       }
     }
+    
+    // Cerrar dropdowns de tarea urgente si se hace clic fuera
+    if (this.isUrgentInvernaderoOpen) {
+      const invernaderoDropdown = document.querySelector('.urgent-dropdown.open');
+      if (invernaderoDropdown && !invernaderoDropdown.contains(event.target as Node)) {
+        this.isUrgentInvernaderoOpen = false;
+      }
+    }
+    
+    if (this.isUrgentTipoOpen) {
+      const tipoDropdown = document.querySelector('.urgent-dropdown.open');
+      if (tipoDropdown && !tipoDropdown.contains(event.target as Node)) {
+        this.isUrgentTipoOpen = false;
+      }
+    }
   };
 
   applyFilters() {
     let filtered = [...this.tasks];
-    console.log('DEBUG applyFilters - tasks originales:', this.tasks.length);
-    console.log('DEBUG applyFilters - isEncargado:', this.isEncargado);
-    console.log('DEBUG applyFilters - userId:', this.userId);
     
-    // Debug: Mostrar todas las tareas con sus estados y progresos
-    console.log('DEBUG: Todas las tareas y sus estados:');
-    this.tasks.forEach(t => {
-      console.log(`  Tarea ${t.id}: proceso="${t.proceso}", progreso="${t.progreso}"`);
-    });
-    
-    // Filtrar por estado seleccionado (usando solo el campo progreso)
+    // Filtrar por estado seleccionado (usar progreso para tareas urgentes, proceso para tareas normales)
     switch (this.selectedEstado) {
       case 'sin-iniciar':
-        filtered = filtered.filter(t => t.progreso === 'No iniciado');
+        filtered = filtered.filter(t => {
+          const estado = t.progreso || t.proceso || 'No iniciado';
+          return estado === 'No iniciado';
+        });
         break;
       case 'en-progreso':
         // Mostrar tareas que estén iniciadas O que tengan progreso numérico
         filtered = filtered.filter(t => {
-          const esIniciada = t.progreso === 'Iniciada';
-          const tieneProgreso = t.progreso && !isNaN(Number(t.progreso)) && Number(t.progreso) > 0;
-          const resultado = esIniciada || tieneProgreso;
-          
-          if (resultado) {
-            console.log(`DEBUG: Tarea incluida en "en-progreso" - ID: ${t.id}, progreso: "${t.progreso}", esIniciada: ${esIniciada}, tieneProgreso: ${tieneProgreso}`);
-          }
-          
-          return resultado;
+          const estado = t.progreso || t.proceso || '';
+          const esIniciada = estado === 'Iniciada';
+          const tieneProgreso = estado && !isNaN(Number(estado)) && Number(estado) > 0;
+          return esIniciada || tieneProgreso;
         });
         break;
       case 'terminadas':
-        filtered = filtered.filter(t => t.progreso === 'Terminada');
+        filtered = filtered.filter(t => {
+          const estado = t.progreso || t.proceso || '';
+          return estado === 'Terminada';
+        });
+        break;
+      case 'por-validar':
+        filtered = filtered.filter(t => {
+          const estado = t.progreso || t.proceso || '';
+          return estado === 'Por validar';
+        });
         break;
     }
     
@@ -137,8 +313,6 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
       filtered = filtered.sort((a, b) => (b.fecha_limite || '').localeCompare(a.fecha_limite || ''));
     }
     this.filteredTasks = filtered;
-    console.log('DEBUG applyFilters - filteredTasks final:', this.filteredTasks.length);
-    console.log('DEBUG applyFilters - primeras tareas:', this.filteredTasks.slice(0, 2));
   }
 
   resetFilters() {
@@ -180,23 +354,30 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
           const userIdNorm = String(this.userId).trim().toLowerCase();
           this.tasks = tasksConvertidas.filter(t => String(t.encargado_id).trim().toLowerCase() === userIdNorm);
         } else {
-          // Para superiores: filtrar solo las tareas que han creado ellos
+          // Para superiores: mostrar TODAS las tareas relacionadas con su cabezal
           const userNameNorm = String(this.name || '').trim().toLowerCase();
           const userFullName = String(this.loggedUser?.nombre_completo || '').trim().toLowerCase();
           const userIdStr = String(this.userId || '').trim().toLowerCase();
           
           this.tasks = tasksConvertidas.filter(t => {
             const taskSuperior = String(t.nombre_superior || '').trim().toLowerCase();
+            const encargadoTarea = String(t.encargado_id || '').trim();
             
-            // Si nombre_superior está vacío o es null, NO mostrar la tarea
-            if (!taskSuperior || taskSuperior === '') {
-              return false;
-            }
+            // 1. Tareas que el superior ha creado directamente (nombre_superior = él)
+            const esCreadorDeLaTarea = taskSuperior === userNameNorm || 
+                                       taskSuperior === userFullName ||
+                                       taskSuperior === userIdStr;
             
-            // Comparación exacta con todos los identificadores posibles
-            return taskSuperior === userNameNorm || 
-                   taskSuperior === userFullName ||
-                   taskSuperior === userIdStr;
+            // 2. Tareas donde el superior aparece como encargado (él debe hacerlas)
+            const esTareaPropia = encargadoTarea.toLowerCase() === userIdStr ||
+                                  encargadoTarea.toLowerCase() === userNameNorm ||
+                                  encargadoTarea.toLowerCase() === userFullName;
+            
+            // 3. Tareas de encargados que pertenecen a su cabezal (TODAS, no solo urgentes)
+            const encargadoEsDelCabezal = this.encargadosDelCabezal.length > 0 && 
+                                          this.encargadosDelCabezal.includes(encargadoTarea);
+            
+            return esCreadorDeLaTarea || esTareaPropia || encargadoEsDelCabezal;
           });
         }
         this.invernaderos = Array.from(new Set(this.tasks.map(t => t.invernadero).filter(Boolean)));
@@ -306,6 +487,11 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   }
 
   onConfirmDeleteTask(task: Task) {
+    // Verificar que la tarea no esté terminada
+    if (this.isTaskCompleted(task)) {
+      alert('No se puede eliminar una tarea terminada.');
+      return;
+    }
     this.taskToDelete = task;
     this.showDeleteModal = true;
   }
@@ -324,6 +510,11 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   }
 
   onStartEditTask(task: Task) {
+    // Verificar que la tarea no esté terminada
+    if (this.isTaskCompleted(task)) {
+      alert('No se puede editar una tarea terminada.');
+      return;
+    }
     this.editingTask = { ...task };
   }
 
@@ -613,6 +804,216 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   toNumber(value: any): number {
     return Number(value);
   }
+  
+  // Método para validar tareas urgentes (solo superiores)
+  onValidateUrgentTask(task: Task) {
+    if (this.isEncargado) {
+      alert('Solo los superiores pueden validar tareas.');
+      return;
+    }
+    
+    const confirmValidation = confirm(
+      `¿Confirmas que quieres validar esta tarea urgente?\n\n` +
+      `Tarea: ${task.tipo_tarea}\n` +
+      `Invernadero: ${task.invernadero}\n` +
+      `Descripción: ${task.descripcion}\n\n` +
+      `Al validar, la tarea pasará a estado "Terminada".`
+    );
+    
+    if (!confirmValidation) return;
+    
+    // Actualizar la tarea a estado terminado
+    const tareaValidada = {
+      ...task,
+      progreso: 'Terminada',
+      proceso: 'Terminada',
+      fecha_fin: new Date().toISOString().split('T')[0]
+    };
+    
+    this.taskService.updateTask(task.id, tareaValidada).subscribe({
+      next: () => {
+        this.loadTasks();
+        alert('Tarea validada exitosamente. Ahora aparece como terminada.');
+      },
+      error: (err) => {
+        if (err.status === 200) {
+          this.loadTasks();
+          alert('Tarea validada exitosamente. Ahora aparece como terminada.');
+        } else {
+          console.error('Error validando tarea:', err);
+          alert('Error al validar la tarea. Intenta nuevamente.');
+        }
+      }
+    });
+  }
+  
+  // ===== MÉTODOS PARA SELECTORES DE TAREA URGENTE =====
+  
+  toggleUrgentInvernadero() {
+    this.isUrgentInvernaderoOpen = !this.isUrgentInvernaderoOpen;
+    if (this.isUrgentInvernaderoOpen) {
+      this.isUrgentTipoOpen = false;
+      this.loadUrgentInvernaderos();
+      this.filterUrgentInvernaderos();
+    }
+  }
+  
+  toggleUrgentTipo() {
+    this.isUrgentTipoOpen = !this.isUrgentTipoOpen;
+    if (this.isUrgentTipoOpen) {
+      this.isUrgentInvernaderoOpen = false;
+      if (this.allUrgentTipos.length === 0) {
+        this.loadUrgentTiposTarea();
+      } else {
+        this.filterUrgentTipos();
+      }
+    }
+  }
+  
+  loadUrgentInvernaderos() {
+    // Cargar invernaderos filtrados por cabezal del usuario
+    if (this.loggedUser?.cabezal) {
+      this.greenhouseService.getGreenhousesByCabezal(this.loggedUser.cabezal).subscribe({
+        next: (data) => {
+          const invernaderos = data.cabezales.flatMap(cabezal => cabezal.invernaderos);
+          this.allUrgentInvernaderos = invernaderos.map(inv => inv.nombre).sort();
+          this.filterUrgentInvernaderos();
+        },
+        error: (err) => {
+          console.error('Error cargando invernaderos por cabezal:', err);
+          // Fallback: usar invernaderos de tareas existentes
+          const allInvernaderos = new Set<string>();
+          this.tasks.forEach(task => {
+            if (task.invernadero && task.invernadero.trim()) {
+              allInvernaderos.add(task.invernadero);
+            }
+          });
+          this.allUrgentInvernaderos = Array.from(allInvernaderos).sort();
+          this.filterUrgentInvernaderos();
+        }
+      });
+    } else {
+      // Fallback: usar invernaderos de tareas existentes
+      const allInvernaderos = new Set<string>();
+      this.tasks.forEach(task => {
+        if (task.invernadero && task.invernadero.trim()) {
+          allInvernaderos.add(task.invernadero);
+        }
+      });
+      this.allUrgentInvernaderos = Array.from(allInvernaderos).sort();
+      this.filterUrgentInvernaderos();
+    }
+  }
+  
+  loadUrgentTiposTarea() {
+    // Cargar tipos de tarea por grupo_trabajo del usuario
+    if (this.loggedUser?.grupo_trabajo) {
+      this.http.get<TipoTarea[]>(`${environment.apiBaseUrl}/tipos-tarea/${this.loggedUser.grupo_trabajo}`).subscribe({
+        next: (tiposTarea) => {
+          // Extraer tipos únicos (incluyendo subtipos como opciones separadas)
+          const tiposSet = new Set<string>();
+          
+          tiposTarea.forEach(tarea => {
+            if (tarea.tipo) {
+              tiposSet.add(tarea.tipo);
+            }
+            if (tarea.subtipo) {
+              tiposSet.add(`${tarea.tipo} - ${tarea.subtipo}`);
+            }
+          });
+          
+          this.allUrgentTipos = Array.from(tiposSet).sort();
+          this.filterUrgentTipos();
+        },
+        error: (err) => {
+          console.error('Error cargando tipos de tarea por grupo_trabajo:', err);
+          // Fallback: usar tipos predefinidos
+          this.allUrgentTipos = [
+            'Reparación urgente',
+            'Limpieza imprevista', 
+            'Mantenimiento correctivo',
+            'Control de plagas urgente',
+            'Riego de emergencia',
+            'Fertilización urgente',
+            'Reparación de sistemas',
+            'Limpieza de equipos',
+            'Revisión técnica',
+            'Trabajo de emergencia',
+            'Otro'
+          ];
+          this.filterUrgentTipos();
+        }
+      });
+    } else {
+      // Fallback: usar tipos predefinidos
+      this.allUrgentTipos = [
+        'Reparación urgente',
+        'Limpieza imprevista',
+        'Mantenimiento correctivo', 
+        'Control de plagas urgente',
+        'Riego de emergencia',
+        'Fertilización urgente',
+        'Reparación de sistemas',
+        'Limpieza de equipos',
+        'Revisión técnica',
+        'Trabajo de emergencia',
+        'Otro'
+      ];
+      this.filterUrgentTipos();
+    }
+  }
+  
+  filterUrgentInvernaderos() {
+    if (!this.urgentInvernaderoSearch.trim()) {
+      this.filteredUrgentInvernaderos = [...this.allUrgentInvernaderos];
+    } else {
+      const search = this.urgentInvernaderoSearch.toLowerCase();
+      this.filteredUrgentInvernaderos = this.allUrgentInvernaderos.filter(inv => 
+        inv.toLowerCase().includes(search)
+      );
+    }
+  }
+  
+  filterUrgentTipos() {
+    if (!this.urgentTipoSearch.trim()) {
+      this.filteredUrgentTipos = [...this.allUrgentTipos];
+    } else {
+      const search = this.urgentTipoSearch.toLowerCase();
+      this.filteredUrgentTipos = this.allUrgentTipos.filter(tipo => 
+        tipo.toLowerCase().includes(search)
+      );
+    }
+  }
+  
+  selectUrgentInvernadero(invernadero: string) {
+    this.urgentTask.invernadero = invernadero;
+    this.isUrgentInvernaderoOpen = false;
+    this.urgentInvernaderoSearch = '';
+  }
+  
+  selectUrgentTipo(tipo: string) {
+    this.urgentTask.tipo_tarea = tipo;
+    this.isUrgentTipoOpen = false;
+    this.urgentTipoSearch = '';
+  }
+
+  // Cargar encargados del mismo cabezal para validación de tareas urgentes
+  loadEncargadosDelCabezal() {
+    if (this.loggedUser?.grupo_trabajo && this.loggedUser?.cabezal) {
+      this.http.get<any[]>(`${environment.apiBaseUrl}/encargados/${this.loggedUser.grupo_trabajo}/${this.loggedUser.cabezal}`).subscribe({
+        next: (encargados) => {
+          this.encargadosDelCabezal = encargados.map(e => e.nombre_completo || e.nombre || e.id).filter(Boolean);
+          console.log('Encargados del cabezal cargados:', this.encargadosDelCabezal);
+          // Recargar tareas para aplicar el filtrado con la nueva información
+          this.loadTasks();
+        },
+        error: (err) => {
+          console.error('Error cargando encargados del cabezal:', err);
+          this.encargadosDelCabezal = [];
+        }
+      });
+    }
+  }
 
   // Método para detectar si una tarea está vencida
   isTaskOverdue(task: Task): boolean {
@@ -710,18 +1111,33 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
 
   onCloseWorkersModal(): void {
     this.showWorkersModal = false;
+    this.isUrgentTaskWorkersMode = false; // Resetear flag
   }
 
   onSaveWorkerAssignments(asignaciones: TrabajadorAsignado[]): void {
-    this.trabajadoresAsignados = asignaciones;
+    if (this.isUrgentTaskWorkersMode) {
+      // Modo tarea urgente
+      this.urgentTaskWorkers = asignaciones;
+      this.isUrgentTaskWorkersMode = false;
+      console.log('Trabajadores asignados a tarea urgente:', asignaciones);
+    } else {
+      // Modo tarea normal
+      this.trabajadoresAsignados = asignaciones;
+    }
+    
     this.trabajadoresValidados = true;
     this.showWorkersModal = false;
-    console.log('Trabajadores asignados:', asignaciones);
   }
 
   // Verificar si se pueden actualizar/completar las tareas
   canProceedWithUpdate(): boolean {
     return this.trabajadoresValidados && this.jornalesRealesValue > 0;
+  }
+
+  // Verificar si una tarea está terminada (unificando ambos campos)
+  isTaskCompleted(task: Task): boolean {
+    const estado = task.progreso || task.proceso;
+    return estado === 'Terminada';
   }
 
   getWorkersValidationMessage(): string {

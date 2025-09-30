@@ -1196,6 +1196,369 @@ ul {
   }
 }
 
+/* Estilos para tarea urgente */
+.urgent-task-btn {
+  background: linear-gradient(135deg, #ff6b35, #ff8c42);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  font-weight: bold;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(255, 107, 53, 0.3);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.urgent-task-btn:hover {
+  background: linear-gradient(135deg, #e85a2e, #e67d39);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 107, 53, 0.4);
+}
+
+.urgent-task-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 10px rgba(255, 107, 53, 0.3);
+}
+
+/* Modal de tarea urgente */
+.urgent-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(5px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  animation: fadeIn 0.3s ease;
+}
+
+/* Estilos para selectores de tarea urgente */
+.urgent-selector-container {
+  position: relative;
+  width: 100%;
+}
+
+.urgent-dropdown {
+  position: relative;
+  width: 100%;
+}
+
+.urgent-dropdown-header {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid #4a7c59;
+  border-radius: 0.5rem;
+  background: white;
+  color: #333;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.3s ease;
+  min-height: 50px;
+}
+
+.urgent-dropdown-header:hover {
+  border-color: #ff6b35;
+  background: #f8f8f8;
+}
+
+.urgent-dropdown.open .urgent-dropdown-header {
+  border-color: #ff6b35;
+  box-shadow: 0 0 10px rgba(255, 107, 53, 0.3);
+  background: #f8f8f8;
+}
+
+.urgent-dropdown .dropdown-text {
+  flex: 1;
+  text-align: left;
+  color: #333;
+  font-size: 0.95rem;
+}
+
+.urgent-dropdown .dropdown-icon {
+  transition: transform 0.3s ease;
+  color: #ff6b35;
+  font-weight: bold;
+}
+
+.urgent-dropdown .dropdown-icon.expanded {
+  transform: rotate(180deg);
+}
+
+.urgent-dropdown-content {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: linear-gradient(135deg, #2d5a2d, #1a4a1a);
+  border: 2px solid #4a7c59;
+  border-top: none;
+  border-radius: 0 0 0.5rem 0.5rem;
+  max-height: 250px;
+  overflow: hidden;
+  z-index: 1001;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.urgent-search-container {
+  padding: 0.5rem;
+  border-bottom: 1px solid #4a7c59;
+}
+
+.urgent-search-input {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #4a7c59;
+  border-radius: 0.25rem;
+  background: white;
+  color: #333;
+  font-size: 0.9rem;
+}
+
+.urgent-search-input:focus {
+  outline: none;
+  border-color: #ff6b35;
+  box-shadow: 0 0 5px rgba(255, 107, 53, 0.3);
+}
+
+.urgent-options-list {
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.urgent-option {
+  padding: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: var(--primary-text);
+  border-bottom: 1px solid rgba(74, 124, 89, 0.3);
+}
+
+.urgent-option:hover {
+  background: rgba(255, 107, 53, 0.2);
+  color: white;
+}
+
+.urgent-option.selected {
+  background: rgba(255, 107, 53, 0.3);
+  color: white;
+  font-weight: bold;
+}
+
+.urgent-no-results {
+  padding: 1rem;
+  text-align: center;
+  color: var(--muted-text);
+  font-style: italic;
+}
+
+.urgent-modal-content {
+  background: linear-gradient(135deg, #2d5a2d, #1a4a1a);
+  border-radius: 1rem;
+  padding: 2rem;
+  max-width: 500px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+  border: 2px solid #4a7c59;
+}
+
+.urgent-modal h3 {
+  color: #ff6b35;
+  font-size: 1.5rem;
+  margin-bottom: 1.5rem;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-group .form-label {
+  display: block;
+  color: var(--label-text);
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.form-group input[type="number"],
+.form-group textarea {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid #4a7c59;
+  border-radius: 0.5rem;
+  background: white;
+  color: #333;
+  font-size: 0.95rem;
+  transition: all 0.3s ease;
+}
+
+.form-group input[type="number"]:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #ff6b35;
+  box-shadow: 0 0 10px rgba(255, 107, 53, 0.3);
+  background: #f8f8f8;
+}
+
+.form-group textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+.urgent-modal-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 2rem;
+  justify-content: center;
+}
+
+.urgent-submit-btn {
+  background: linear-gradient(135deg, #ff6b35, #ff8c42);
+  color: white;
+  border: none;
+  padding: 0.75rem 2rem;
+  border-radius: 0.5rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(255, 107, 53, 0.3);
+}
+
+.urgent-submit-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #e85a2e, #e67d39);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 107, 53, 0.4);
+}
+
+.urgent-submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.urgent-cancel-btn {
+  background: transparent;
+  color: var(--muted-text);
+  border: 2px solid var(--muted-text);
+  padding: 0.75rem 2rem;
+  border-radius: 0.5rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.urgent-cancel-btn:hover {
+  background: var(--muted-text);
+  color: #2d5a2d;
+  transform: translateY(-2px);
+}
+
+/* Botones de validación para superiores */
+.validate-btn {
+  background: linear-gradient(135deg, #28a745, #34ce57);
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 0.4rem;
+  font-size: 0.85rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 3px 10px rgba(40, 167, 69, 0.3);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.validate-btn:hover {
+  background: linear-gradient(135deg, #218838, #28a745);
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(40, 167, 69, 0.4);
+}
+
+.validate-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+}
+
+/* Filtro "Por validar" */
+.filter-por-validar {
+  background: linear-gradient(135deg, #ffc107, #ffcd39);
+  color: #333;
+  border: none;
+  font-weight: bold;
+}
+
+.filter-por-validar:hover {
+  background: linear-gradient(135deg, #e0a800, #ffc107);
+  transform: translateY(-2px);
+}
+
+/* Estilos responsivos para elementos urgentes */
+@media (max-width: 768px) {
+  .urgent-modal-content {
+    padding: 1.5rem;
+    width: 95%;
+  }
+  
+  .urgent-modal h3 {
+    font-size: 1.25rem;
+  }
+  
+  .urgent-task-btn {
+    padding: 0.6rem 1.2rem;
+    font-size: 0.85rem;
+  }
+  
+  .urgent-modal-actions {
+    flex-direction: column;
+  }
+  
+  .urgent-submit-btn,
+  .urgent-cancel-btn {
+    width: 100%;
+  }
+  
+  .validate-btn {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .urgent-modal-content {
+    padding: 1rem;
+    width: 98%;
+  }
+  
+  .urgent-form-group label {
+    font-size: 0.9rem;
+  }
+  
+  .urgent-form-group select,
+  .urgent-form-group input,
+  .urgent-form-group textarea {
+    padding: 0.6rem;
+    font-size: 0.9rem;
+  }
+}
+
 @media (min-width: 768px) {
   h2 {
     font-size: 1.25rem;

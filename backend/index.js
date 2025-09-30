@@ -687,17 +687,19 @@ app.get('/tasks', async (req, res) => {
         desarrollo_actual: row[13] || '',              // N
         dimension_total: row[14] || '',                // O
         proceso: row[15] || 'No iniciado',             // P
-        fecha_actualizacion: row[16] || ''             // Q - Nueva columna para fecha de actualización
+        fecha_actualizacion: row[16] || '',            // Q 
+        progreso: row[17] || ''                        // R - Nueva columna para progreso (tareas urgentes)
       };
       
       // Combinar mapeo dinámico con mapeo explícito (prioridad al explícito)
       const finalObj = { ...obj, ...mappedObj };
       
-      // DEBUG: Mostrar información básica para la primera tarea
-      if (row[0] === rows[1]?.[0]) { // Solo para la primera fila de datos
-        console.log('=== BACKEND: Leyendo tareas ===');
-        console.log(`Primera tarea - ID: ${finalObj.id}, estimacion_horas: ${finalObj.estimacion_horas}, hora_jornal: ${finalObj.hora_jornal}`);
-        console.log('===============================');
+      // DEBUG: Mostrar todas las tareas para entender el problema
+      console.log(`� BACKEND GET: Tarea ${finalObj.id} - encargado: "${finalObj.encargado_id}", superior: "${finalObj.nombre_superior}", proceso: "${finalObj.proceso}", progreso: "${finalObj.progreso}"`);
+      
+      // DEBUG: Buscar tareas urgentes
+      if (finalObj.progreso === 'Por validar' || finalObj.proceso === 'Por validar') {
+        console.log(`🚨 BACKEND: Tarea urgente encontrada - ID: ${finalObj.id}, proceso: "${finalObj.proceso}", progreso: "${finalObj.progreso}", tipo: "${finalObj.tipo_tarea}"`);
       }
       
       // DEBUG: Buscar diferentes nombres posibles para la columna de estado
@@ -733,11 +735,9 @@ app.get('/tasks', async (req, res) => {
       finalObj.estimacion_horas = Number(finalObj.estimacion_horas) || 0;
       finalObj.hora_jornal = Number(finalObj.hora_jornal) || 0;
       
-      return finalObj;
-      
       // jornales_reales se mantiene en horas tal como está almacenado (encargados ingresan horas directamente)
       
-      return obj;
+      return finalObj;
     });
     
     res.json(tasks);
@@ -1146,7 +1146,9 @@ app.post('/tasks', async (req, res) => {
       console.log(`📊 horas_kilos: "${tarea.horas_kilos}" → ${horasKilos} (${horasKilos === 1 ? 'KILOS' : 'HECTÁREAS'})`);
       console.log(`⏰ estimacion_horas: "${tarea.estimacion_horas}" → ${estimacionHoras} horas totales`);
       console.log(`📏 Dimensión: ${dimensionTotalSeleccionada} ${horasKilos === 1 ? 'kilos' : 'hectáreas'}`);
-      console.log(`💾 Se guardará en columna E: ${horaJornal}, columna F: ${horasKilos}, columna D: ${estimacionHoras}`);
+      console.log(`� proceso: "${tarea.proceso}" → "${tarea.proceso || 'No iniciado'}"`);
+      console.log(`🚨 progreso: "${tarea.progreso}" → "${tarea.progreso || ''}"`);
+      console.log(`�💾 Se guardará en columna E: ${horaJornal}, columna F: ${horasKilos}, columna D: ${estimacionHoras}`);
       
       newRows.push([
         tarea.id,                                    // A: id
@@ -1164,8 +1166,9 @@ app.post('/tasks', async (req, res) => {
         '',                                          // M: fecha_fin (vacía al crear)
         0,                                           // N: desarrollo_actual (inicia en 0)
         dimensionTotalSeleccionada,                  // O: dimension_total (seleccionada por el usuario)
-        'No iniciado',                               // P: proceso (por defecto)
-        ''                                           // Q: fecha_actualizacion (vacía al crear, se llenará al actualizar)
+        tarea.proceso || 'No iniciado',              // P: proceso (respeta valor del frontend)
+        '',                                          // Q: fecha_actualizacion (vacía al crear, se llenará al actualizar)
+        tarea.progreso || ''                         // R: progreso (nuevo campo para tareas urgentes)
       ]);
     }
     await sheets.spreadsheets.values.append({
