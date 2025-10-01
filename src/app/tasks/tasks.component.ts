@@ -271,14 +271,13 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     switch (this.selectedEstado) {
       case 'sin-iniciar':
         filtered = filtered.filter(t => {
-          const estado = t.progreso || t.proceso || 'No iniciado';
-          return estado === 'No iniciado';
+          return this.getTaskState(t) === 'No iniciado';
         });
         break;
       case 'en-progreso':
         // Mostrar tareas que estén iniciadas O que tengan progreso numérico
         filtered = filtered.filter(t => {
-          const estado = t.progreso || t.proceso || '';
+          const estado = this.getTaskState(t);
           const esIniciada = estado === 'Iniciada';
           const tieneProgreso = estado && !isNaN(Number(estado)) && Number(estado) > 0;
           return esIniciada || tieneProgreso;
@@ -286,14 +285,12 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
         break;
       case 'terminadas':
         filtered = filtered.filter(t => {
-          const estado = t.progreso || t.proceso || '';
-          return estado === 'Terminada';
+          return this.getTaskState(t) === 'Terminada';
         });
         break;
       case 'por-validar':
         filtered = filtered.filter(t => {
-          const estado = t.progreso || t.proceso || '';
-          return estado === 'Por validar';
+          return this.getTaskState(t) === 'Por validar';
         });
         break;
     }
@@ -602,6 +599,12 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   }
 
   onAcceptTask(task: Task) {
+    // Verificar que la tarea no esté terminada
+    if (this.isTaskCompleted(task)) {
+      alert('No se puede aceptar una tarea terminada.');
+      return;
+    }
+    
     this.taskService.acceptTask(task.id).subscribe({
       next: () => {
         console.log('Tarea aceptada correctamente');
@@ -615,8 +618,14 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   }
 
   onOpenProgressModal(task: Task) {
+    // Verificar que la tarea no esté terminada
+    if (this.isTaskCompleted(task)) {
+      alert('No se puede actualizar el progreso de una tarea terminada.');
+      return;
+    }
+    
     this.taskToComplete = task;
-    this.progressValue = Number(task.progreso) || 0; // Usar el campo progreso para el porcentaje
+    this.progressValue = Number(this.getTaskState(task)) || 0; // Usar el estado unificado para el porcentaje
     this.jornalesRealesValue = 0; // Siempre empezar vacío para que el encargado ingrese las horas del día
     
     // Resetear validación de trabajadores
@@ -1134,10 +1143,14 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     return this.trabajadoresValidados && this.jornalesRealesValue > 0;
   }
 
+  // Obtener el estado unificado de la tarea
+  getTaskState(task: Task): string {
+    return task.progreso || task.proceso || 'No iniciado';
+  }
+
   // Verificar si una tarea está terminada (unificando ambos campos)
   isTaskCompleted(task: Task): boolean {
-    const estado = task.progreso || task.proceso;
-    return estado === 'Terminada';
+    return this.getTaskState(task) === 'Terminada';
   }
 
   getWorkersValidationMessage(): string {

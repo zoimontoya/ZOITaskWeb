@@ -450,22 +450,27 @@
                         <span *ngIf="!isKilosMode(task)">Dimensión: <b>{{formatDimensionTotal(task.dimension_total)}} Ha</b></span>
                     </span>
                 </div>
-                <div *ngIf="isEncargado" class="task-actions">
-                    <button *ngIf="task.progreso === 'No iniciado'" 
+                <div *ngIf="isEncargado && !isTaskCompleted(task)" class="task-actions">
+                    <button *ngIf="getTaskState(task) === 'No iniciado'" 
                                     class="task-action-btn accept-btn" 
                                     (click)="onAcceptTask(task)">
                         <span class="icon">✅</span> Aceptar tarea
                     </button>
-                    <button *ngIf="task.progreso === 'Iniciada' || (isNumber(task.progreso) && toNumber(task.progreso) >= 0)" 
+                    <button *ngIf="getTaskState(task) === 'Iniciada' || (isNumber(getTaskState(task)) && toNumber(getTaskState(task)) >= 0)" 
                                     class="task-action-btn progress-btn" 
                                     (click)="onOpenProgressModal(task)">
                         <span class="icon">📊</span> 
                         Actualizar progreso
                     </button>
-                    <small *ngIf="task.fecha_actualizacion && (task.progreso === 'Iniciada' || (isNumber(task.progreso) && toNumber(task.progreso) >= 0))" 
+                    <small *ngIf="task.fecha_actualizacion && (getTaskState(task) === 'Iniciada' || (isNumber(getTaskState(task)) && toNumber(getTaskState(task)) >= 0))" 
                            class="last-update-info">
                         {{getLastUpdateInfo(task)}}
                     </small>
+                </div>
+                <div *ngIf="isEncargado && isTaskCompleted(task)" class="task-completed-notice">
+                    <span class="completed-text">
+                        <span class="icon">🔒</span> Tarea completada - No disponible para encargados
+                    </span>
                 </div>
                 <div *ngIf="!isEncargado && task.progreso === 'Por validar'" class="task-actions">
                     <button class="task-action-btn validate-btn" (click)="onValidateUrgentTask(task)">
