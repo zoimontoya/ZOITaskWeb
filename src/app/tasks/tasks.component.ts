@@ -93,6 +93,15 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   urgentTiposJerarquicos: { tipo: string; subtipos: string[]; hasSubtipos: boolean }[] = [];
   filteredUrgentTiposJerarquicos: { tipo: string; subtipos: string[]; hasSubtipos: boolean }[] = [];
   
+  // 🏪 Propiedades para género de confección (ALMACÉN)
+  generosConfecc: string[] = [];
+  selectedGenero = '';
+  isGeneroOpen = false;
+  generoSearch = '';
+  filteredGeneros: string[] = [];
+  selectedTipoTarea: TipoTarea | null = null;
+  allTiposTareaObjects: TipoTarea[] = []; // Para acceder a los objetos completos
+  
   // Mapa para almacenar trabajadores por tarea
   taskWorkersMap: Map<string, any[]> = new Map();
   
@@ -124,14 +133,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   
   onCancelUrgentTask() {
     this.showUrgentTaskModal = false;
-    this.urgentTask = {
-      invernadero: '',
-      tipo_tarea: '',
-      horas_trabajadas: 0,
-      descripcion: ''
-    };
-    this.urgentTaskWorkers = [];
-    this.isUrgentTaskWorkersMode = false; // Resetear flag
+    this.resetUrgentTask();
   }
   
   onUrgentTaskModalOverlayClick(event: MouseEvent) {
@@ -161,9 +163,13 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     // Validaciones básicas
     if (!this.urgentTask.invernadero.trim() || 
         !this.urgentTask.tipo_tarea.trim() || 
-        !this.urgentTask.descripcion.trim() ||
         this.urgentTask.horas_trabajadas <= 0) {
       return;
+    }
+    
+    // 🏪 Validación específica para tareas de confección
+    if (this.shouldShowGeneroSelector() && !this.selectedGenero.trim()) {
+      return; // Si es una tarea ALMACEN-CONFECC, el género es obligatorio
     }
     
     this.isCreatingUrgentTask = true;
@@ -180,7 +186,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
       jornales_reales: this.urgentTask.horas_trabajadas,   // ⭐ Mismas horas directas
       fecha_limite: new Date().toISOString().split('T')[0], // Fecha actual
       encargado_id: this.userId,
-      descripcion: this.urgentTask.descripcion.trim(), // Descripción simple, sin trabajadores
+      descripcion: this.buildUrgentTaskDescription(), // Descripción con género si es necesario
       nombre_superior: encargadoNombre, // ⭐ El encargado aparece como creador (CLAVE para detección)
       desarrollo_actual: '',
       dimension_total: '0', // Sin dimensiones para tareas urgentes
@@ -204,6 +210,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
           console.log('Trabajadores para tarea urgente:', this.urgentTaskWorkers);
         }
         
+        this.resetUrgentTask();
         this.loadTasks();
       },
       error: (err) => {
@@ -211,6 +218,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
         if (err.status === 200) {
           // Manejar respuesta exitosa que viene como error
           this.showUrgentTaskModal = false;
+          this.resetUrgentTask();
           this.loadTasks();
         } else {
           console.error('Error creando tarea urgente:', err);
@@ -973,6 +981,14 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     if (this.loggedUser?.grupo_trabajo) {
       this.http.get<TipoTarea[]>(`${environment.apiBaseUrl}/tipos-tarea/${this.loggedUser.grupo_trabajo}`).subscribe({
         next: (tiposTarea) => {
+          // 🏪 Almacenar objetos completos para acceso a familia
+          this.allTiposTareaObjects = tiposTarea;
+          console.log('🏪 TODOS los tipos de tarea cargados:', tiposTarea);
+          console.log('🏪 Tareas ALMACEN-CONFECC encontradas:', 
+            tiposTarea.filter(t => t.familia === 'ALMACEN-CONFECC')
+          );
+          console.log('🏪 Todas las familias únicas:', [...new Set(tiposTarea.map(t => t.familia))]);
+          
           // Crear estructura jerárquica: tipo -> subtipos
           const tiposMap = new Map<string, string[]>();
           
@@ -1075,6 +1091,162 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     this.urgentTask.tipo_tarea = tipo;
     this.isUrgentTipoOpen = false;
     this.urgentTipoSearch = '';
+    
+    // 🏪 Buscar la tarea seleccionada para verificar si es ALMACEN-CONFECC
+    // El tipo puede venir como "Tipo - Subtipo" o como "Tipo" solo
+    let tipoToSearch = tipo;
+    let subtipoToSearch = '';
+    
+    if (tipo.includes(' - ')) {
+      const parts = tipo.split(' - ');
+      tipoToSearch = parts[0];
+      subtipoToSearch = parts[1];
+    }
+    
+    console.log('🏪 DEBUG - Buscando tarea:', {
+      tipoOriginal: tipo,
+      tipoToSearch,
+      subtipoToSearch,
+      totalTareas: this.allTiposTareaObjects.length
+    });
+    
+    // Buscar de múltiples formas para asegurar que encontramos la tarea
+    this.selectedTipoTarea = this.allTiposTareaObjects.find(t => {
+      // Opción 1: Buscar por tipo y subtipo exactos
+      const matchTipoSubtipo = t.tipo === tipoToSearch && t.subtipo === subtipoToSearch;
+      // Opción 2: Buscar por tarea_nombre exacto
+      const matchTareaNombre = t.tarea_nombre === tipo;
+      // Opción 3: Buscar por construcción del nombre
+      const constructedName = t.subtipo ? `${t.tipo} - ${t.subtipo}` : t.tipo;
+      const matchConstructed = constructedName === tipo;
+      
+      console.log(`🏪 Comparando con tarea:`, {
+        tarea: t,
+        matchTipoSubtipo,
+        matchTareaNombre, 
+        matchConstructed,
+        constructedName
+      });
+      
+      return matchTipoSubtipo || matchTareaNombre || matchConstructed;
+    }) || null;
+    
+    console.log('🏪 Resultado búsqueda:', {
+      tareaEncontrada: this.selectedTipoTarea,
+      familia: this.selectedTipoTarea?.familia,
+      esALMACEN_CONFECC: this.selectedTipoTarea?.familia === 'ALMACEN-CONFECC'
+    });
+    
+    // Si cambió la tarea, resetear género seleccionado
+    this.selectedGenero = '';
+    
+    // Si es una tarea de confección, cargar géneros
+    if (this.shouldShowGeneroSelector()) {
+      this.loadGenerosConfecc();
+    }
+  }
+
+  // 🏪 Métodos para género de confección (ALMACÉN)
+  isUserAlmacen(): boolean {
+    console.log('🏪 Verificando usuario ALMACÉN:', {
+      grupo_trabajo: this.loggedUser?.grupo_trabajo,
+      isAlmacen: this.loggedUser?.grupo_trabajo === 'ALMACEN'
+    });
+    return this.loggedUser?.grupo_trabajo === 'ALMACEN';
+  }
+
+  shouldShowGeneroSelector(): boolean {
+    const isAlmacen = this.isUserAlmacen();
+    const hasTarea = !!this.selectedTipoTarea;
+    const isConfecc = this.selectedTipoTarea?.familia === 'ALMACEN-CONFECC';
+    
+    console.log('🏪 Verificando mostrar género selector:', {
+      isAlmacen,
+      hasTarea,
+      selectedTarea: this.selectedTipoTarea?.tarea_nombre,
+      familia: this.selectedTipoTarea?.familia,
+      isConfecc,
+      shouldShow: isAlmacen && hasTarea && isConfecc
+    });
+    
+    return !!(isAlmacen && hasTarea && isConfecc);
+  }
+
+  loadGenerosConfecc() {
+    if (!this.shouldShowGeneroSelector()) return;
+    
+    console.log('🏪 Cargando géneros de confección...');
+    this.http.get<string[]>(`${environment.apiBaseUrl}/generos-confecc`).subscribe({
+      next: (generos) => {
+        console.log('🏪 Géneros recibidos del backend:', generos);
+        this.generosConfecc = generos;
+        this.filteredGeneros = [...generos];
+        console.log('🏪 Géneros de confección cargados:', generos.length);
+      },
+      error: (err) => {
+        console.error('🏪 Error cargando géneros de confección:', err);
+        this.generosConfecc = [];
+        this.filteredGeneros = [];
+      }
+    });
+  }
+
+  toggleGenero() {
+    this.isGeneroOpen = !this.isGeneroOpen;
+    if (this.isGeneroOpen) {
+      this.generoSearch = '';
+      this.filteredGeneros = [...this.generosConfecc];
+    }
+  }
+
+  filterGeneros() {
+    if (!this.generoSearch.trim()) {
+      this.filteredGeneros = [...this.generosConfecc];
+    } else {
+      const search = this.generoSearch.toLowerCase();
+      this.filteredGeneros = this.generosConfecc.filter(genero =>
+        genero.toLowerCase().includes(search)
+      );
+    }
+  }
+
+  selectGenero(genero: string) {
+    this.selectedGenero = genero;
+    this.isGeneroOpen = false;
+    this.generoSearch = '';
+  }
+
+  buildUrgentTaskDescription(): string {
+    let descripcion = this.urgentTask.descripcion?.trim() || '';
+    
+    // Si es una tarea de confección, agregar el género a la descripción
+    if (this.shouldShowGeneroSelector() && this.selectedGenero) {
+      if (descripcion) {
+        descripcion += ` - Género: ${this.selectedGenero}`;
+      } else {
+        descripcion = `Género: ${this.selectedGenero}`;
+      }
+    }
+    
+    return descripcion;
+  }
+
+  resetUrgentTask() {
+    this.urgentTask = {
+      invernadero: '',
+      tipo_tarea: '',
+      horas_trabajadas: 0,
+      descripcion: ''
+    };
+    this.urgentTaskWorkers = [];
+    this.isUrgentTaskWorkersMode = false;
+    
+    // 🏪 Reset específico para género de confección
+    this.selectedGenero = '';
+    this.selectedTipoTarea = null;
+    this.isGeneroOpen = false;
+    this.generoSearch = '';
+    this.filteredGeneros = [];
   }
 
   // Cargar encargados del mismo cabezal para validación de tareas urgentes

@@ -113,6 +113,46 @@
                 </div>
             </div>
             
+            <!-- 🏪 Género de Confección (solo para ALMACÉN con familia ALMACEN-CONFECC) -->
+            <div class="form-group" *ngIf="shouldShowGeneroSelector()">
+                <label class="form-label">Seleccionar Género *</label>
+                <div class="urgent-selector-container">
+                    <div class="urgent-dropdown" [class.open]="isGeneroOpen">
+                        <div class="urgent-dropdown-header" (click)="toggleGenero()">
+                            <span class="dropdown-text">
+                                <span *ngIf="!selectedGenero">Seleccionar género...</span>
+                                <span *ngIf="selectedGenero">{{ selectedGenero }}</span>
+                            </span>
+                            <span class="dropdown-icon" [class.expanded]="isGeneroOpen">▼</span>
+                        </div>
+                        
+                        <div class="urgent-dropdown-content" *ngIf="isGeneroOpen">
+                            <div class="urgent-search-container">
+                                <input 
+                                    type="text" 
+                                    class="urgent-search-input"
+                                    [(ngModel)]="generoSearch"
+                                    name="generoSearch"
+                                    placeholder="Buscar género..."
+                                    (input)="filterGeneros()">
+                            </div>
+                            <div class="urgent-options-list">
+                                <div 
+                                    *ngFor="let genero of filteredGeneros" 
+                                    class="urgent-option"
+                                    (click)="selectGenero(genero)"
+                                    [class.selected]="selectedGenero === genero">
+                                    {{ genero }}
+                                </div>
+                                <div *ngIf="filteredGeneros.length === 0" class="urgent-no-results">
+                                    No se encontraron géneros
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
             <!-- Horas trabajadas -->
             <div class="form-group">
                 <label class="form-label" for="urgentHoras">Horas trabajadas *</label>
@@ -129,14 +169,14 @@
         
             <!-- Descripción -->
             <div class="form-group">
-                <label class="form-label" for="urgentDescripcion">Descripción de la tarea *</label>
+                <label class="form-label" for="urgentDescripcion">Descripción de la tarea</label>
             <textarea 
                 id="urgentDescripcion"
                 [(ngModel)]="urgentTask.descripcion"
                 name="urgentDescripcion"
                 rows="3"
-                placeholder="Describe qué se hizo y por qué fue necesario..."
-                required></textarea>
+                placeholder="Describe qué se hizo y por qué fue necesario (opcional)..."
+                ></textarea>
         </div>
         
             <!-- Trabajadores asignados -->

@@ -1737,6 +1737,76 @@ app.get('/health', (req, res) => {
   });
 });
 
+// 🏪 GET géneros de confección para usuarios de ALMACÉN
+app.get('/generos-confecc', async (req, res) => {
+  console.log('📡', new Date().toISOString(), '- GET /generos-confecc from', req.ip || req.connection.remoteAddress);
+  
+  try {
+    const auth = getGoogleAuth();
+    const sheets = google.sheets({ version: 'v4', auth });
+    
+    // Buscar la hoja TiposTareas dinámicamente
+    const spreadsheetMeta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
+    const tipoTareasSheet = spreadsheetMeta.data.sheets.find(s =>
+      s.properties && (s.properties.title === 'TiposTareas' || s.properties.title === 'TipoTareas' || s.properties.title === 'tiposTareas' || s.properties.title === 'Tipos Tareas')
+    );
+    
+    if (!tipoTareasSheet) {
+      console.log('❌ No se encontró la hoja TiposTareas');
+      return res.status(404).json({ error: 'No se encontró la hoja TiposTareas' });
+    }
+    
+    console.log('✅ Hoja encontrada:', tipoTareasSheet.properties.title);
+    
+    // Obtener datos de las columnas H e I (nombre_confecc, codigo_confecc)
+    const result = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${tipoTareasSheet.properties.title}!H:I`
+    });
+
+    const rows = result.data.values || [];
+    console.log(`📊 Total filas en columnas H:I: ${rows.length}`);
+    console.log(`📊 Primeras 5 filas:`, rows.slice(0, 5));
+    
+    const generosSet = new Set();
+    
+    // Procesar filas (saltando el header si existe)
+    rows.slice(1).forEach((row, index) => {
+      const nombreConfecc = row[0]?.trim(); // Columna H
+      const codigoConfecc = row[1]?.trim(); // Columna I
+      
+      if (index < 10) { // Log primeras 10 filas para debug
+        console.log(`📊 Fila ${index + 2}:`, {
+          H_nombre_confecc: nombreConfecc,
+          I_codigo_confecc: codigoConfecc
+        });
+      }
+      
+      // Crear texto combinado: "Código (Nombre)" o solo el que esté disponible
+      if (codigoConfecc && nombreConfecc) {
+        // Ambas columnas tienen datos: "COD123 (Camisetas polo)"
+        generosSet.add(`${codigoConfecc} (${nombreConfecc})`);
+      } else if (codigoConfecc) {
+        // Solo código disponible: "COD123"
+        generosSet.add(codigoConfecc);
+      } else if (nombreConfecc) {
+        // Solo nombre disponible: "Camisetas polo"
+        generosSet.add(nombreConfecc);
+      }
+    });
+    
+    // Convertir a array y ordenar
+    const generos = Array.from(generosSet).sort();
+    
+    console.log(`✅ Encontrados ${generos.length} géneros de confección:`, generos);
+    res.json(generos);
+    
+  } catch (error) {
+    console.error('❌ Error obteniendo géneros de confección:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, '0.0.0.0', () => {
