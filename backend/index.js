@@ -163,8 +163,14 @@ async function getInvernaderosDimensions(client) {
 }
 
 // Función auxiliar para registrar horas trabajadas en la hoja "Horas"
-async function registrarHorasTrabajadas(client, trabajadoresAsignados, encargadoNombre, fechaActualizacion) {
+async function registrarHorasTrabajadas(client, trabajadoresAsignados, encargadoNombre, fechaActualizacion, tareaId) {
   try {
+    console.log('🔍 === REGISTRANDO HORAS TRABAJADAS ===');
+    console.log('TareaId recibido:', tareaId);
+    console.log('Trabajadores asignados:', trabajadoresAsignados?.length || 0);
+    console.log('Encargado:', encargadoNombre);
+    console.log('Fecha:', fechaActualizacion);
+    
     const sheets = google.sheets({ version: 'v4', auth: client });
     
     // Buscar la hoja "Horas"
@@ -208,14 +214,20 @@ async function registrarHorasTrabajadas(client, trabajadoresAsignados, encargado
     trabajadoresAsignados.forEach(trabajadorAsignado => {
       const trabajadorData = trabajadoresMap[trabajadorAsignado.trabajador.codigo] || {};
       
-      filasAInsertar.push([
+      const rankingValue = tareaId ? String(tareaId) : '';
+      console.log('Valor de Ranking a insertar:', rankingValue, '(original tareaId:', tareaId, ')');
+      
+      const filaAInsertar = [
         fechaActualizacion,                    // Fecha
         encargadoNombre,                      // Grupo (nombre del encargado)
         trabajadorAsignado.trabajador.nombre, // Nombre del empleado
         trabajadorAsignado.horas,             // Tiempo (horas)
-        '',                                   // Ranking (vacío)
+        rankingValue,                         // Ranking (ID de la tarea)
         trabajadorData.empresa || trabajadorAsignado.trabajador.empresa || '' // Empresa
-      ]);
+      ];
+      
+      console.log('Fila a insertar:', filaAInsertar);
+      filasAInsertar.push(filaAInsertar);
     });
     
     if (filasAInsertar.length === 0) {
@@ -224,6 +236,11 @@ async function registrarHorasTrabajadas(client, trabajadoresAsignados, encargado
     }
     
     // Insertar las filas en la hoja "Horas"
+    console.log('📝 Enviando a Google Sheets:');
+    console.log('- Hoja:', horasSheet.properties.title);
+    console.log('- Rango:', `${horasSheet.properties.title}!A:F`);
+    console.log('- Filas a insertar:', JSON.stringify(filasAInsertar, null, 2));
+    
     await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_ID,
       range: `${horasSheet.properties.title}!A:F`, // Columnas: Fecha, Grupo, Nombre, Tiempo, Ranking, Empresa
@@ -921,7 +938,11 @@ app.post('/tasks', async (req, res) => {
 
     // UPDATE PROGRESS (update progress percentage and hectares)
     if (req.body && req.body.action === 'update-progress' && req.body.id) {
+      console.log('📊 === INICIANDO UPDATE-PROGRESS ===');
+      console.log('Body completo recibido:', JSON.stringify(req.body, null, 2));
+      
       const idToUpdate = String(req.body.id);
+      console.log('ID de tarea a actualizar:', idToUpdate);
       const spreadsheetMeta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
       const tareasSheet = spreadsheetMeta.data.sheets.find(s =>
         s.properties && (s.properties.title === 'Tareas' || s.properties.title === 'tareas')
@@ -1037,7 +1058,7 @@ app.post('/tasks', async (req, res) => {
       // Registrar horas trabajadas si hay trabajadores asignados
       if (req.body.trabajadores_asignados && req.body.trabajadores_asignados.length > 0) {
         const encargadoNombre = req.body.encargado_nombre || 'Encargado'; // Obtener el nombre del encargado que actualiza
-        await registrarHorasTrabajadas(client, req.body.trabajadores_asignados, encargadoNombre, fechaActual);
+        await registrarHorasTrabajadas(client, req.body.trabajadores_asignados, encargadoNombre, fechaActual, idToUpdate);
       }
 
       console.log('Progreso actualizado para tarea:', idToUpdate, 'porcentaje:', req.body.progreso, 'hectáreas:', req.body.desarrollo_actual, 'jornales_reales:', req.body.jornales_reales, 'fecha_actualizacion:', fechaActual);
@@ -1341,7 +1362,7 @@ app.post('/tasks/:id/complete-direct', async (req, res) => {
     // PASO 3: Registrar horas trabajadas UNA SOLA VEZ
     if (req.body.trabajadores_asignados && req.body.trabajadores_asignados.length > 0) {
       const encargadoNombre = req.body.encargado_nombre || 'Encargado';
-      await registrarHorasTrabajadas(client, req.body.trabajadores_asignados, encargadoNombre, fechaActual);
+      await registrarHorasTrabajadas(client, req.body.trabajadores_asignados, encargadoNombre, fechaActual, taskId);
     }
     
     console.log('Tarea completada directamente:', taskId, 'fecha_fin:', today, 'fecha_actualizacion:', fechaActual);
@@ -1406,7 +1427,7 @@ app.post('/tasks/:id/complete', async (req, res) => {
     // Registrar horas trabajadas si hay trabajadores asignados al completar
     if (req.body.trabajadores_asignados && req.body.trabajadores_asignados.length > 0) {
       const encargadoNombre = req.body.encargado_nombre || 'Encargado'; // Obtener el nombre del encargado que completa la tarea
-      await registrarHorasTrabajadas(client, req.body.trabajadores_asignados, encargadoNombre, fechaActual);
+      await registrarHorasTrabajadas(client, req.body.trabajadores_asignados, encargadoNombre, fechaActual, taskId);
     }
     
     console.log('Tarea completada:', taskId, 'fecha_fin:', today, 'fecha_actualizacion:', fechaActual);
