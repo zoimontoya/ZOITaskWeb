@@ -341,18 +341,18 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
           const horasTotales = Number(t.estimacion_horas) || 0;
           
           // Para tareas urgentes: NO hacer conversión (preservar horas directas)
-          const esTareaUrgente = t.nombre_superior && horaJornal === 0;
+          const esTareaUrgente = this.isUrgentTask(t);
           
           let estimacionParaMostrar;
           if (esTareaUrgente) {
             // Tareas urgentes: mostrar horas directas (SIN conversión)
             estimacionParaMostrar = horasTotales;
-            console.log(`🚨 Tarea urgente ${t.id}: mostrando horas directas (${horasTotales}h)`);
+            console.log(`🚨 Tarea ${t.id} URGENTE: nombre_superior="${t.nombre_superior}", usuario="${this.loggedUser?.nombre_completo}", horas=${horasTotales}h (SIN división)`);
           } else {
             // Tareas normales: convertir a jornales
             const factorConversion = horaJornal === 1 ? 8 : 6; // 1 = 8h/jornal, 0 = 6h/jornal
             estimacionParaMostrar = horasTotales / factorConversion;
-            console.log(`📊 Tarea normal ${t.id}: convertida a jornales (${estimacionParaMostrar})`);
+            console.log(`📊 Tarea ${t.id} NORMAL: nombre_superior="${t.nombre_superior}", usuario="${this.loggedUser?.nombre_completo}", horas=${horasTotales}h ÷ ${factorConversion} = ${estimacionParaMostrar} jornales`);
           }
           
           return {
@@ -1201,12 +1201,18 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     return this.getTaskState(task) === 'Terminada';
   }
 
-  // Verificar si es tarea urgente: nombre_superior es un encargado (no un superior)
+  // Verificar si es tarea urgente: detectar por características únicas
   isUrgentTask(task: Task): boolean {
-    // Si nombre_superior existe y es diferente del usuario logueado (que es superior),
-    // significa que un encargado creó esta tarea urgente
-    return !!(task.nombre_superior && task.nombre_superior !== '' && 
-             task.nombre_superior !== this.loggedUser?.nombre_completo);
+    // Tareas urgentes tienen características específicas:
+    // - hora_jornal === 0 (sin cálculos de división)
+    // - jornales_reales > 0 (ya tienen horas desde la creación)
+    // - proceso === 'Por validar' (estado inicial de urgentes) O 'Terminada' (si ya fueron validadas)
+    const horaJornal = Number(task.hora_jornal) || 0;
+    const jornalesReales = Number(task.jornales_reales) || 0;
+    const estadoUrgente = task.proceso === 'Por validar' || 
+                         (task.proceso === 'Terminada' && jornalesReales > 0 && horaJornal === 0);
+    
+    return horaJornal === 0 && jornalesReales > 0 && estadoUrgente;
   }
 
   getWorkersValidationMessage(): string {

@@ -907,8 +907,14 @@ app.post('/tasks', async (req, res) => {
       const horaJornal = Number(req.body.hora_jornal) || 0;
       const horasKilos = Number(req.body.horas_kilos) || 0; // 0=Hectáreas, 1=Kilos
       
-      // Para tareas urgentes: preservar horas originales (no las calculadas del frontend)
-      const esTareaUrgente = req.body.nombre_superior && horaJornal === 0;
+      // Para tareas urgentes: detectar usando múltiples criterios
+      // CREATE: usa es_tarea_urgente flag
+      // UPDATE: detecta por características (hora_jornal=0 Y jornales_reales > 0)
+      const horasOriginales = Number(rows[rowIndex][3]) || 0; // Columna D original
+      const jornalesOriginales = Number(rows[rowIndex][6]) || 0; // Columna G original
+      
+      const esTareaUrgente = req.body.es_tarea_urgente === true || 
+                            (horaJornal === 0 && jornalesOriginales > 0 && jornalesOriginales === horasOriginales);
       let estimacionHoras;
       
       if (esTareaUrgente) {
@@ -1202,8 +1208,8 @@ app.post('/tasks', async (req, res) => {
       console.log(`🚨 progreso: "${tarea.progreso}" → "${tarea.progreso || ''}"`);
       console.log(`�💾 Se guardará en columna E: ${horaJornal}, columna F: ${horasKilos}, columna D: ${estimacionHoras}`);
       
-      // Detectar si es tarea urgente: nombre_superior existe y hora_jornal es 0
-      const esTareaUrgente = tarea.nombre_superior && horaJornal === 0;
+      // Detectar si es tarea urgente: usar flag específico enviado por el frontend
+      const esTareaUrgente = tarea.es_tarea_urgente === true;
       const jornalesReales = esTareaUrgente ? estimacionHoras : 0; // Para urgentes: usar horas directas
       
       if (esTareaUrgente) {
