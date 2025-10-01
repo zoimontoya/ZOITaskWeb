@@ -170,7 +170,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     const encargadoNombre = this.loggedUser?.nombre_completo || this.name || this.userId || '';
     const tareaUrgente = {
       invernadero: this.urgentTask.invernadero.trim(),
-      tipo_tarea: `[URGENTE] ${this.urgentTask.tipo_tarea.trim()}`,
+      tipo_tarea: this.urgentTask.tipo_tarea.trim(),
       estimacion_horas: this.urgentTask.horas_trabajadas,
       hora_jornal: 1, // 8 horas por jornal por defecto
       horas_kilos: 0, // Hectáreas por defecto
@@ -180,8 +180,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
       nombre_superior: encargadoNombre, // El encargado aparece como creador de la tarea urgente
       desarrollo_actual: '',
       dimension_total: '0', // Sin dimensiones para tareas urgentes
-      proceso: 'Por validar', // Estado especial para validación
-      progreso: 'Por validar'
+      proceso: 'Por validar' // Estado especial para validación (solo proceso, no progreso)
     };
     
     console.log('Creando tarea urgente:', tareaUrgente);
@@ -831,12 +830,20 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     
     if (!confirmValidation) return;
     
-    // Actualizar la tarea a estado terminado
+    // Actualizar la tarea urgente a estado terminado con campos específicos
+    const fechaActual = new Date().toISOString().split('T')[0];
+    const fechaActualizacion = new Date().toLocaleDateString('es-ES'); // DD/MM/YYYY
+    
     const tareaValidada = {
       ...task,
-      progreso: 'Terminada',
-      proceso: 'Terminada',
-      fecha_fin: new Date().toISOString().split('T')[0]
+      proceso: 'Terminada',           // Solo usar proceso (columna P)
+      fecha_fin: fechaActual,
+      fecha_inicio: fechaActual,      // Fecha inicio = fecha fin para tareas urgentes
+      fecha_actualizacion: fechaActualizacion,
+      // Para tareas urgentes: las horas van directas SIN cálculos de 6h/8h
+      estimacion_horas: task.estimacion_horas, // Las horas originales pasan a estimación
+      jornales_reales: task.estimacion_horas,  // Las mismas horas van a jornales_reales (DIRECTAS)
+      hora_jornal: 0                          // Siempre 0 para tareas urgentes (NO hay cálculo)
     };
     
     this.taskService.updateTask(task.id, tareaValidada).subscribe({
@@ -1144,9 +1151,9 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     return this.trabajadoresValidados && this.jornalesRealesValue > 0;
   }
 
-  // Obtener el estado unificado de la tarea
+  // Obtener el estado unificado de la tarea (solo proceso ahora)
   getTaskState(task: Task): string {
-    return task.progreso || task.proceso || 'No iniciado';
+    return task.proceso || 'No iniciado';
   }
 
   // Verificar si una tarea está terminada (unificando ambos campos)

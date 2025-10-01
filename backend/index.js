@@ -703,9 +703,8 @@ app.get('/tasks', async (req, res) => {
         fecha_fin: row[12] || '',                      // M
         desarrollo_actual: row[13] || '',              // N
         dimension_total: row[14] || '',                // O
-        proceso: row[15] || 'No iniciado',             // P
-        fecha_actualizacion: row[16] || '',            // Q 
-        progreso: row[17] || ''                        // R - Nueva columna para progreso (tareas urgentes)
+        proceso: row[15] || 'No iniciado',             // P - ÚNICO campo de estado
+        fecha_actualizacion: row[16] || ''             // Q
       };
       
       // Combinar mapeo dinámico con mapeo explícito (prioridad al explícito)
@@ -715,8 +714,8 @@ app.get('/tasks', async (req, res) => {
       console.log(`� BACKEND GET: Tarea ${finalObj.id} - encargado: "${finalObj.encargado_id}", superior: "${finalObj.nombre_superior}", proceso: "${finalObj.proceso}", progreso: "${finalObj.progreso}"`);
       
       // DEBUG: Buscar tareas urgentes
-      if (finalObj.progreso === 'Por validar' || finalObj.proceso === 'Por validar') {
-        console.log(`🚨 BACKEND: Tarea urgente encontrada - ID: ${finalObj.id}, proceso: "${finalObj.proceso}", progreso: "${finalObj.progreso}", tipo: "${finalObj.tipo_tarea}"`);
+      if (finalObj.proceso === 'Por validar') {
+        console.log(`🚨 BACKEND: Tarea urgente encontrada - ID: ${finalObj.id}, proceso: "${finalObj.proceso}", tipo: "${finalObj.tipo_tarea}"`);
       }
       
       // DEBUG: Buscar diferentes nombres posibles para la columna de estado
@@ -923,12 +922,16 @@ app.post('/tasks', async (req, res) => {
         req.body.fecha_fin || '',                      // M: fecha_fin
         Number(req.body.desarrollo_actual) || 0,      // N: desarrollo_actual
         req.body.dimension_total || '0',               // O: dimension_total
-        req.body.proceso || 'No iniciado',             // P: proceso
+        req.body.proceso || 'No iniciado',             // P: proceso (ÚNICO campo de estado)
         req.body.fecha_actualizacion || ''             // Q: fecha_actualizacion (se mantiene el valor existente al editar)
       ];
+      
+      console.log('🔄 Actualizando tarea con proceso:', req.body.proceso);
+      console.log('📊 Fila completa a actualizar:', updatedRow);
+      
       await sheets.spreadsheets.values.update({
         spreadsheetId: SPREADSHEET_ID,
-        range: `${tareasSheet.properties.title}!A${rowIndex + 1}:Q${rowIndex + 1}`, // Actualizado a columna Q (17 columnas)
+        range: `${tareasSheet.properties.title}!A${rowIndex + 1}:Q${rowIndex + 1}`, // Volvemos a columna Q (17 columnas)
         valueInputOption: 'RAW',
         resource: { values: [updatedRow] }
       });
