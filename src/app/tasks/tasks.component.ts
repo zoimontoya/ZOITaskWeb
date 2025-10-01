@@ -1027,7 +1027,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   // Método para detectar si una tarea está vencida
   isTaskOverdue(task: Task): boolean {
     // Solo considerar vencidas las tareas que NO están terminadas
-    if (task.progreso === 'Terminada') {
+    if (this.isTaskCompleted(task)) {
       return false;
     }
     
@@ -1085,12 +1085,13 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
 
   // Método para mostrar progreso detallado como "7,8/14,35 (45%)"
   getDetailedProgress(task: any): string {
-    if (!task.dimension_total || !task.desarrollo_actual || !task.progreso) {
+    const estado = this.getTaskState(task);
+    if (!task.dimension_total || !task.desarrollo_actual || !estado) {
       return '';
     }
 
     // Solo mostrar para tareas con progreso numérico (no "No iniciado", "Terminada", etc.)
-    const progressNum = parseFloat(task.progreso);
+    const progressNum = parseFloat(estado);
     if (isNaN(progressNum)) {
       return '';
     }
@@ -1098,7 +1099,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     const desarrolloActual = this.formatDimensionTotal(task.desarrollo_actual);
     const dimensionTotal = this.formatDimensionTotal(task.dimension_total);
     
-    return `${desarrolloActual}/${dimensionTotal} (${task.progreso}%)`;
+    return `${desarrolloActual}/${dimensionTotal} (${estado}%)`;
   }
 
 

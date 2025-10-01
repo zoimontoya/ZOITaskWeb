@@ -424,21 +424,21 @@
                         <span *ngIf="isTaskOverdue(task)" class="overdue-badge">⚠️ VENCIDA</span>
                     </span>
                     <span *ngIf="!isEncargado && task.encargado_nombre">Encargado: <b>{{task.encargado_nombre}}</b></span>
-                    <span *ngIf="task.progreso">
+                    <span *ngIf="getTaskState(task)">
                         Estado: <b>
                             <!-- Tareas de kilos: Lógica especial -->
                             <ng-container *ngIf="isKilosMode(task)">
-                                <span *ngIf="task.progreso === 'No iniciado'">No iniciado</span>
-                                <span *ngIf="task.progreso === 'Terminada'">Terminada</span>
-                                <span *ngIf="task.progreso !== 'No iniciado' && task.progreso !== 'Terminada'">Iniciada</span>
+                                <span *ngIf="getTaskState(task) === 'No iniciado'">No iniciado</span>
+                                <span *ngIf="getTaskState(task) === 'Terminada'">Terminada</span>
+                                <span *ngIf="getTaskState(task) !== 'No iniciado' && getTaskState(task) !== 'Terminada'">Iniciada</span>
                             </ng-container>
                             <!-- Tareas normales (hectáreas): Mostrar progreso normal -->
                             <ng-container *ngIf="!isKilosMode(task)">
-                                <span *ngIf="isNumber(task.progreso)" class="progress-value">
-                                    {{task.progreso}}%
+                                <span *ngIf="isNumber(getTaskState(task))" class="progress-value">
+                                    {{getTaskState(task)}}%
                                     <span *ngIf="getDetailedProgress(task)" class="detailed-progress"></span>
                                 </span>
-                                <span *ngIf="!isNumber(task.progreso)">{{task.progreso}}</span>
+                                <span *ngIf="!isNumber(getTaskState(task))">{{getTaskState(task)}}</span>
                             </ng-container>
                         </b>
                     </span>
