@@ -905,8 +905,21 @@ app.post('/tasks', async (req, res) => {
       }
       // SIMPLIFICADO: Solo almacenar los valores que vienen del frontend (ya calculados)
       const horaJornal = Number(req.body.hora_jornal) || 0;
-      const estimacionHoras = Number(req.body.estimacion_horas) || 0; // Ya viene calculado del frontend
       const horasKilos = Number(req.body.horas_kilos) || 0; // 0=Hectáreas, 1=Kilos
+      
+      // Para tareas urgentes: preservar horas originales (no las calculadas del frontend)
+      const esTareaUrgente = req.body.nombre_superior && horaJornal === 0;
+      let estimacionHoras;
+      
+      if (esTareaUrgente) {
+        // Mantener las horas originales (no las calculadas del frontend)
+        estimacionHoras = Number(rows[rowIndex][3]) || 0; // Columna D original
+        console.log(`🚨 TAREA URGENTE - Preservando horas originales: ${estimacionHoras}`);
+      } else {
+        // Tareas normales: usar valores calculados del frontend
+        estimacionHoras = Number(req.body.estimacion_horas) || 0;
+        console.log(`📊 TAREA NORMAL - Usando horas calculadas: ${estimacionHoras}`);
+      }
       
       console.log(`✏️ === BACKEND: EDITANDO TAREA ID: ${idToUpdate} ===`);
       console.log(`📦 Body recibido:`, req.body);
@@ -922,7 +935,7 @@ app.post('/tasks', async (req, res) => {
         estimacionHoras,                               // D: estimacion_horas (ya calculado en frontend)
         horaJornal,                                    // E: hora_jornal (0=6hrs, 1=8hrs)
         horasKilos,                                    // F: horas_kilos (0=Hectáreas, 1=Kilos)
-        Number(req.body.jornales_reales) || 0,        // G: jornales_reales (encargados ingresan horas directamente)
+        esTareaUrgente ? Number(rows[rowIndex][6]) || 0 : Number(req.body.jornales_reales) || 0,  // G: preservar jornales_reales originales para urgentes
         req.body.fecha_limite,                         // H: fecha_limite
         req.body.encargado_id,                         // I: encargado_id
         req.body.descripcion,                          // J: descripcion

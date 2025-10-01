@@ -338,13 +338,26 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
         // CONVERSIÓN DE HORAS A JORNALES EN EL FRONTEND
         const tasksConvertidas = tasks.map(t => {
           const horaJornal = Number(t.hora_jornal) || 0;
-          const factorConversion = horaJornal === 1 ? 8 : 6; // 1 = 8h/jornal, 0 = 6h/jornal
           const horasTotales = Number(t.estimacion_horas) || 0;
-          const jornalesCalculados = horasTotales / factorConversion;
+          
+          // Para tareas urgentes: NO hacer conversión (preservar horas directas)
+          const esTareaUrgente = t.nombre_superior && horaJornal === 0;
+          
+          let estimacionParaMostrar;
+          if (esTareaUrgente) {
+            // Tareas urgentes: mostrar horas directas (SIN conversión)
+            estimacionParaMostrar = horasTotales;
+            console.log(`🚨 Tarea urgente ${t.id}: mostrando horas directas (${horasTotales}h)`);
+          } else {
+            // Tareas normales: convertir a jornales
+            const factorConversion = horaJornal === 1 ? 8 : 6; // 1 = 8h/jornal, 0 = 6h/jornal
+            estimacionParaMostrar = horasTotales / factorConversion;
+            console.log(`📊 Tarea normal ${t.id}: convertida a jornales (${estimacionParaMostrar})`);
+          }
           
           return {
             ...t,
-            estimacion_horas: jornalesCalculados, // Convertido a jornales para mostrar
+            estimacion_horas: estimacionParaMostrar,
             id: String(t.id)
           };
         });
