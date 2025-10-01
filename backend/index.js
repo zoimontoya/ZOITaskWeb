@@ -945,16 +945,12 @@ app.post('/tasks', async (req, res) => {
         resource: { values: [updatedRow] }
       });
       
-      // REGISTRO DE HORAS para tareas urgentes (cuando es_tarea_urgente = true)
-      if (req.body.es_tarea_urgente && req.body.trabajadores_asignados && req.body.trabajadores_asignados.length > 0) {
-        const encargadoNombre = req.body.encargado_nombre || 'Superior';
-        const fechaActual = new Date().toLocaleDateString('es-ES');
-        console.log('📝 Registrando horas para tarea urgente validada (SIN cálculos de división)');
+      console.log('✅ Validación completada - tarea actualizada:', idToUpdate);
+        console.log('� === TAREA URGENTE DETECTADA - REGISTRANDO HORAS ===');
+        console.log('�📝 Registrando horas para tarea urgente validada (SIN cálculos de división)');
         console.log('🚨 Es tarea urgente - NO se harán cálculos de 6h/8h');
-        await registrarHorasTrabajadas(client, req.body.trabajadores_asignados, encargadoNombre, fechaActual, idToUpdate, true);
-      }
-      
-      console.log('Tarea actualizada:', idToUpdate);
+
+      console.log('✅ Validación completada - tarea actualizada:', idToUpdate);
       return res.json({ result: 'success', updated: idToUpdate });
     }
 
@@ -1193,25 +1189,35 @@ app.post('/tasks', async (req, res) => {
       console.log(`🚨 progreso: "${tarea.progreso}" → "${tarea.progreso || ''}"`);
       console.log(`�💾 Se guardará en columna E: ${horaJornal}, columna F: ${horasKilos}, columna D: ${estimacionHoras}`);
       
+      // Detectar si es tarea urgente: nombre_superior existe y hora_jornal es 0
+      const esTareaUrgente = tarea.nombre_superior && horaJornal === 0;
+      const jornalesReales = esTareaUrgente ? estimacionHoras : 0; // Para urgentes: usar horas directas
+      
+      if (esTareaUrgente) {
+        console.log(`🚨 TAREA URGENTE DETECTADA - nombre_superior: "${tarea.nombre_superior}", hora_jornal: 0`);
+        console.log(`📊 Jornales reales = estimacion_horas: ${estimacionHoras} (SIN cálculos)`);
+      } else {
+        console.log(`📊 TAREA NORMAL - jornales_reales inicia en 0`);
+      }
+      
       newRows.push([
         tarea.id,                                    // A: id
         tarea.invernadero,                           // B: invernadero
         tarea.tipo_tarea,                            // C: tipo_tarea
         estimacionHoras,                             // D: estimacion_horas (ya calculado en frontend)
-        horaJornal,                                  // E: hora_jornal (0=6hrs, 1=8hrs)
+        horaJornal,                                  // E: hora_jornal (0=SIN cálculos para urgentes, 1=8hrs)
         horasKilos,                                  // F: horas_kilos (0=Hectáreas, 1=Kilos)
-        0,                                           // G: jornales_reales (inicia en 0)
+        jornalesReales,                              // G: jornales_reales (0 para normales, horas directas para urgentes)
         tarea.fecha_limite,                          // H: fecha_limite
         tarea.encargado_id,                          // I: encargado_id
         tarea.descripcion,                           // J: descripcion
-        tarea.nombre_superior || '',                 // K: nombre_superior
+        tarea.nombre_superior || '',                 // K: nombre_superior (CLAVE para detección)
         '',                                          // L: fecha_inicio (vacía al crear)
         '',                                          // M: fecha_fin (vacía al crear)
         0,                                           // N: desarrollo_actual (inicia en 0)
         dimensionTotalSeleccionada,                  // O: dimension_total (seleccionada por el usuario)
         tarea.proceso || 'No iniciado',              // P: proceso (respeta valor del frontend)
-        '',                                          // Q: fecha_actualizacion (vacía al crear, se llenará al actualizar)
-        tarea.progreso || ''                         // R: progreso (nuevo campo para tareas urgentes)
+        ''                                           // Q: fecha_actualizacion (vacía al crear, se llenará al actualizar)
       ]);
     }
     await sheets.spreadsheets.values.append({
@@ -1221,7 +1227,38 @@ app.post('/tasks', async (req, res) => {
       insertDataOption: 'INSERT_ROWS',
       resource: { values: newRows }
     });
+    
     console.log('Tareas creadas:', newRows.map(r => r[0]));
+    
+    // Registrar trabajadores para tareas urgentes DESPUÉS de crear la tarea
+    for (let i = 0; i < tareas.length; i++) {
+      const tarea = tareas[i];
+      const horaJornal = Number(tarea.hora_jornal) || 0;
+      const esTareaUrgente = tarea.nombre_superior && horaJornal === 0;
+      
+      if (esTareaUrgente && tarea.trabajadores_asignados && tarea.trabajadores_asignados.length > 0) {
+        const tareaId = newRows[i][0]; // ID de la tarea recién creada
+        const encargadoNombre = tarea.encargado_nombre || tarea.nombre_superior || 'Encargado';
+        const fechaActual = new Date().toLocaleDateString('es-ES');
+        
+        console.log(`🔥 === REGISTRANDO TRABAJADORES PARA TAREA URGENTE ${tareaId} ===`);
+        console.log('👥 Trabajadores recibidos:', JSON.stringify(tarea.trabajadores_asignados, null, 2));
+        console.log('👤 Encargado:', encargadoNombre);
+        console.log('📅 Fecha:', fechaActual);
+        
+        await registrarHorasTrabajadas(
+          client, 
+          tarea.trabajadores_asignados, 
+          encargadoNombre, 
+          fechaActual, 
+          tareaId, 
+          true // es tarea urgente
+        );
+        
+        console.log(`✅ Trabajadores registrados para tarea urgente ${tareaId}`);
+      }
+    }
+    
     return res.json({ result: 'success', ids: newRows.map(r => r[0]) });
   } catch (err) {
     console.error('Error en /tasks (POST):', err);

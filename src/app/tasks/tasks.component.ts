@@ -171,16 +171,21 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     const tareaUrgente = {
       invernadero: this.urgentTask.invernadero.trim(),
       tipo_tarea: this.urgentTask.tipo_tarea.trim(),
-      estimacion_horas: this.urgentTask.horas_trabajadas,
-      hora_jornal: 1, // 8 horas por jornal por defecto
-      horas_kilos: 0, // Hectáreas por defecto
+      estimacion_horas: this.urgentTask.horas_trabajadas,  // Horas directas del encargado
+      hora_jornal: 0,         // ⭐ SIN cálculos para tareas urgentes
+      horas_kilos: 0,         // Hectáreas por defecto
+      jornales_reales: this.urgentTask.horas_trabajadas,   // ⭐ Mismas horas directas
       fecha_limite: new Date().toISOString().split('T')[0], // Fecha actual
       encargado_id: this.userId,
-      descripcion: this.urgentTask.descripcion.trim(),
-      nombre_superior: encargadoNombre, // El encargado aparece como creador de la tarea urgente
+      descripcion: this.urgentTask.descripcion.trim(), // Descripción simple, sin trabajadores
+      nombre_superior: encargadoNombre, // ⭐ El encargado aparece como creador (CLAVE para detección)
       desarrollo_actual: '',
       dimension_total: '0', // Sin dimensiones para tareas urgentes
-      proceso: 'Por validar' // Estado especial para validación (solo proceso, no progreso)
+      proceso: 'Por validar', // Estado especial para validación
+      // Datos para registro directo en hoja "Horas"
+      trabajadores_asignados: this.urgentTaskWorkers, // Trabajadores van directos a hoja "Horas"
+      encargado_nombre: encargadoNombre,
+      es_tarea_urgente: true // Flag para registro directo
     };
     
     console.log('Creando tarea urgente:', tareaUrgente);
@@ -834,30 +839,17 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     const fechaActual = new Date().toISOString().split('T')[0];
     const fechaActualizacion = new Date().toLocaleDateString('es-ES'); // DD/MM/YYYY
     
-    // Crear trabajador sintético para registrar las horas en la hoja "Horas"
-    const trabajadorSintetico = [{
-      trabajador: {
-        codigo: task.nombre_superior || 'ENCARGADO',
-        nombre: task.nombre_superior || 'Encargado',
-        empresa: 'Tarea Urgente'
-      },
-      horas: task.estimacion_horas // Horas exactas reportadas por el encargado
-    }];
-    
     const tareaValidada = {
       ...task,
-      proceso: 'Terminada',           // Solo usar proceso (columna P)
+      proceso: 'Terminada',           // Solo cambiar estado a terminada
       fecha_fin: fechaActual,
       fecha_inicio: fechaActual,      // Fecha inicio = fecha fin para tareas urgentes
       fecha_actualizacion: fechaActualizacion,
       // Para tareas urgentes: las horas van directas SIN cálculos de 6h/8h
       estimacion_horas: task.estimacion_horas, // Las horas originales pasan a estimación
       jornales_reales: task.estimacion_horas,  // Las mismas horas van a jornales_reales (DIRECTAS)
-      hora_jornal: 0,                         // Siempre 0 para tareas urgentes (NO hay cálculo)
-      // Datos para registro de horas
-      trabajadores_asignados: trabajadorSintetico,
-      encargado_nombre: this.loggedUser?.nombre_completo || 'Superior',
-      es_tarea_urgente: true // Flag para que el backend sepa que no debe hacer cálculos
+      hora_jornal: 0                          // Siempre 0 para tareas urgentes (NO hay cálculo)
+      // NO enviamos trabajadores - ya están en hoja "Horas" desde la creación
     };
     
     this.taskService.updateTask(task.id, tareaValidada).subscribe({
@@ -877,6 +869,27 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     });
   }
   
+  // Método para extraer trabajadores de la descripción de la tarea
+  extraerTrabajadoresDeTarea(task: Task): any[] {
+    try {
+      // Buscar trabajadores en la descripción (formato: descripcion||WORKERS:json)
+      const descripcion = task.descripcion || '';
+      const workersPart = descripcion.split('||WORKERS:')[1];
+      
+      if (workersPart) {
+        const trabajadoresData = JSON.parse(workersPart);
+        console.log('👥 Trabajadores encontrados en tarea:', trabajadoresData);
+        return trabajadoresData;
+      }
+      
+      console.log('⚠️ No se encontraron trabajadores en la tarea, usando datos por defecto');
+      return [];
+    } catch (error) {
+      console.error('❌ Error extrayendo trabajadores:', error);
+      return [];
+    }
+  }
+
   // ===== MÉTODOS PARA SELECTORES DE TAREA URGENTE =====
   
   toggleUrgentInvernadero() {
