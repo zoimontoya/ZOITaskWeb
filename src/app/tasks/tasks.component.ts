@@ -834,6 +834,16 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     const fechaActual = new Date().toISOString().split('T')[0];
     const fechaActualizacion = new Date().toLocaleDateString('es-ES'); // DD/MM/YYYY
     
+    // Crear trabajador sintético para registrar las horas en la hoja "Horas"
+    const trabajadorSintetico = [{
+      trabajador: {
+        codigo: task.nombre_superior || 'ENCARGADO',
+        nombre: task.nombre_superior || 'Encargado',
+        empresa: 'Tarea Urgente'
+      },
+      horas: task.estimacion_horas // Horas exactas reportadas por el encargado
+    }];
+    
     const tareaValidada = {
       ...task,
       proceso: 'Terminada',           // Solo usar proceso (columna P)
@@ -843,7 +853,11 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
       // Para tareas urgentes: las horas van directas SIN cálculos de 6h/8h
       estimacion_horas: task.estimacion_horas, // Las horas originales pasan a estimación
       jornales_reales: task.estimacion_horas,  // Las mismas horas van a jornales_reales (DIRECTAS)
-      hora_jornal: 0                          // Siempre 0 para tareas urgentes (NO hay cálculo)
+      hora_jornal: 0,                         // Siempre 0 para tareas urgentes (NO hay cálculo)
+      // Datos para registro de horas
+      trabajadores_asignados: trabajadorSintetico,
+      encargado_nombre: this.loggedUser?.nombre_completo || 'Superior',
+      es_tarea_urgente: true // Flag para que el backend sepa que no debe hacer cálculos
     };
     
     this.taskService.updateTask(task.id, tareaValidada).subscribe({
@@ -1159,6 +1173,14 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   // Verificar si una tarea está terminada (unificando ambos campos)
   isTaskCompleted(task: Task): boolean {
     return this.getTaskState(task) === 'Terminada';
+  }
+
+  // Verificar si es tarea urgente: nombre_superior es un encargado (no un superior)
+  isUrgentTask(task: Task): boolean {
+    // Si nombre_superior existe y es diferente del usuario logueado (que es superior),
+    // significa que un encargado creó esta tarea urgente
+    return !!(task.nombre_superior && task.nombre_superior !== '' && 
+             task.nombre_superior !== this.loggedUser?.nombre_completo);
   }
 
   getWorkersValidationMessage(): string {

@@ -163,13 +163,14 @@ async function getInvernaderosDimensions(client) {
 }
 
 // Función auxiliar para registrar horas trabajadas en la hoja "Horas"
-async function registrarHorasTrabajadas(client, trabajadoresAsignados, encargadoNombre, fechaActualizacion, tareaId) {
+async function registrarHorasTrabajadas(client, trabajadoresAsignados, encargadoNombre, fechaActualizacion, tareaId, esTareaUrgente = false) {
   try {
     console.log('🔍 === REGISTRANDO HORAS TRABAJADAS ===');
     console.log('TareaId recibido:', tareaId);
     console.log('Trabajadores asignados:', trabajadoresAsignados?.length || 0);
     console.log('Encargado:', encargadoNombre);
     console.log('Fecha:', fechaActualizacion);
+    console.log('Es tarea urgente (SIN cálculos):', esTareaUrgente);
     
     const sheets = google.sheets({ version: 'v4', auth: client });
     
@@ -215,13 +216,21 @@ async function registrarHorasTrabajadas(client, trabajadoresAsignados, encargado
       const trabajadorData = trabajadoresMap[trabajadorAsignado.trabajador.codigo] || {};
       
       const rankingValue = tareaId ? String(tareaId) : '';
-      console.log('Valor de Ranking a insertar:', rankingValue, '(original tareaId:', tareaId, ')');
+      
+      // Para tareas urgentes: usar horas directas, para tareas normales: hacer cálculos si es necesario  
+      let horasARegistrar = trabajadorAsignado.horas;
+      
+      if (esTareaUrgente) {
+        console.log(`🚨 TAREA URGENTE - Horas directas: ${horasARegistrar} (SIN cálculos)`);
+      } else {
+        console.log(`📊 TAREA NORMAL - Horas a registrar: ${horasARegistrar}`);
+      }
       
       const filaAInsertar = [
         fechaActualizacion,                    // Fecha
         encargadoNombre,                      // Grupo (nombre del encargado)
         trabajadorAsignado.trabajador.nombre, // Nombre del empleado
-        trabajadorAsignado.horas,             // Tiempo (horas)
+        horasARegistrar,                      // Tiempo (horas - directas si es urgente)
         rankingValue,                         // Ranking (ID de la tarea)
         trabajadorData.empresa || trabajadorAsignado.trabajador.empresa || '' // Empresa
       ];
@@ -935,6 +944,16 @@ app.post('/tasks', async (req, res) => {
         valueInputOption: 'RAW',
         resource: { values: [updatedRow] }
       });
+      
+      // REGISTRO DE HORAS para tareas urgentes (cuando es_tarea_urgente = true)
+      if (req.body.es_tarea_urgente && req.body.trabajadores_asignados && req.body.trabajadores_asignados.length > 0) {
+        const encargadoNombre = req.body.encargado_nombre || 'Superior';
+        const fechaActual = new Date().toLocaleDateString('es-ES');
+        console.log('📝 Registrando horas para tarea urgente validada (SIN cálculos de división)');
+        console.log('🚨 Es tarea urgente - NO se harán cálculos de 6h/8h');
+        await registrarHorasTrabajadas(client, req.body.trabajadores_asignados, encargadoNombre, fechaActual, idToUpdate, true);
+      }
+      
       console.log('Tarea actualizada:', idToUpdate);
       return res.json({ result: 'success', updated: idToUpdate });
     }
@@ -1061,7 +1080,7 @@ app.post('/tasks', async (req, res) => {
       // Registrar horas trabajadas si hay trabajadores asignados
       if (req.body.trabajadores_asignados && req.body.trabajadores_asignados.length > 0) {
         const encargadoNombre = req.body.encargado_nombre || 'Encargado'; // Obtener el nombre del encargado que actualiza
-        await registrarHorasTrabajadas(client, req.body.trabajadores_asignados, encargadoNombre, fechaActual, idToUpdate);
+        await registrarHorasTrabajadas(client, req.body.trabajadores_asignados, encargadoNombre, fechaActual, idToUpdate, false);
       }
 
       console.log('Progreso actualizado para tarea:', idToUpdate, 'porcentaje:', req.body.progreso, 'hectáreas:', req.body.desarrollo_actual, 'jornales_reales:', req.body.jornales_reales, 'fecha_actualizacion:', fechaActual);
@@ -1365,7 +1384,7 @@ app.post('/tasks/:id/complete-direct', async (req, res) => {
     // PASO 3: Registrar horas trabajadas UNA SOLA VEZ
     if (req.body.trabajadores_asignados && req.body.trabajadores_asignados.length > 0) {
       const encargadoNombre = req.body.encargado_nombre || 'Encargado';
-      await registrarHorasTrabajadas(client, req.body.trabajadores_asignados, encargadoNombre, fechaActual, taskId);
+      await registrarHorasTrabajadas(client, req.body.trabajadores_asignados, encargadoNombre, fechaActual, taskId, false);
     }
     
     console.log('Tarea completada directamente:', taskId, 'fecha_fin:', today, 'fecha_actualizacion:', fechaActual);
@@ -1430,7 +1449,7 @@ app.post('/tasks/:id/complete', async (req, res) => {
     // Registrar horas trabajadas si hay trabajadores asignados al completar
     if (req.body.trabajadores_asignados && req.body.trabajadores_asignados.length > 0) {
       const encargadoNombre = req.body.encargado_nombre || 'Encargado'; // Obtener el nombre del encargado que completa la tarea
-      await registrarHorasTrabajadas(client, req.body.trabajadores_asignados, encargadoNombre, fechaActual, taskId);
+      await registrarHorasTrabajadas(client, req.body.trabajadores_asignados, encargadoNombre, fechaActual, taskId, false);
     }
     
     console.log('Tarea completada:', taskId, 'fecha_fin:', today, 'fecha_actualizacion:', fechaActual);
