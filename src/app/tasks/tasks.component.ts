@@ -1281,4 +1281,41 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     const workers = this.getTaskWorkers(taskId);
     return workers.length > 0;
   }
+
+  // 📊 Métodos para contar tareas por estado (usar la misma lógica que applyFilters)
+  getTaskCountByEstado(estado: string): number {
+    return this.tasks.filter(task => {
+      switch (estado) {
+        case 'sin-iniciar':
+          return this.getTaskState(task) === 'No iniciado';
+        case 'en-progreso':
+          const estadoTask = this.getTaskState(task);
+          const esIniciada = estadoTask === 'Iniciada';
+          const tieneProgreso = estadoTask && !isNaN(Number(estadoTask)) && Number(estadoTask) > 0;
+          return esIniciada || tieneProgreso;
+        case 'terminadas':
+          return this.getTaskState(task) === 'Terminada';
+        case 'por-validar':
+          return this.getTaskState(task) === 'Por validar';
+        default:
+          return false;
+      }
+    }).length;
+  }
+
+  getPendientesCount(): number {
+    return this.getTaskCountByEstado('sin-iniciar');
+  }
+
+  getEnProgresoCount(): number {
+    return this.getTaskCountByEstado('en-progreso');
+  }
+
+  getTerminadasCount(): number {
+    return this.getTaskCountByEstado('terminadas');
+  }
+
+  getPorValidarCount(): number {
+    return this.getTaskCountByEstado('por-validar');
+  }
 }

@@ -397,6 +397,7 @@
             <span class="estado-icon">⏳</span>
             <span *ngIf="isEncargado">Pendientes</span>
             <span *ngIf="!isEncargado">Sin Iniciar</span>
+            <span class="estado-badge" *ngIf="getPendientesCount() > 0">{{ getPendientesCount() }}</span>
         </button>
         <button 
             class="estado-btn" 
@@ -404,6 +405,7 @@
             (click)="setEstadoFilter('en-progreso')">
             <span class="estado-icon">🚀</span>
             En Progreso
+            <span class="estado-badge" *ngIf="getEnProgresoCount() > 0">{{ getEnProgresoCount() }}</span>
         </button>
         <button 
             class="estado-btn" 
@@ -411,6 +413,7 @@
             (click)="setEstadoFilter('terminadas')">
             <span class="estado-icon">✅</span>
             Terminadas
+            <span class="estado-badge" *ngIf="getTerminadasCount() > 0">{{ getTerminadasCount() }}</span>
         </button>
         <button 
             class="estado-btn" 
@@ -418,6 +421,7 @@
             (click)="setEstadoFilter('por-validar')">
             <span class="estado-icon">⚠️</span>
             Por Validar
+            <span class="estado-badge" *ngIf="getPorValidarCount() > 0">{{ getPorValidarCount() }}</span>
         </button>
     </div>
 

@@ -318,6 +318,42 @@
   font-size: 1.2em;
 }
 
+/* 🔔 Badge de notificación para contadores */
+.estado-badge {
+  background: #ff4757;
+  color: white;
+  font-size: 0.75em;
+  font-weight: bold;
+  padding: 0.2em 0.5em;
+  border-radius: 12px;
+  min-width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 0.3em;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+/* Badge en botones activos */
+.estado-btn.active .estado-badge {
+  background: #ff6b7a;
+  box-shadow: 0 2px 8px rgba(255, 107, 122, 0.4);
+}
+
+/* Badge en hover */
+.estado-btn:hover .estado-badge {
+  background: #ff3742;
+  transform: scale(1.1);
+}
+
 /* Optimización completa para móviles y tablets */
 @media (max-width: 768px) {
   /* Header principal más compacto */
@@ -410,6 +446,16 @@
   
   .estado-icon {
     font-size: 1.1rem;
+  }
+  
+  /* Badge responsivo en móvil */
+  .estado-badge {
+    font-size: 0.7em;
+    padding: 0.15em 0.4em;
+    margin-left: 0;
+    margin-top: 0.2em;
+    min-width: 16px;
+    height: 16px;
   }
 }
 
