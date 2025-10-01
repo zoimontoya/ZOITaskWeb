@@ -90,6 +90,11 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   allUrgentTipos: string[] = [];
   filteredUrgentInvernaderos: string[] = [];
   filteredUrgentTipos: string[] = [];
+  urgentTiposJerarquicos: { tipo: string; subtipos: string[]; hasSubtipos: boolean }[] = [];
+  filteredUrgentTiposJerarquicos: { tipo: string; subtipos: string[]; hasSubtipos: boolean }[] = [];
+  
+  // Mapa para almacenar trabajadores por tarea
+  taskWorkersMap: Map<string, any[]> = new Map();
   
 
 
@@ -139,7 +144,6 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   onOpenWorkersForUrgentTask() {
     // Validar que hay horas especificadas
     if (this.urgentTask.horas_trabajadas <= 0) {
-      alert('Por favor, especifica primero las horas trabajadas antes de asignar trabajadores.');
       return;
     }
     
@@ -159,7 +163,6 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
         !this.urgentTask.tipo_tarea.trim() || 
         !this.urgentTask.descripcion.trim() ||
         this.urgentTask.horas_trabajadas <= 0) {
-      alert('Por favor, completa todos los campos obligatorios.');
       return;
     }
     
@@ -202,7 +205,6 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
         }
         
         this.loadTasks();
-        alert('Tarea urgente registrada exitosamente. Esperando validación del superior.');
       },
       error: (err) => {
         this.isCreatingUrgentTask = false;
@@ -210,10 +212,8 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
           // Manejar respuesta exitosa que viene como error
           this.showUrgentTaskModal = false;
           this.loadTasks();
-          alert('Tarea urgente registrada exitosamente. Esperando validación del superior.');
         } else {
           console.error('Error creando tarea urgente:', err);
-          alert('Error al registrar la tarea urgente. Intenta nuevamente.');
         }
       }
     });
@@ -398,6 +398,13 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
         this.tiposTarea = Array.from(new Set(this.tasks.map(t => t.tipo_tarea).filter(Boolean)));
         this.encargados = Array.from(new Set(this.tasks.map(t => t.encargado_id).filter(Boolean)));
         
+        // Cargar trabajadores para tareas urgentes
+        this.tasks.forEach(task => {
+          if (this.isUrgentTask(task)) {
+            this.loadTaskWorkers(task.id);
+          }
+        });
+
         // Cargar nombres de encargados para supervisores
         if (!this.isEncargado) {
           this.loadEncargadosNames();
@@ -966,19 +973,27 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     if (this.loggedUser?.grupo_trabajo) {
       this.http.get<TipoTarea[]>(`${environment.apiBaseUrl}/tipos-tarea/${this.loggedUser.grupo_trabajo}`).subscribe({
         next: (tiposTarea) => {
-          // Extraer tipos únicos (incluyendo subtipos como opciones separadas)
-          const tiposSet = new Set<string>();
+          // Crear estructura jerárquica: tipo -> subtipos
+          const tiposMap = new Map<string, string[]>();
           
           tiposTarea.forEach(tarea => {
             if (tarea.tipo) {
-              tiposSet.add(tarea.tipo);
-            }
-            if (tarea.subtipo) {
-              tiposSet.add(`${tarea.tipo} - ${tarea.subtipo}`);
+              if (!tiposMap.has(tarea.tipo)) {
+                tiposMap.set(tarea.tipo, []);
+              }
+              if (tarea.subtipo) {
+                tiposMap.get(tarea.tipo)!.push(tarea.subtipo);
+              }
             }
           });
           
-          this.allUrgentTipos = Array.from(tiposSet).sort();
+          // Convertir a array jerárquico para el dropdown
+          this.urgentTiposJerarquicos = Array.from(tiposMap.entries()).map(([tipo, subtipos]) => ({
+            tipo,
+            subtipos: subtipos.sort(),
+            hasSubtipos: subtipos.length > 0
+          })).sort((a, b) => a.tipo.localeCompare(b.tipo));
+          
           this.filterUrgentTipos();
         },
         error: (err) => {
@@ -1032,12 +1047,21 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   
   filterUrgentTipos() {
     if (!this.urgentTipoSearch.trim()) {
-      this.filteredUrgentTipos = [...this.allUrgentTipos];
+      this.filteredUrgentTiposJerarquicos = [...this.urgentTiposJerarquicos];
     } else {
       const search = this.urgentTipoSearch.toLowerCase();
-      this.filteredUrgentTipos = this.allUrgentTipos.filter(tipo => 
-        tipo.toLowerCase().includes(search)
-      );
+      this.filteredUrgentTiposJerarquicos = this.urgentTiposJerarquicos
+        .map(grupo => ({
+          ...grupo,
+          subtipos: grupo.subtipos.filter(subtipo => 
+            subtipo.toLowerCase().includes(search) || grupo.tipo.toLowerCase().includes(search)
+          )
+        }))
+        .filter(grupo => 
+          grupo.tipo.toLowerCase().includes(search) || 
+          grupo.subtipos.length > 0 ||
+          !grupo.hasSubtipos
+        );
     }
   }
   
@@ -1229,5 +1253,32 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   onJornalesRealesChange(): void {
     this.trabajadoresValidados = false;
     this.trabajadoresAsignados = [];
+  }
+
+  // ===== MÉTODOS PARA TRABAJADORES DE TAREAS URGENTES =====
+  
+  loadTaskWorkers(taskId: string): void {
+    if (this.taskWorkersMap.has(taskId)) {
+      return; // Ya cargado
+    }
+
+    this.http.get<any[]>(`${environment.apiBaseUrl}/trabajadores-tarea/${taskId}`).subscribe({
+      next: (trabajadores) => {
+        this.taskWorkersMap.set(taskId, trabajadores);
+      },
+      error: (err) => {
+        console.error('Error cargando trabajadores de tarea:', err);
+        this.taskWorkersMap.set(taskId, []); // Evitar múltiples llamadas
+      }
+    });
+  }
+
+  getTaskWorkers(taskId: string): any[] {
+    return this.taskWorkersMap.get(taskId) || [];
+  }
+
+  hasTaskWorkers(taskId: string): boolean {
+    const workers = this.getTaskWorkers(taskId);
+    return workers.length > 0;
   }
 }

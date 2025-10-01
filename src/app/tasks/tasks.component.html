@@ -79,14 +79,32 @@
                                     (input)="filterUrgentTipos()">
                             </div>
                             <div class="urgent-options-list">
-                                <div 
-                                    *ngFor="let tipo of filteredUrgentTipos" 
-                                    class="urgent-option"
-                                    (click)="selectUrgentTipo(tipo)"
-                                    [class.selected]="urgentTask.tipo_tarea === tipo">
-                                    {{ tipo }}
-                                </div>
-                                <div *ngIf="filteredUrgentTipos.length === 0" class="urgent-no-results">
+                                <ng-container *ngFor="let grupo of filteredUrgentTiposJerarquicos">
+                                    <!-- Tipo principal (cabecera no seleccionable) -->
+                                    <div class="urgent-tipo-header" *ngIf="grupo.hasSubtipos">
+                                        {{ grupo.tipo }}
+                                    </div>
+                                    
+                                    <!-- Subtipos seleccionables -->
+                                    <div 
+                                        *ngFor="let subtipo of grupo.subtipos"
+                                        class="urgent-option urgent-subtipo"
+                                        (click)="selectUrgentTipo(grupo.tipo + ' - ' + subtipo)"
+                                        [class.selected]="urgentTask.tipo_tarea === (grupo.tipo + ' - ' + subtipo)">
+                                        {{ subtipo }}
+                                    </div>
+                                    
+                                    <!-- Tipo sin subtipos (seleccionable directamente) -->
+                                    <div 
+                                        *ngIf="!grupo.hasSubtipos"
+                                        class="urgent-option"
+                                        (click)="selectUrgentTipo(grupo.tipo)"
+                                        [class.selected]="urgentTask.tipo_tarea === grupo.tipo">
+                                        {{ grupo.tipo }}
+                                    </div>
+                                </ng-container>
+                                
+                                <div *ngIf="filteredUrgentTiposJerarquicos.length === 0" class="urgent-no-results">
                                     No se encontraron tipos de tarea
                                 </div>
                             </div>
@@ -97,33 +115,33 @@
             
             <!-- Horas trabajadas -->
             <div class="form-group">
-                <label for="urgentHoras">Horas trabajadas *</label>
-                <input 
-                    type="number" 
-                    id="urgentHoras"
-                    [(ngModel)]="urgentTask.horas_trabajadas"
-                    name="urgentHoras"
-                    placeholder="Ej: 4"
-                    min="0.5"
-                    step="0.5"
-                    required>
-            </div>
-            
+                <label class="form-label" for="urgentHoras">Horas trabajadas *</label>
+            <input 
+                type="number" 
+                id="urgentHoras"
+                [(ngModel)]="urgentTask.horas_trabajadas"
+                name="urgentHoras"
+                placeholder="Ej: 4"
+                min="0.5"
+                step="0.5"
+                required>
+        </div>
+        
             <!-- Descripción -->
             <div class="form-group">
-                <label for="urgentDescripcion">Descripción de la tarea *</label>
-                <textarea 
-                    id="urgentDescripcion"
-                    [(ngModel)]="urgentTask.descripcion"
-                    name="urgentDescripcion"
-                    rows="3"
-                    placeholder="Describe qué se hizo y por qué fue necesario..."
-                    required></textarea>
-            </div>
-            
+                <label class="form-label" for="urgentDescripcion">Descripción de la tarea *</label>
+            <textarea 
+                id="urgentDescripcion"
+                [(ngModel)]="urgentTask.descripcion"
+                name="urgentDescripcion"
+                rows="3"
+                placeholder="Describe qué se hizo y por qué fue necesario..."
+                required></textarea>
+        </div>
+        
             <!-- Trabajadores asignados -->
             <div class="form-group">
-                <label>Trabajadores que participaron</label>
+                <label class="form-label">Trabajadores que participaron</label>
                 <p class="field-note">Haz clic en "Asignar Trabajadores" para registrar quién trabajó en esta tarea</p>
                 <button 
                     type="button" 
@@ -131,17 +149,17 @@
                     (click)="onOpenWorkersForUrgentTask()">
                     <span class="icon">👥</span> Asignar Trabajadores
                 </button>
-                <div *ngIf="urgentTaskWorkers.length > 0" class="workers-summary">
-                    <small>{{ urgentTaskWorkers.length }} trabajador(es) asignado(s)</small>
-                </div>
+            <div *ngIf="urgentTaskWorkers.length > 0" class="workers-summary">
+                <small>{{ urgentTaskWorkers.length }} trabajador(es) asignado(s)</small>
             </div>
-            
+        </div>
+        
             <div class="modal-actions">
-                <button type="submit" class="task-action-btn urgent-submit-btn">
-                    <span class="icon">✅</span> Registrar Tarea
+                <button type="button" class="task-action-btn cancel-btn" (click)="onCancelUrgentTask()">
+                    <span class="icon">❌</span> Cancelar
                 </button>
-                <button type="button" class="task-action-btn" (click)="onCancelUrgentTask()">
-                    Cancelar
+                <button type="submit" class="task-action-btn validate-btn" [disabled]="!urgentTask.invernadero || !urgentTask.tipo_tarea || !urgentTask.descripcion || urgentTask.horas_trabajadas <= 0 || urgentTaskWorkers.length === 0">
+                    <span class="icon">⚡</span> Registrar Tarea
                 </button>
             </div>
         </form>
@@ -417,8 +435,9 @@
                 <div class="task-card-desc">{{task.descripcion}}</div>
                 <div class="task-card-meta">
                     <span>Invernadero: <b>{{task.invernadero}}</b></span>
-                    <span>Estimación jornales: <b>{{task.estimacion_horas}}</b></span>
+                    <span *ngIf="!isUrgentTask(task)">Estimación jornales: <b>{{task.estimacion_horas}}</b></span>
                     <span *ngIf="task.jornales_reales && task.jornales_reales > 0">Horas reales: <b>{{task.jornales_reales}}</b></span>
+                    <!-- Eliminado mensaje de URGENTE horas trabajadas -->
                     <span [class.overdue-date]="isTaskOverdue(task)">
                         Fecha límite: <b>{{task.fecha_limite}}</b>
                         <span *ngIf="isTaskOverdue(task)" class="overdue-badge">⚠️ VENCIDA</span>
@@ -450,6 +469,18 @@
                         <span *ngIf="!isKilosMode(task)">Dimensión: <b>{{formatDimensionTotal(task.dimension_total)}} Ha</b></span>
                     </span>
                 </div>
+                
+                <!-- Información de trabajadores para tareas urgentes -->
+                <div *ngIf="isUrgentTask(task) && hasTaskWorkers(task.id)" class="urgent-workers-info">
+                    <div class="workers-title">👥 Personal asignado:</div>
+                    <div class="workers-list">
+                        <div *ngFor="let trabajador of getTaskWorkers(task.id)" class="worker-item">
+                            <span class="worker-name">{{ trabajador.nombre }}</span>
+                            <span class="worker-hours">{{ trabajador.horasTotal }}h</span>
+                        </div>
+                    </div>
+                </div>
+                
                 <div *ngIf="isEncargado && !isTaskCompleted(task)" class="task-actions">
                     <button *ngIf="getTaskState(task) === 'No iniciado'" 
                                     class="task-action-btn accept-btn" 

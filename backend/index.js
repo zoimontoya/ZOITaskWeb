@@ -1113,6 +1113,8 @@ app.post('/tasks', async (req, res) => {
     if (req.body && req.body.action === 'delete' && req.body.id) {
       const idToDelete = String(req.body.id);
       const spreadsheetMeta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
+      
+      // 1. Eliminar tarea de la hoja "Tareas"
       const tareasSheet = spreadsheetMeta.data.sheets.find(s =>
         s.properties && (s.properties.title === 'Tareas' || s.properties.title === 'tareas')
       );
@@ -1129,24 +1131,80 @@ app.post('/tasks', async (req, res) => {
       if (rowIndex === -1) {
         return res.status(404).json({ error: 'Tarea no encontrada' });
       }
+
+      // 2. Buscar y eliminar filas relacionadas en la hoja "Horas"
+      const horasSheet = spreadsheetMeta.data.sheets.find(s =>
+        s.properties && (s.properties.title === 'Horas' || s.properties.title === 'horas')
+      );
+      
+      let batchRequests = [
+        {
+          deleteDimension: {
+            range: {
+              sheetId: tareasSheetId,
+              dimension: 'ROWS',
+              startIndex: rowIndex,
+              endIndex: rowIndex + 1
+            }
+          }
+        }
+      ];
+
+      if (horasSheet) {
+        console.log('🔍 Buscando registros de horas para eliminar (tarea ID:', idToDelete, ')');
+        const horasResponse = await sheets.spreadsheets.values.get({
+          spreadsheetId: SPREADSHEET_ID,
+          range: `${horasSheet.properties.title}!A:H`
+        });
+        
+        const horasRows = horasResponse.data.values || [];
+        if (horasRows.length > 1) {
+          const horasHeaders = horasRows[0];
+          const rankingIndex = horasHeaders.findIndex(h => h && h.toLowerCase().includes('ranking'));
+          
+          if (rankingIndex !== -1) {
+            // Encontrar todas las filas que coinciden con el ID de la tarea (en orden inverso para eliminar correctamente)
+            const filasAEliminar = [];
+            for (let i = horasRows.length - 1; i >= 1; i--) {
+              const row = horasRows[i];
+              if (row[rankingIndex] && String(row[rankingIndex]) === idToDelete) {
+                filasAEliminar.push(i);
+                console.log(`✅ Encontrada fila de horas a eliminar: ${i + 1} (${row[2] || 'Sin nombre'} - ${row[rankingIndex]})`);
+              }
+            }
+            
+            // Agregar requests de eliminación para cada fila (en orden inverso)
+            filasAEliminar.forEach(rowIdx => {
+              batchRequests.push({
+                deleteDimension: {
+                  range: {
+                    sheetId: horasSheet.properties.sheetId,
+                    dimension: 'ROWS',
+                    startIndex: rowIdx,
+                    endIndex: rowIdx + 1
+                  }
+                }
+              });
+            });
+            
+            console.log(`📊 Total filas de horas a eliminar: ${filasAEliminar.length}`);
+          } else {
+            console.log('⚠️ No se encontró la columna Ranking en la hoja Horas');
+          }
+        }
+      } else {
+        console.log('⚠️ No se encontró la hoja Horas');
+      }
+
+      // Ejecutar todas las eliminaciones en una sola operación batch
       await sheets.spreadsheets.batchUpdate({
         spreadsheetId: SPREADSHEET_ID,
         resource: {
-          requests: [
-            {
-              deleteDimension: {
-                range: {
-                  sheetId: tareasSheetId,
-                  dimension: 'ROWS',
-                  startIndex: rowIndex,
-                  endIndex: rowIndex + 1
-                }
-              }
-            }
-          ]
+          requests: batchRequests
         }
       });
-      console.log('Tarea borrada:', idToDelete);
+      
+      console.log('✅ Tarea y registros de horas eliminados:', idToDelete);
       return res.json({ result: 'success', deleted: idToDelete });
     }
 
@@ -1562,7 +1620,113 @@ app.get('/trabajadores', async (req, res) => {
   }
 });
 
-// 🔍 Health check endpoint para Docker
+// � Endpoint para obtener trabajadores de una tarea específica desde la hoja "Horas"
+app.get('/trabajadores-tarea/:taskId', async (req, res) => {
+  console.log('📋 GET /trabajadores-tarea/:taskId - Obteniendo trabajadores de tarea:', req.params.taskId);
+  
+  try {
+    const auth = getGoogleAuth();
+    const sheets = google.sheets({ version: 'v4', auth });
+    
+    // Buscar la hoja "Horas" dinámicamente
+    const spreadsheetMeta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
+    const horasSheet = spreadsheetMeta.data.sheets.find(s =>
+      s.properties && (s.properties.title === 'Horas' || s.properties.title === 'horas')
+    );
+    
+    if (!horasSheet) {
+      return res.status(404).json({ error: 'No se encontró la hoja de Horas' });
+    }
+    
+    // Obtener datos de la hoja de horas
+    const result = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${horasSheet.properties.title}!A:H`
+    });
+
+    const rows = result.data.values;
+    if (!rows || rows.length <= 1) {
+      return res.json([]);
+    }
+
+    const headers = rows[0];
+    const dataRows = rows.slice(1);
+    
+    console.log('🔍 Headers disponibles:', headers);
+    
+    // Buscar índices de las columnas necesarias con búsqueda más flexible
+    const rankingIndex = headers.findIndex(h => h && h.toLowerCase().includes('ranking'));
+    const trabajadorIndex = headers.findIndex(h => h && (
+      h.toLowerCase().includes('trabajador') || 
+      h.toLowerCase().includes('nombre') || 
+      h.toLowerCase().includes('empleado')
+    ));
+    const horasIndex = headers.findIndex(h => h && (
+      h.toLowerCase().includes('horas') || 
+      h.toLowerCase().includes('tiempo') || 
+      h.toLowerCase().includes('hora')
+    ));
+    const fechaIndex = headers.findIndex(h => h && h.toLowerCase().includes('fecha'));
+    
+    console.log('📊 Índices encontrados:', { rankingIndex, trabajadorIndex, horasIndex, fechaIndex });
+    
+    if (rankingIndex === -1) {
+      console.log('❌ No se encontró la columna Ranking en la hoja Horas');
+      return res.json([]);
+    }
+    
+    if (trabajadorIndex === -1 || horasIndex === -1) {
+      console.log('❌ No se encontraron las columnas de trabajador o horas en la hoja Horas');
+      return res.json([]);
+    }
+
+    // Filtrar registros que coincidan con el taskId en la columna Ranking
+    const taskId = req.params.taskId;
+    const trabajadoresData = [];
+    
+    dataRows.forEach(row => {
+      if (row[rankingIndex] && row[rankingIndex].toString() === taskId.toString()) {
+        trabajadoresData.push({
+          trabajador: row[trabajadorIndex] || '',
+          horas: parseFloat(row[horasIndex]) || 0,
+          fecha: row[fechaIndex] || ''
+        });
+      }
+    });
+    
+    // Agrupar por trabajador y sumar horas
+    const trabajadoresAgrupados = {};
+    trabajadoresData.forEach(registro => {
+      if (registro.trabajador) {
+        if (!trabajadoresAgrupados[registro.trabajador]) {
+          trabajadoresAgrupados[registro.trabajador] = {
+            nombre: registro.trabajador,
+            horasTotal: 0,
+            registros: []
+          };
+        }
+        trabajadoresAgrupados[registro.trabajador].horasTotal += registro.horas;
+        trabajadoresAgrupados[registro.trabajador].registros.push({
+          horas: registro.horas,
+          fecha: registro.fecha
+        });
+      }
+    });
+    
+    // Convertir a array y ordenar por horas totales
+    const resultado = Object.values(trabajadoresAgrupados)
+      .sort((a, b) => b.horasTotal - a.horasTotal);
+    
+    console.log(`✅ Encontrados ${resultado.length} trabajadores para tarea ${taskId}`);
+    res.json(resultado);
+    
+  } catch (error) {
+    console.error('❌ Error obteniendo trabajadores de tarea:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// �🔍 Health check endpoint para Docker
 app.get('/health', (req, res) => {
   console.log('🩺 Health check request received from:', req.ip || req.connection.remoteAddress);
   res.status(200).json({ 

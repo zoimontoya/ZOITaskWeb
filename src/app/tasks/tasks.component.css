@@ -1243,7 +1243,8 @@ ul {
 /* Estilos para selectores de tarea urgente */
 .urgent-selector-container {
   position: relative;
-  width: 100%;
+  width: 75%; /* Más estrecho */
+  margin: 0 auto; /* Centrado */
 }
 
 .urgent-dropdown {
@@ -1299,12 +1300,12 @@ ul {
   top: 100%;
   left: 0;
   right: 0;
-  background: linear-gradient(135deg, #2d5a2d, #1a4a1a);
+  background: white;
   border: 2px solid #4a7c59;
   border-top: none;
   border-radius: 0 0 0.5rem 0.5rem;
-  max-height: 250px;
-  overflow: hidden;
+  max-height: 200px; /* Reducido para evitar scroll */
+  overflow-y: auto; /* Solo scroll en dropdown si es necesario */
   z-index: 1001;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
@@ -1320,8 +1321,12 @@ ul {
   border: 1px solid #4a7c59;
   border-radius: 0.25rem;
   background: white;
-  color: #333;
+  color: #333 !important; /* Texto negro forzado */
   font-size: 0.9rem;
+}
+
+.urgent-search-input::placeholder {
+  color: #666 !important; /* Placeholder visible */
 }
 
 .urgent-search-input:focus {
@@ -1331,49 +1336,131 @@ ul {
 }
 
 .urgent-options-list {
-  max-height: 180px;
+  max-height: 160px; /* Reducido */
   overflow-y: auto;
 }
 
 .urgent-option {
-  padding: 0.75rem;
+  padding: 8px 12px;
   cursor: pointer;
-  transition: all 0.2s ease;
-  color: var(--primary-text);
-  border-bottom: 1px solid rgba(74, 124, 89, 0.3);
+  transition: background-color 0.2s;
+  color: #2d3748;
+  border-bottom: 1px solid #f7fafc;
+  font-size: 13px;
 }
 
 .urgent-option:hover {
-  background: rgba(255, 107, 53, 0.2);
-  color: white;
+  background: #f7fafc;
 }
 
 .urgent-option.selected {
-  background: rgba(255, 107, 53, 0.3);
+  background: #3182ce;
   color: white;
-  font-weight: bold;
 }
 
 .urgent-no-results {
-  padding: 1rem;
+  padding: 12px;
   text-align: center;
-  color: var(--muted-text);
+  color: #718096;
   font-style: italic;
+  font-size: 13px;
 }
 
-.urgent-modal-content {
+/* Estilos para estructura jerárquica de tipos de tarea urgente */
+.urgent-tipo-header {
+  padding: 8px 12px;
+  background: rgba(74, 124, 89, 0.4);
+  color: #d4f0d4;
+  font-weight: bold;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid rgba(74, 124, 89, 0.6);
+  cursor: default;
+  user-select: none;
+}
+
+.urgent-subtipo {
+  padding-left: 24px !important;
+  position: relative;
+  border-left: 3px solid rgba(74, 124, 89, 0.3);
+}
+
+.urgent-subtipo::before {
+  content: "└";
+  position: absolute;
+  left: 8px;
+  color: rgba(74, 124, 89, 0.6);
+  font-size: 12px;
+}
+
+/* Estilos para información de trabajadores en tareas urgentes */
+.urgent-workers-info {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background: linear-gradient(135deg, #fff3cd, #ffeaa7);
+  border: 1px solid #ffeaa7;
+  border-radius: 0.5rem;
+  border-left: 4px solid #ff6b35;
+}
+
+.workers-title {
+  font-weight: bold;
+  color: #856404;
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.workers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.worker-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.25rem 0.5rem;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 0.25rem;
+  border: 1px solid rgba(212, 173, 67, 0.3);
+}
+
+.worker-name {
+  color: #495057;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.worker-hours {
+  color: #ff6b35;
+  font-weight: bold;
+  font-size: 0.8rem;
+  background: rgba(255, 107, 53, 0.1);
+  padding: 0.1rem 0.4rem;
+  border-radius: 0.2rem;
+}
+
+/* Modal de tarea urgente restaurado con estilos originales pero ancho corregido */
+.urgent-task-modal {
+  max-width: 30rem; /* Mismo ancho que el modal normal */
+  width: 90%;
+  /* SIN max-height ni overflow - usa scroll de página */
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+  border: 2px solid #4a7c59;
+  z-index: 2500; /* Asegurar que esté por encima del menú */
+  /* SIN margin auto - el flex del overlay se encarga */
   background: linear-gradient(135deg, #2d5a2d, #1a4a1a);
   border-radius: 1rem;
   padding: 2rem;
-  max-width: 500px;
-  width: 90%;
-  max-height: 90vh;
-  overflow-y: auto;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
-  border: 2px solid #4a7c59;
+  color: white;
 }
 
-.urgent-modal h3 {
+.urgent-task-modal h3 {
   color: #ff6b35;
   font-size: 1.5rem;
   margin-bottom: 1.5rem;
@@ -1384,89 +1471,67 @@ ul {
   gap: 0.5rem;
 }
 
-.form-group {
+.urgent-task-description {
+  color: var(--muted-text);
+  font-size: 0.9rem;
   margin-bottom: 1.5rem;
+  line-height: 1.4;
+}
+
+.urgent-task-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
 .form-group .form-label {
-  display: block;
-  color: var(--label-text);
+  color: #d4f0d4;
+  font-weight: 500;
+  font-size: 1rem;
   margin-bottom: 0.5rem;
-  font-weight: 600;
-  font-size: 0.95rem;
 }
 
-.form-group input[type="number"],
-.form-group textarea {
-  width: 100%;
-  padding: 0.75rem;
-  border: 2px solid #4a7c59;
+.urgent-task-form input,
+.urgent-task-form textarea {
+  padding: 0.75rem 1rem;
+  border: 2px solid rgba(74, 124, 89, 0.6);
   border-radius: 0.5rem;
-  background: white;
-  color: #333;
-  font-size: 0.95rem;
-  transition: all 0.3s ease;
+  background: rgba(74, 124, 89, 0.2);
+  color: #d4f0d4;
+  font-size: 1rem;
+  transition: border-color 0.2s ease;
 }
 
-.form-group input[type="number"]:focus,
-.form-group textarea:focus {
+.urgent-task-form input:focus,
+.urgent-task-form textarea:focus {
   outline: none;
-  border-color: #ff6b35;
-  box-shadow: 0 0 10px rgba(255, 107, 53, 0.3);
-  background: #f8f8f8;
+  border-color: rgba(255, 107, 53, 0.8);
+  box-shadow: 0 0 0 3px rgba(255, 107, 53, 0.2);
 }
 
-.form-group textarea {
-  min-height: 100px;
-  resize: vertical;
+.urgent-task-form input::placeholder,
+.urgent-task-form textarea::placeholder {
+  color: rgba(212, 240, 212, 0.6);
 }
 
-.urgent-modal-actions {
-  display: flex;
-  gap: 1rem;
-  margin-top: 2rem;
-  justify-content: center;
+.field-note {
+  color: rgba(212, 240, 212, 0.7);
+  font-size: 0.85rem;
+  margin-top: 0.25rem;
 }
 
-.urgent-submit-btn {
-  background: linear-gradient(135deg, #ff6b35, #ff8c42);
-  color: white;
-  border: none;
-  padding: 0.75rem 2rem;
-  border-radius: 0.5rem;
-  font-weight: bold;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 15px rgba(255, 107, 53, 0.3);
-}
-
-.urgent-submit-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg, #e85a2e, #e67d39);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(255, 107, 53, 0.4);
-}
-
-.urgent-submit-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
-}
-
-.urgent-cancel-btn {
-  background: transparent;
-  color: var(--muted-text);
-  border: 2px solid var(--muted-text);
-  padding: 0.75rem 2rem;
-  border-radius: 0.5rem;
-  font-weight: bold;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.urgent-cancel-btn:hover {
-  background: var(--muted-text);
-  color: #2d5a2d;
-  transform: translateY(-2px);
+.workers-summary {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background: rgba(74, 124, 89, 0.3);
+  border-radius: 0.25rem;
+  color: #d4f0d4;
 }
 
 /* Botones de validación para superiores */
@@ -1510,53 +1575,35 @@ ul {
   transform: translateY(-2px);
 }
 
-/* Estilos responsivos para elementos urgentes */
-@media (max-width: 768px) {
-  .urgent-modal-content {
-    padding: 1.5rem;
-    width: 95%;
-  }
-  
-  .urgent-modal h3 {
-    font-size: 1.25rem;
-  }
-  
-  .urgent-task-btn {
-    padding: 0.6rem 1.2rem;
-    font-size: 0.85rem;
-  }
-  
-  .urgent-modal-actions {
-    flex-direction: column;
-  }
-  
-  .urgent-submit-btn,
-  .urgent-cancel-btn {
-    width: 100%;
-  }
-  
-  .validate-btn {
-    padding: 0.4rem 0.8rem;
-    font-size: 0.8rem;
-  }
+/* Estilos responsivos para elementos urgentes eliminados - ahora usa dialog */
+
+/* Estilo para botón de asignar trabajadores en modal urgente */
+.worker-assign-btn {
+  background: #4a5568;
+  color: #e2e8f0;
+  border: 1px solid #718096;
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s ease;
 }
 
-@media (max-width: 480px) {
-  .urgent-modal-content {
-    padding: 1rem;
-    width: 98%;
-  }
-  
-  .urgent-form-group label {
-    font-size: 0.9rem;
-  }
-  
-  .urgent-form-group select,
-  .urgent-form-group input,
-  .urgent-form-group textarea {
-    padding: 0.6rem;
-    font-size: 0.9rem;
-  }
+.worker-assign-btn:hover {
+  background: #2d3748;
+  border-color: #4a5568;
+}
+
+.workers-summary {
+  margin-top: 8px;
+  color: #a0aec0;
+  font-size: 12px;
+}
+
+.field-note {
+  color: #a0aec0;
+  font-size: 12px;
+  margin: 4px 0 8px 0;
 }
 
 @media (min-width: 768px) {
