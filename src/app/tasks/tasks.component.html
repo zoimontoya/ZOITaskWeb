@@ -235,6 +235,7 @@
                         min="0" 
                         max="100" 
                         [(ngModel)]="progressValue"
+                        (input)="onProgressSliderChange()"
                         class="progress-slider"
                         [class.complete]="progressValue === 100">
                     <div class="progress-display">
@@ -248,6 +249,27 @@
                             {{getHectaresFromProgress()}} / {{formatDimensionTotal(taskToComplete.dimension_total)}} hectáreas
                         </span>
                     </div>
+                </div>
+                
+                <!-- Input directo para hectáreas trabajadas -->
+                <div class="hectares-input-container">
+                    <label for="hectareasTrabajadas">O ingresa directamente las hectáreas trabajadas:</label>
+                    <div class="hectares-input-wrapper">
+                        <input 
+                            type="number" 
+                            id="hectareasTrabajadas"
+                            [(ngModel)]="hectareasTrabajadasValue"
+                            [min]="0"
+                            [max]="getMaxHectares(taskToComplete)"
+                            step="0.01"
+                            class="hectares-input"
+                            placeholder="Hectáreas trabajadas"
+                            (input)="onHectareasTrabajadasChange()">
+                        <span class="hectares-unit">Ha</span>
+                    </div>
+                    <small class="hectares-info" *ngIf="taskToComplete">
+                        Máximo: {{formatDimensionTotal(taskToComplete.dimension_total)}} Ha
+                    </small>
                 </div>
             </div>
             
@@ -533,6 +555,8 @@
                     </button>
                     <button *ngIf="getTaskState(task) === 'Iniciada' || (isNumber(getTaskState(task)) && toNumber(getTaskState(task)) >= 0)" 
                                     class="task-action-btn progress-btn" 
+                                    [class.disabled]="isTaskUpdatedToday(task)"
+                                    [disabled]="isTaskUpdatedToday(task)"
                                     (click)="onOpenProgressModal(task)">
                         <span class="icon">📊</span> 
                         Actualizar progreso
@@ -540,6 +564,10 @@
                     <small *ngIf="task.fecha_actualizacion && (getTaskState(task) === 'Iniciada' || (isNumber(getTaskState(task)) && toNumber(getTaskState(task)) >= 0))" 
                            class="last-update-info">
                         {{getLastUpdateInfo(task)}}
+                    </small>
+                    <small *ngIf="isTaskUpdatedToday(task) && (getTaskState(task) === 'Iniciada' || (isNumber(getTaskState(task)) && toNumber(getTaskState(task)) >= 0))" 
+                           class="update-blocked-info">
+                        🚫 Ya actualizada hoy. Disponible mañana.
                     </small>
                 </div>
                 <div *ngIf="isEncargado && isTaskCompleted(task)" class="task-completed-notice">

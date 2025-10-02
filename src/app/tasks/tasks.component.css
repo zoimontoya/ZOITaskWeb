@@ -498,6 +498,20 @@
   text-align: center;
 }
 
+/* Mensaje de actualización bloqueada */
+.update-blocked-info {
+  color: #d32f2f;
+  font-size: 0.8rem;
+  font-weight: 500;
+  margin-top: 0.3rem;
+  display: block;
+  text-align: center;
+  background-color: rgba(211, 47, 47, 0.1);
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  border: 1px solid rgba(211, 47, 47, 0.2);
+}
+
 /* Mensaje para tareas completadas */
 .task-completed-notice {
   display: flex;
@@ -1057,6 +1071,60 @@ ul {
 
 .progress-info {
   color: var(--accent-text);
+}
+
+/* Estilos para input de hectáreas trabajadas */
+.hectares-input-container {
+  margin-top: 1em;
+  padding: 1em;
+  background-color: rgba(52, 152, 219, 0.05);
+  border-radius: 8px;
+  border: 1px solid rgba(52, 152, 219, 0.2);
+}
+
+.hectares-input-container label {
+  display: block;
+  margin-bottom: 0.5em;
+  color: var(--label-text);
+  font-weight: 500;
+}
+
+.hectares-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  margin-bottom: 0.5em;
+}
+
+.hectares-input {
+  flex: 1;
+  max-width: 150px;
+  padding: 0.8em;
+  border: 2px solid var(--accent-text);
+  border-radius: 6px;
+  background-color: rgba(255, 255, 255, 0.95);
+  color: #333;
+  font-weight: 600;
+  text-align: center;
+  font-size: 1.1em;
+}
+
+.hectares-input:focus {
+  outline: none;
+  border-color: var(--success-text);
+  box-shadow: 0 0 0 3px rgba(163, 230, 163, 0.3);
+}
+
+.hectares-unit {
+  font-weight: 600;
+  color: var(--accent-text);
+  font-size: 1.1em;
+}
+
+.hectares-info {
+  color: var(--muted-text);
+  font-size: 0.9em;
+  font-style: italic;
 }
 
 /* Optimización de tarjetas para móviles y tablets */

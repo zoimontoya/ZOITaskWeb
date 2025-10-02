@@ -40,7 +40,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   showFilterMenu = false;
   selectedInvernadero: string = '';
   selectedTipo: string = '';
-  selectedFechaOrden: string = 'desc';
+  selectedFechaOrden: string = 'asc'; // Por defecto: fechas límite más cercanas primero
   selectedEstado: string = 'sin-iniciar'; // Nuevo: estado seleccionado por defecto
   selectedEncargado: string = ''; // Nuevo: encargado seleccionado
   invernaderos: string[] = [];
@@ -56,6 +56,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   progressValue = 0;
   jornalesRealesValue = 0; // Campo para horas reales trabajadas (encargados ingresan horas directamente)
   kilosRecogidosValue = 0; // Campo para kilos recogidos (modo kilos)
+  hectareasTrabajadasValue = 0; // Campo para hectáreas trabajadas (input directo)
   greenhouses: Greenhouse[] = [];
 
   // Propiedades para asignación de trabajadores
@@ -328,7 +329,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     this.selectedInvernadero = '';
     this.selectedTipo = '';
     this.selectedEncargado = '';
-    this.selectedFechaOrden = 'desc';
+    this.selectedFechaOrden = 'asc'; // Por defecto: fechas límite más cercanas primero
     // No resetear selectedEstado para supervisores, mantener el estado activo
     this.applyFilters();
   }
@@ -656,6 +657,12 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
       return;
     }
     
+    // Verificar si la tarea ya fue actualizada hoy
+    if (this.isTaskUpdatedToday(task)) {
+      alert('Esta tarea ya fue actualizada hoy. Podrá actualizarla mañana.');
+      return;
+    }
+    
     this.taskToComplete = task;
     this.progressValue = Number(this.getTaskState(task)) || 0; // Usar el estado unificado para el porcentaje
     this.jornalesRealesValue = 0; // Siempre empezar vacío para que el encargado ingrese las horas del día
@@ -667,6 +674,10 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     // Si está en modo kilos, inicializar kilos recogidos desde desarrollo_actual
     if (this.isKilosMode(task)) {
       this.kilosRecogidosValue = Number(task.desarrollo_actual) || 0;
+    } else {
+      // Si está en modo hectáreas, calcular hectáreas trabajadas basado en el progreso actual
+      const totalHectares = this.parseDimension(task.dimension_total);
+      this.hectareasTrabajadasValue = (totalHectares * this.progressValue) / 100;
     }
     
     this.showCompleteModal = true;
@@ -674,6 +685,13 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
 
   onUpdateProgressOnly() {
     if (!this.taskToComplete || this.isProcessing) return;
+    
+    // Verificar si la tarea ya fue actualizada hoy
+    if (this.isTaskUpdatedToday(this.taskToComplete)) {
+      alert('Esta tarea ya fue actualizada hoy. Podrá actualizarla mañana.');
+      return;
+    }
+    
     this.isProcessing = true;
     
     // Validar que se haya ingresado el número de horas reales
@@ -728,6 +746,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
           this.progressValue = 0;
           this.jornalesRealesValue = 0; // Limpiar jornales reales
           this.kilosRecogidosValue = 0; // Limpiar kilos recogidos
+          this.hectareasTrabajadasValue = 0; // Limpiar hectáreas trabajadas
           this.loadTasks(); // Recargar para ver cambios
           this.isProcessing = false;
         },
@@ -741,6 +760,13 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
 
   onConfirmCompleteTask() {
     if (!this.taskToComplete || this.isProcessing) return;
+    
+    // Verificar si la tarea ya fue actualizada hoy
+    if (this.isTaskUpdatedToday(this.taskToComplete)) {
+      alert('Esta tarea ya fue actualizada hoy. Podrá completarla mañana.');
+      return;
+    }
+    
     this.isProcessing = true;
     
     // Validar que se haya ingresado el número de horas reales
@@ -786,6 +812,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
           this.progressValue = 0;
           this.jornalesRealesValue = 0; // Limpiar jornales reales
           this.kilosRecogidosValue = 0; // Limpiar kilos recogidos
+          this.hectareasTrabajadasValue = 0; // Limpiar hectáreas trabajadas
           this.loadTasks(); // Recargar para ver cambios
           this.isProcessing = false;
         },
@@ -1088,7 +1115,6 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   }
   
   selectUrgentTipo(tipo: string) {
-    this.urgentTask.tipo_tarea = tipo;
     this.isUrgentTipoOpen = false;
     this.urgentTipoSearch = '';
     
@@ -1136,6 +1162,15 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
       familia: this.selectedTipoTarea?.familia,
       esALMACEN_CONFECC: this.selectedTipoTarea?.familia === 'ALMACEN-CONFECC'
     });
+    
+    // CAMBIO IMPORTANTE: Usar tarea_nombre si se encuentra la tarea, sino usar el tipo original
+    if (this.selectedTipoTarea && this.selectedTipoTarea.tarea_nombre) {
+      this.urgentTask.tipo_tarea = this.selectedTipoTarea.tarea_nombre;
+      console.log('🏪 Usando tarea_nombre:', this.selectedTipoTarea.tarea_nombre);
+    } else {
+      this.urgentTask.tipo_tarea = tipo;
+      console.log('🏪 Usando tipo original (no se encontró tarea):', tipo);
+    }
     
     // Si cambió la tarea, resetear género seleccionado
     this.selectedGenero = '';
@@ -1326,6 +1361,12 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     return parseFloat(String(value).replace(',', '.')) || 0;
   }
 
+  // Método público para obtener el máximo de hectáreas (para usar en template)
+  getMaxHectares(task: Task | null): number {
+    if (!task) return 0;
+    return this.parseDimension(task.dimension_total);
+  }
+
   // Método para mostrar progreso detallado como "7,8/14,35 (45%)"
   getDetailedProgress(task: any): string {
     const estado = this.getTaskState(task);
@@ -1384,7 +1425,14 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
 
   // Verificar si se pueden actualizar/completar las tareas
   canProceedWithUpdate(): boolean {
-    return this.trabajadoresValidados && this.jornalesRealesValue > 0;
+    const basicValidation = this.trabajadoresValidados && this.jornalesRealesValue > 0;
+    
+    // Si la tarea ya fue actualizada hoy, no se puede actualizar de nuevo
+    if (this.taskToComplete && this.isTaskUpdatedToday(this.taskToComplete)) {
+      return false;
+    }
+    
+    return basicValidation;
   }
 
   // Obtener el estado unificado de la tarea (solo proceso ahora)
@@ -1412,6 +1460,11 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   }
 
   getWorkersValidationMessage(): string {
+    // Verificar primero si la tarea ya fue actualizada hoy
+    if (this.taskToComplete && this.isTaskUpdatedToday(this.taskToComplete)) {
+      return '🚫 Esta tarea ya fue actualizada hoy. Podrá actualizarla mañana.';
+    }
+    
     if (this.jornalesRealesValue <= 0) {
       return 'Especifique las horas trabajadas';
     }
@@ -1421,10 +1474,61 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     return `✅ ${this.trabajadoresAsignados.length} trabajador(es) asignado(s)`;
   }
 
+  // Verificar si la tarea ya fue actualizada hoy
+  isTaskUpdatedToday(task: Task): boolean {
+    if (!task.fecha_actualizacion) {
+      return false; // Si no tiene fecha de actualización, no ha sido actualizada
+    }
+    
+    const today = new Date();
+    const todayString = today.toISOString().split('T')[0]; // YYYY-MM-DD
+    
+    // La fecha_actualizacion puede venir en formato DD/MM/YYYY o YYYY-MM-DD
+    let fechaActualizacion: string;
+    if (task.fecha_actualizacion.includes('/')) {
+      // Formato DD/MM/YYYY - convertir a YYYY-MM-DD
+      const parts = task.fecha_actualizacion.split('/');
+      fechaActualizacion = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+    } else {
+      // Formato YYYY-MM-DD o similar
+      fechaActualizacion = task.fecha_actualizacion.split('T')[0]; // Solo la parte de fecha
+    }
+    
+    return fechaActualizacion === todayString;
+  }
+
   // Resetear validación cuando cambian las horas
   onJornalesRealesChange(): void {
     this.trabajadoresValidados = false;
     this.trabajadoresAsignados = [];
+  }
+
+  // Sincronizar hectáreas trabajadas con el porcentaje
+  onHectareasTrabajadasChange(): void {
+    if (!this.taskToComplete) return;
+    
+    const totalHectares = this.parseDimension(this.taskToComplete.dimension_total);
+    if (totalHectares > 0) {
+      // Calcular el porcentaje basado en las hectáreas ingresadas
+      this.progressValue = Math.round((this.hectareasTrabajadasValue / totalHectares) * 100);
+      
+      // Asegurar que no exceda el 100%
+      if (this.progressValue > 100) {
+        this.progressValue = 100;
+        this.hectareasTrabajadasValue = totalHectares;
+      }
+    }
+  }
+
+  // Sincronizar porcentaje con hectáreas trabajadas
+  onProgressSliderChange(): void {
+    if (!this.taskToComplete) return;
+    
+    const totalHectares = this.parseDimension(this.taskToComplete.dimension_total);
+    if (totalHectares > 0) {
+      // Calcular las hectáreas basado en el porcentaje
+      this.hectareasTrabajadasValue = parseFloat(((totalHectares * this.progressValue) / 100).toFixed(2));
+    }
   }
 
   // ===== MÉTODOS PARA TRABAJADORES DE TAREAS URGENTES =====
