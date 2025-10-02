@@ -1640,6 +1640,8 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   onConfirmValidation(): void {
     if (!this.taskToValidate) return;
     
+    this.showLoadingOverlay('Validando tarea urgente...');
+    
     // Actualizar la tarea urgente a estado terminado
     const fechaActual = new Date().toISOString().split('T')[0];
     const fechaActualizacion = new Date().toLocaleDateString('es-ES'); // DD/MM/YYYY
@@ -1657,11 +1659,13 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     
     this.taskService.updateTask(this.taskToValidate.id, tareaValidada).subscribe({
       next: () => {
+        this.hideLoadingOverlay();
         this.loadTasks();
         this.showNotificationMessage('Tarea validada exitosamente. Ahora aparece como terminada.', 'success');
         this.onCancelValidation();
       },
       error: (err) => {
+        this.hideLoadingOverlay();
         if (err.status === 200) {
           this.loadTasks();
           this.showNotificationMessage('Tarea validada exitosamente. Ahora aparece como terminada.', 'success');
