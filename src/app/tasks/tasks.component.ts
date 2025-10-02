@@ -70,6 +70,19 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   // Protección contra double-click
   isProcessing = false;
   
+  // Sistema de notificaciones
+  showNotification = false;
+  notificationMessage = '';
+  notificationType: 'success' | 'error' | 'warning' = 'success';
+  
+  // Modal de confirmación para validación
+  showValidationModal = false;
+  taskToValidate: Task | null = null;
+  
+  // Overlay de carga global
+  showGlobalLoading = false;
+  loadingMessage = '';
+  
   // Propiedades para Tareas Urgentes
   isUrgentTaskWorkersMode = false;
   showUrgentTaskModal = false;
@@ -174,6 +187,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     }
     
     this.isCreatingUrgentTask = true;
+    this.showLoadingOverlay('Creando tarea urgente...');
     
     // Crear tarea con estado "Por validar"  
     // Para tareas urgentes, el encargado que la crea será quien aparezca como creador
@@ -203,6 +217,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     this.taskService.addTask([tareaUrgente]).subscribe({
       next: () => {
         this.isCreatingUrgentTask = false;
+        this.hideLoadingOverlay();
         this.showUrgentTaskModal = false;
         
         // Si hay trabajadores asignados, registrarlos
@@ -213,16 +228,20 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
         
         this.resetUrgentTask();
         this.loadTasks();
+        this.showNotificationMessage('Tarea urgente creada exitosamente', 'success');
       },
       error: (err) => {
         this.isCreatingUrgentTask = false;
+        this.hideLoadingOverlay();
         if (err.status === 200) {
           // Manejar respuesta exitosa que viene como error
           this.showUrgentTaskModal = false;
           this.resetUrgentTask();
           this.loadTasks();
+          this.showNotificationMessage('Tarea urgente creada exitosamente', 'success');
         } else {
           console.error('Error creando tarea urgente:', err);
+          this.showNotificationMessage('Error al crear la tarea urgente', 'error');
         }
       }
     });
@@ -519,7 +538,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   onConfirmDeleteTask(task: Task) {
     // Verificar que la tarea no esté terminada
     if (this.isTaskCompleted(task)) {
-      alert('No se puede eliminar una tarea terminada.');
+      this.showNotificationMessage('No se puede eliminar una tarea terminada.', 'warning');
       return;
     }
     this.taskToDelete = task;
@@ -542,7 +561,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   onStartEditTask(task: Task) {
     // Verificar que la tarea no esté terminada
     if (this.isTaskCompleted(task)) {
-      alert('No se puede editar una tarea terminada.');
+      this.showNotificationMessage('No se puede editar una tarea terminada.', 'warning');
       return;
     }
     this.editingTask = { ...task };
@@ -568,23 +587,29 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
       dimension_total: tarea.dimension_total || this.editingTask.dimension_total || '0'
     };
     
+    this.showLoadingOverlay('Actualizando tarea...');
+    
     this.taskService.updateTask(id, tareaCompleta).subscribe({
       next: (res: any) => {
+        this.hideLoadingOverlay();
         this.editingTask = null;
+        this.showNotificationMessage('Tarea actualizada exitosamente', 'success');
         this.pollForTaskListChange(() => {
           const t = this.tasks.find(t => t.id === id);
           return !!(t && t.tipo_tarea === tareaCompleta.tipo_tarea && t.descripcion === tareaCompleta.descripcion);
         });
       },
       error: (err) => {
+        this.hideLoadingOverlay();
         if (err.status === 200) {
           this.editingTask = null;
+          this.showNotificationMessage('Tarea actualizada exitosamente', 'success');
           this.pollForTaskListChange(() => {
             const t = this.tasks.find(t => t.id === id);
             return !!(t && t.tipo_tarea === tareaCompleta.tipo_tarea && t.descripcion === tareaCompleta.descripcion);
           });
         } else {
-          alert('No se pudo editar la tarea. Puede que ya no exista.');
+          this.showNotificationMessage('No se pudo editar la tarea. Puede que ya no exista.', 'error');
           this.editingTask = null;
           this.pollForTaskListChange(() => {
             const t = this.tasks.find(t => t.id === id);
@@ -617,15 +642,24 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
           nombre_superior: superiorId
         }];
     
+    const taskCount = Array.isArray(tareasConSuperior) ? tareasConSuperior.length : 1;
+    this.showLoadingOverlay(`Creando ${taskCount} tarea${taskCount > 1 ? 's' : ''}...`);
+    
     this.taskService.addTask(tareasConSuperior).subscribe({
       next: () => {
+        this.hideLoadingOverlay();
         this.isAddingTask = false;
         this.loadTasks();
+        this.showNotificationMessage(`${taskCount} tarea${taskCount > 1 ? 's' : ''} creada${taskCount > 1 ? 's' : ''} exitosamente`, 'success');
       },
       error: (err) => {
+        this.hideLoadingOverlay();
         if (err.status === 200) {
           this.isAddingTask = false;
           this.loadTasks();
+          this.showNotificationMessage(`${taskCount} tarea${taskCount > 1 ? 's' : ''} creada${taskCount > 1 ? 's' : ''} exitosamente`, 'success');
+        } else {
+          this.showNotificationMessage('Error al crear las tareas', 'error');
         }
       }
     });
@@ -634,7 +668,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   onAcceptTask(task: Task) {
     // Verificar que la tarea no esté terminada
     if (this.isTaskCompleted(task)) {
-      alert('No se puede aceptar una tarea terminada.');
+      this.showNotificationMessage('No se puede aceptar una tarea terminada.', 'warning');
       return;
     }
     
@@ -645,7 +679,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
       },
       error: (err) => {
         console.error('Error al aceptar tarea:', err);
-        alert('Error al aceptar la tarea. Inténtalo de nuevo.');
+        this.showNotificationMessage('Error al aceptar la tarea. Inténtalo de nuevo.', 'error');
       }
     });
   }
@@ -653,13 +687,13 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   onOpenProgressModal(task: Task) {
     // Verificar que la tarea no esté terminada
     if (this.isTaskCompleted(task)) {
-      alert('No se puede actualizar el progreso de una tarea terminada.');
+      this.showNotificationMessage('No se puede actualizar el progreso de una tarea terminada.', 'warning');
       return;
     }
     
     // Verificar si la tarea ya fue actualizada hoy
     if (this.isTaskUpdatedToday(task)) {
-      alert('Esta tarea ya fue actualizada hoy. Podrá actualizarla mañana.');
+      this.showNotificationMessage('Esta tarea ya fue actualizada hoy. Podrá actualizarla mañana.', 'warning');
       return;
     }
     
@@ -688,7 +722,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     
     // Verificar si la tarea ya fue actualizada hoy
     if (this.isTaskUpdatedToday(this.taskToComplete)) {
-      alert('Esta tarea ya fue actualizada hoy. Podrá actualizarla mañana.');
+      this.showNotificationMessage('Esta tarea ya fue actualizada hoy. Podrá actualizarla mañana.', 'warning');
       return;
     }
     
@@ -696,14 +730,14 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     
     // Validar que se haya ingresado el número de horas reales
     if (!this.jornalesRealesValue || this.jornalesRealesValue <= 0) {
-      alert('Por favor, ingresa el número de horas realmente trabajadas.');
+      this.showNotificationMessage('Por favor, ingresa el número de horas realmente trabajadas.', 'warning');
       this.isProcessing = false;
       return;
     }
 
     // Validar que se hayan asignado trabajadores
     if (!this.canProceedWithUpdate()) {
-      alert('Debe asignar trabajadores y validar que las horas cuadren antes de actualizar el progreso.');
+      this.showNotificationMessage('Debe asignar trabajadores y validar que las horas cuadren antes de actualizar el progreso.', 'warning');
       this.isProcessing = false;
       return;
     }
@@ -714,7 +748,8 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     if (this.isKilosMode(this.taskToComplete)) {
       // MODO KILOS: Solo registrar kilos recogidos sin calcular porcentaje ni meta
       if (!this.kilosRecogidosValue || this.kilosRecogidosValue <= 0) {
-        alert('Por favor, ingresa los kilos recogidos.');
+        this.showNotificationMessage('Por favor, ingresa los kilos recogidos.', 'warning');
+        this.isProcessing = false;
         return;
       }
       
@@ -738,9 +773,12 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
       console.log(`MODO HECTÁREAS: ${this.progressValue}% = ${hectareasActuales}/${totalHectares} Ha`);
     }
     
+    this.showLoadingOverlay('Actualizando progreso...');
+    
     this.taskService.updateTaskProgress(this.taskToComplete.id, progressValue, desarrolloValue, this.jornalesRealesValue, this.trabajadoresAsignados, this.name).subscribe({
         next: () => {
           console.log('Progreso actualizado correctamente');
+          this.hideLoadingOverlay();
           this.showCompleteModal = false;
           this.taskToComplete = null;
           this.progressValue = 0;
@@ -749,10 +787,12 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
           this.hectareasTrabajadasValue = 0; // Limpiar hectáreas trabajadas
           this.loadTasks(); // Recargar para ver cambios
           this.isProcessing = false;
+          this.showNotificationMessage('Progreso actualizado correctamente', 'success');
         },
         error: (err: any) => {
           console.error('Error al actualizar progreso:', err);
-          alert('Error al actualizar el progreso. Inténtalo de nuevo.');
+          this.hideLoadingOverlay();
+          this.showNotificationMessage('Error al actualizar el progreso. Inténtalo de nuevo.', 'error');
           this.isProcessing = false;
         }
       });
@@ -763,7 +803,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     
     // Verificar si la tarea ya fue actualizada hoy
     if (this.isTaskUpdatedToday(this.taskToComplete)) {
-      alert('Esta tarea ya fue actualizada hoy. Podrá completarla mañana.');
+      this.showNotificationMessage('Esta tarea ya fue actualizada hoy. Podrá completarla mañana.', 'warning');
       return;
     }
     
@@ -771,14 +811,14 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     
     // Validar que se haya ingresado el número de horas reales
     if (!this.jornalesRealesValue || this.jornalesRealesValue <= 0) {
-      alert('Por favor, ingresa el número de horas realmente trabajadas para completar la tarea.');
+      this.showNotificationMessage('Por favor, ingresa el número de horas realmente trabajadas para completar la tarea.', 'warning');
       this.isProcessing = false;
       return;
     }
 
     // Validar que se hayan asignado trabajadores
     if (!this.canProceedWithUpdate()) {
-      alert('Debe asignar trabajadores y validar que las horas cuadren antes de completar la tarea.');
+      this.showNotificationMessage('Debe asignar trabajadores y validar que las horas cuadren antes de completar la tarea.', 'warning');
       this.isProcessing = false;
       return;
     }
@@ -795,7 +835,8 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     } else {
       // MODO HECTÁREAS: Validar que el progreso sea 100%
       if (this.progressValue !== 100) {
-        alert('Para completar la tarea el progreso debe estar al 100%.');
+        this.showNotificationMessage('Para completar la tarea el progreso debe estar al 100%.', 'warning');
+        this.isProcessing = false;
         return;
       }
       const totalHectares = this.parseDimension(this.taskToComplete.dimension_total);
@@ -803,10 +844,13 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
       console.log(`COMPLETANDO MODO HECTÁREAS: ${desarrolloValue} Ha (100%)`);
     }
     
+    this.showLoadingOverlay('Terminando tarea...');
+    
     // Completar directamente (actualizar progreso al 100% y completar en una sola operación)
     this.taskService.completeTaskDirect(this.taskToComplete.id, progressValue, desarrolloValue, this.jornalesRealesValue, this.trabajadoresAsignados, this.name).subscribe({
         next: () => {
           console.log('Tarea completada correctamente (operación única)');
+          this.hideLoadingOverlay();
           this.showCompleteModal = false;
           this.taskToComplete = null;
           this.progressValue = 0;
@@ -815,10 +859,12 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
           this.hectareasTrabajadasValue = 0; // Limpiar hectáreas trabajadas
           this.loadTasks(); // Recargar para ver cambios
           this.isProcessing = false;
+          this.showNotificationMessage('Tarea completada correctamente', 'success');
         },
         error: (err: any) => {
           console.error('Error al completar tarea:', err);
-          alert('Error al completar la tarea. Inténtalo de nuevo.');
+          this.hideLoadingOverlay();
+          this.showNotificationMessage('Error al completar la tarea. Inténtalo de nuevo.', 'error');
           this.isProcessing = false;
         }
       });
@@ -873,55 +919,9 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     return Number(value);
   }
   
-  // Método para validar tareas urgentes (solo superiores)
+  // Método para validar tareas urgentes (solo superiores) - mantenido para compatibilidad
   onValidateUrgentTask(task: Task) {
-    if (this.isEncargado) {
-      alert('Solo los superiores pueden validar tareas.');
-      return;
-    }
-    
-    const confirmValidation = confirm(
-      `¿Confirmas que quieres validar esta tarea urgente?\n\n` +
-      `Tarea: ${task.tipo_tarea}\n` +
-      `Invernadero: ${task.invernadero}\n` +
-      `Descripción: ${task.descripcion}\n\n` +
-      `Al validar, la tarea pasará a estado "Terminada".`
-    );
-    
-    if (!confirmValidation) return;
-    
-    // Actualizar la tarea urgente a estado terminado con campos específicos
-    const fechaActual = new Date().toISOString().split('T')[0];
-    const fechaActualizacion = new Date().toLocaleDateString('es-ES'); // DD/MM/YYYY
-    
-    const tareaValidada = {
-      ...task,
-      proceso: 'Terminada',           // Solo cambiar estado a terminada
-      fecha_fin: fechaActual,
-      fecha_inicio: fechaActual,      // Fecha inicio = fecha fin para tareas urgentes
-      fecha_actualizacion: fechaActualizacion,
-      // Para tareas urgentes: las horas van directas SIN cálculos de 6h/8h
-      estimacion_horas: task.estimacion_horas, // Las horas originales pasan a estimación
-      jornales_reales: task.estimacion_horas,  // Las mismas horas van a jornales_reales (DIRECTAS)
-      hora_jornal: 0                          // Siempre 0 para tareas urgentes (NO hay cálculo)
-      // NO enviamos trabajadores - ya están en hoja "Horas" desde la creación
-    };
-    
-    this.taskService.updateTask(task.id, tareaValidada).subscribe({
-      next: () => {
-        this.loadTasks();
-        alert('Tarea validada exitosamente. Ahora aparece como terminada.');
-      },
-      error: (err) => {
-        if (err.status === 200) {
-          this.loadTasks();
-          alert('Tarea validada exitosamente. Ahora aparece como terminada.');
-        } else {
-          console.error('Error validando tarea:', err);
-          alert('Error al validar la tarea. Intenta nuevamente.');
-        }
-      }
-    });
+    this.onValidateUrgentTaskNew(task);
   }
   
   // Método para extraer trabajadores de la descripción de la tarea
@@ -1397,7 +1397,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   // Métodos para asignación de trabajadores
   onOpenWorkersModal(): void {
     if (this.jornalesRealesValue <= 0) {
-      alert('Primero debe especificar las horas realmente trabajadas.');
+      this.showNotificationMessage('Primero debe especificar las horas realmente trabajadas.', 'warning');
       return;
     }
     this.showWorkersModal = true;
@@ -1593,5 +1593,89 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
 
   getPorValidarCount(): number {
     return this.getTaskCountByEstado('por-validar');
+  }
+
+  // ===== SISTEMA DE NOTIFICACIONES =====
+  
+  showNotificationMessage(message: string, type: 'success' | 'error' | 'warning' = 'success'): void {
+    this.notificationMessage = message;
+    this.notificationType = type;
+    this.showNotification = true;
+    
+    // Auto-ocultar después de 4 segundos
+    setTimeout(() => {
+      this.hideNotification();
+    }, 4000);
+  }
+  
+  hideNotification(): void {
+    this.showNotification = false;
+    this.notificationMessage = '';
+  }
+  
+  // ===== OVERLAY DE CARGA GLOBAL =====
+  
+  showLoadingOverlay(message: string = 'Procesando...'): void {
+    this.loadingMessage = message;
+    this.showGlobalLoading = true;
+  }
+  
+  hideLoadingOverlay(): void {
+    this.showGlobalLoading = false;
+    this.loadingMessage = '';
+  }
+  
+  // ===== MODAL DE CONFIRMACIÓN PARA VALIDACIÓN =====
+  
+  onValidateUrgentTaskNew(task: Task): void {
+    if (this.isEncargado) {
+      this.showNotificationMessage('Solo los superiores pueden validar tareas.', 'warning');
+      return;
+    }
+    
+    this.taskToValidate = task;
+    this.showValidationModal = true;
+  }
+  
+  onConfirmValidation(): void {
+    if (!this.taskToValidate) return;
+    
+    // Actualizar la tarea urgente a estado terminado
+    const fechaActual = new Date().toISOString().split('T')[0];
+    const fechaActualizacion = new Date().toLocaleDateString('es-ES'); // DD/MM/YYYY
+    
+    const tareaValidada = {
+      ...this.taskToValidate,
+      proceso: 'Terminada',
+      fecha_fin: fechaActual,
+      fecha_inicio: fechaActual,
+      fecha_actualizacion: fechaActualizacion,
+      estimacion_horas: this.taskToValidate.estimacion_horas,
+      jornales_reales: this.taskToValidate.estimacion_horas,
+      hora_jornal: 0
+    };
+    
+    this.taskService.updateTask(this.taskToValidate.id, tareaValidada).subscribe({
+      next: () => {
+        this.loadTasks();
+        this.showNotificationMessage('Tarea validada exitosamente. Ahora aparece como terminada.', 'success');
+        this.onCancelValidation();
+      },
+      error: (err) => {
+        if (err.status === 200) {
+          this.loadTasks();
+          this.showNotificationMessage('Tarea validada exitosamente. Ahora aparece como terminada.', 'success');
+          this.onCancelValidation();
+        } else {
+          console.error('Error validando tarea:', err);
+          this.showNotificationMessage('Error al validar la tarea. Intenta nuevamente.', 'error');
+        }
+      }
+    });
+  }
+  
+  onCancelValidation(): void {
+    this.showValidationModal = false;
+    this.taskToValidate = null;
   }
 }

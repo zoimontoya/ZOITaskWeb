@@ -606,3 +606,47 @@
     (saveAssignments)="onSaveWorkerAssignments($event)">
 </app-asignar-trabajadores>
 
+<!-- Modal de confirmación para validación de tareas -->
+<div *ngIf="showValidationModal" class="modal-overlay" (click)="onCancelValidation()">
+    <div class="modal-confirm validation-modal" (click)="$event.stopPropagation()">
+        <h3>Validar Tarea Urgente</h3>
+        <div *ngIf="taskToValidate" class="validation-details">
+            <p><strong>Tarea:</strong> {{taskToValidate.tipo_tarea}}</p>
+            <p><strong>Invernadero:</strong> {{taskToValidate.invernadero}}</p>
+            <p><strong>Descripción:</strong> {{taskToValidate.descripcion}}</p>
+            <p><strong>Horas trabajadas:</strong> {{taskToValidate.jornales_reales}} horas</p>
+            <div class="validation-warning">
+                <span class="warning-icon">⚠️</span>
+                <span>Al validar, la tarea pasará a estado "Terminada".</span>
+            </div>
+        </div>
+        <div class="modal-actions">
+            <button class="task-action-btn validate-btn" (click)="onConfirmValidation()">
+                <span class="icon">✅</span> Confirmar Validación
+            </button>
+            <button class="task-action-btn" (click)="onCancelValidation()">Cancelar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Sistema de notificaciones -->
+<div *ngIf="showNotification" class="notification-container" [class]="notificationType">
+    <div class="notification-content">
+        <span class="notification-icon">
+            <span *ngIf="notificationType === 'success'">✅</span>
+            <span *ngIf="notificationType === 'error'">❌</span>
+            <span *ngIf="notificationType === 'warning'">⚠️</span>
+        </span>
+        <span class="notification-message">{{notificationMessage}}</span>
+        <button class="notification-close" (click)="hideNotification()">×</button>
+    </div>
+</div>
+
+<!-- Overlay de carga global -->
+<div *ngIf="showGlobalLoading" class="global-loading-overlay">
+    <div class="global-loading-content">
+        <div class="loading-spinner"></div>
+        <div class="loading-message">{{loadingMessage}}</div>
+    </div>
+</div>
+
