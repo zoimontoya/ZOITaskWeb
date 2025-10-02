@@ -15,6 +15,7 @@ export class TasksService {
 
   // Obtener todas las tareas
   getTasks(): Observable<any[]> {
+    console.log('🌐 TasksService.getTasks() - Haciendo petición a:', `${this.apiUrl}/tasks`);
     return this.http.get<any[]>(`${this.apiUrl}/tasks`);
   }
 

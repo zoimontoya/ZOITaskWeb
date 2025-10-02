@@ -6,6 +6,8 @@ import { UserService } from '../user/user.service';
 import { TrabajadoresService, TrabajadorAsignado } from '../trabajadores/trabajadores.service';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../environments/environment';
+import { forkJoin } from 'rxjs';
+import { AuthService, User } from '../auth/auth.service';
 
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
@@ -29,10 +31,11 @@ interface TipoTarea {
   styleUrls: ['./tasks.component.css']
 })
 export class TasksComponent implements OnInit, OnDestroy, OnChanges {
-  @Input() isEncargado: boolean = false;
-  @Input() name?: string;
-  @Input() userId!: string;
-  @Input() loggedUser: any;
+  // Propiedades de usuario - ahora se obtienen del AuthService
+  isEncargado: boolean = false;
+  name?: string;
+  userId!: string;
+  loggedUser: User | undefined = undefined;
 
   isAddingTask = false;
   tasks: Task[] = [];
@@ -121,7 +124,14 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   
 
 
-  constructor(private taskService: TasksService, private greenhouseService: GreenhouseService, private userService: UserService, private trabajadoresService: TrabajadoresService, private http: HttpClient) {}
+  constructor(
+    private taskService: TasksService, 
+    private greenhouseService: GreenhouseService, 
+    private userService: UserService, 
+    private trabajadoresService: TrabajadoresService, 
+    private http: HttpClient,
+    private authService: AuthService
+  ) {}
   
   // ===== MÉTODOS PARA TAREAS URGENTES =====
   
@@ -251,12 +261,45 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     this.greenhouseService.getGreenhouses().subscribe(data => this.greenhouses = data);
     document.addEventListener('mousedown', this.handleClickOutside);
     
-    // Para superiores, cargar encargados del mismo cabezal PRIMERO, luego las tareas
-    if (!this.isEncargado && this.loggedUser?.grupo_trabajo && this.loggedUser?.cabezal) {
-      this.loadEncargadosDelCabezal();
+    // Suscribirse a cambios en el usuario autenticado
+    this.authService.currentUser$.subscribe(user => {
+      console.log('🔄 TasksComponent - Usuario cambió:', user);
+      if (user && (!this.loggedUser || this.loggedUser.id !== user.id)) {
+        // Usuario nuevo o cambió, reinicializar
+        this.initializeUser();
+      }
+    });
+    
+    // Inicializar usuario desde AuthService
+    this.initializeUser();
+  }
+
+  private initializeUser() {
+    // Obtener usuario actual del AuthService
+    const currentUser = this.authService.getCurrentUser();
+    this.loggedUser = currentUser || undefined;
+    
+    console.log('🔍 TasksComponent.initializeUser() - Usuario actual:', currentUser);
+    
+    if (this.loggedUser) {
+      this.userId = this.loggedUser.id;
+      this.name = this.loggedUser.name;
+      this.isEncargado = this.authService.isEncargado();
+      
+      console.log('👤 Usuario inicializado desde AuthService:', this.loggedUser);
+      console.log('📋 Iniciando carga de tareas para:', this.isEncargado ? 'ENCARGADO' : 'SUPERIOR');
+      
+      // Para superiores, cargar encargados del mismo cabezal PRIMERO, luego las tareas
+      if (!this.isEncargado && this.loggedUser?.grupo_trabajo && this.loggedUser?.cabezal) {
+        this.loadEncargadosDelCabezal();
+      } else {
+        // Para encargados, cargar tareas directamente
+        this.loadTasks();
+      }
     } else {
-      // Para encargados, cargar tareas directamente
-      this.loadTasks();
+      // Si no hay usuario, redirigir al login
+      console.log('❌ No hay usuario autenticado, redirigiendo al login');
+      this.authService.logout();
     }
   }
 
@@ -359,6 +402,10 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   }
 
   loadTasks() {
+    console.log('📋 TasksComponent.loadTasks() INICIADO');
+    console.log('👤 Usuario actual al cargar tareas:', this.loggedUser);
+    console.log('🎫 Token disponible:', !!this.authService.getToken());
+    
     this.loading = true;
     this.taskService.getTasks().subscribe({
       next: (tasks) => {
@@ -1681,5 +1728,10 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   onCancelValidation(): void {
     this.showValidationModal = false;
     this.taskToValidate = null;
+  }
+
+  // Método para cerrar sesión
+  onLogout(): void {
+    this.authService.logout();
   }
 }

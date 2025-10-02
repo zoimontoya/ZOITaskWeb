@@ -2,10 +2,74 @@ import express from 'express';
 import cors from 'cors';
 import { google } from 'googleapis';
 import fs from 'fs';
+import jwt from 'jsonwebtoken';
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// Clave secreta para JWT (en producción debería estar en variable de entorno)
+const JWT_SECRET = 'zoi-task-web-secret-key-2025';
+
+// Middleware para verificar JWT (REQUERIDO - para rutas protegidas)
+const verifyJWT = (req, res, next) => {
+  console.log('🔐 verifyJWT middleware - Verificando autenticación para:', req.method, req.url);
+  
+  const authHeader = req.headers.authorization;
+  const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+  
+  console.log('📋 Auth header presente:', !!authHeader);
+  console.log('🎫 Token extraído:', !!token);
+  
+  if (!token) {
+    console.log('❌ verifyJWT - No hay token');
+    return res.status(401).json({ 
+      success: false, 
+      error: 'Token de autenticación requerido',
+      requiresAuth: true 
+    });
+  }
+  
+  jwt.verify(token, JWT_SECRET, (err, decoded) => {
+    if (err) {
+      console.log('🚫 Token JWT inválido:', err.message);
+      return res.status(401).json({ 
+        success: false, 
+        error: 'Token inválido o expirado',
+        requiresAuth: true 
+      });
+    }
+    
+    req.user = decoded; // Agregar info del usuario a la request
+    console.log('✅ Usuario autenticado via JWT:', decoded.userId);
+    next();
+  });
+};
+
+// Middleware opcional para rutas que pueden beneficiarse de info de usuario
+const optionalJWT = (req, res, next) => {
+  console.log('🔓 optionalJWT middleware - Verificando token opcional para:', req.method, req.url);
+  
+  const authHeader = req.headers.authorization;
+  const token = authHeader && authHeader.split(' ')[1];
+  
+  console.log('📋 Auth header presente:', !!authHeader);
+  console.log('🎫 Token extraído:', !!token);
+  
+  if (token) {
+    jwt.verify(token, JWT_SECRET, (err, decoded) => {
+      if (!err) {
+        req.user = decoded; // Agregar info del usuario si el token es válido
+        console.log('✅ optionalJWT - Token válido, usuario:', decoded.userId);
+      } else {
+        console.log('⚠️ optionalJWT - Token inválido, continuando sin usuario');
+      }
+    });
+  } else {
+    console.log('ℹ️ optionalJWT - Sin token, continuando sin usuario');
+  }
+  next(); // Continuar siempre, con o sin token
+};
 
 // Sistema de protección contra peticiones duplicadas
 const activeRequests = new Map();
@@ -86,9 +150,9 @@ const getGoogleAuth = () => {
 const auth = getGoogleAuth();
 
 // Función auxiliar para obtener dimensiones de invernaderos
-async function getInvernaderosDimensions(client) {
+async function getInvernaderosDimensions(authClient) {
   try {
-    const sheets = google.sheets({ version: 'v4', auth: client });
+    const sheets = google.sheets({ version: 'v4', auth: authClient });
     
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
@@ -163,7 +227,7 @@ async function getInvernaderosDimensions(client) {
 }
 
 // Función auxiliar para registrar horas trabajadas en la hoja "Horas"
-async function registrarHorasTrabajadas(client, trabajadoresAsignados, encargadoNombre, fechaActualizacion, tareaId, esTareaUrgente = false) {
+async function registrarHorasTrabajadas(authClient, trabajadoresAsignados, encargadoNombre, fechaActualizacion, tareaId, esTareaUrgente = false) {
   try {
     console.log('🔍 === REGISTRANDO HORAS TRABAJADAS ===');
     console.log('TareaId recibido:', tareaId);
@@ -172,7 +236,7 @@ async function registrarHorasTrabajadas(client, trabajadoresAsignados, encargado
     console.log('Fecha:', fechaActualizacion);
     console.log('Es tarea urgente (SIN cálculos):', esTareaUrgente);
     
-    const sheets = google.sheets({ version: 'v4', auth: client });
+    const sheets = google.sheets({ version: 'v4', auth: authClient });
     
     // Buscar la hoja "Horas"
     const spreadsheetMeta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
@@ -271,10 +335,15 @@ async function registrarHorasTrabajadas(client, trabajadoresAsignados, encargado
 app.get('/invernaderos/:cabezal', async (req, res) => {
   try {
     const { cabezal } = req.params;
+    
+    if (!cabezal) {
+      return res.status(400).json({ success: false, error: 'Cabezal requerido' });
+    }
+    
     console.log('Obteniendo invernaderos para cabezal:', cabezal);
     
-    const client = await auth.getClient();
-    const sheets = google.sheets({ version: 'v4', auth: client });
+    const auth = getGoogleAuth();
+    const sheets = google.sheets({ version: 'v4', auth });
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
       range: 'Invernaderos',
@@ -364,8 +433,9 @@ app.get('/invernaderos/:cabezal', async (req, res) => {
 // Endpoint para obtener invernaderos agrupados por cabezal (mantener para compatibilidad)
 app.get('/invernaderos', async (req, res) => {
   try {
-    const client = await auth.getClient();
-    const sheets = google.sheets({ version: 'v4', auth: client });
+    console.log('📋 Obteniendo todos los invernaderos');
+    const auth = getGoogleAuth();
+    const sheets = google.sheets({ version: 'v4', auth });
     
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
@@ -464,10 +534,10 @@ app.get('/invernaderos', async (req, res) => {
 });
 
 // Endpoint para obtener encargados
-app.get('/encargados', async (req, res) => {
+app.get('/encargados', optionalJWT, async (req, res) => {
   try {
-    const client = await auth.getClient();
-    const sheets = google.sheets({ version: 'v4', auth: client });
+    const auth = getGoogleAuth();
+    const sheets = google.sheets({ version: 'v4', auth });
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
       range: 'Usuarios',
@@ -501,13 +571,18 @@ app.get('/encargados', async (req, res) => {
 });
 
 // Obtener encargados filtrados por grupo de trabajo y cabezal
-app.get('/encargados/:grupo/:cabezal', async (req, res) => {
+app.get('/encargados/:grupo/:cabezal', optionalJWT, async (req, res) => {
   try {
     const { grupo, cabezal } = req.params;
+    
+    if (!grupo || !cabezal) {
+      return res.status(400).json({ success: false, error: 'Grupo y cabezal requeridos' });
+    }
+    
     console.log('Obteniendo encargados para grupo:', grupo, 'y cabezal:', cabezal);
     
-    const client = await auth.getClient();
-    const sheets = google.sheets({ version: 'v4', auth: client });
+    const auth = getGoogleAuth();
+    const sheets = google.sheets({ version: 'v4', auth });
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
       range: 'Usuarios',
@@ -557,13 +632,18 @@ app.get('/encargados/:grupo/:cabezal', async (req, res) => {
 });
 
 // Mantener endpoint anterior para compatibilidad (solo por grupo)
-app.get('/encargados/:grupo', async (req, res) => {
+app.get('/encargados/:grupo', optionalJWT, async (req, res) => {
   try {
     const { grupo } = req.params;
+    
+    if (!grupo) {
+      return res.status(400).json({ success: false, error: 'Grupo requerido' });
+    }
+    
     console.log('Obteniendo encargados para grupo:', grupo);
     
-    const client = await auth.getClient();
-    const sheets = google.sheets({ version: 'v4', auth: client });
+    const auth = getGoogleAuth();
+    const sheets = google.sheets({ version: 'v4', auth });
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
       range: 'Usuarios',
@@ -609,13 +689,18 @@ app.get('/encargados/:grupo', async (req, res) => {
 });
 
 // Obtener tipos de tarea filtrados por grupo de trabajo
-app.get('/tipos-tarea/:grupo', async (req, res) => {
+app.get('/tipos-tarea/:grupo', optionalJWT, async (req, res) => {
   try {
     const { grupo } = req.params;
+    
+    if (!grupo) {
+      return res.status(400).json({ success: false, error: 'Grupo requerido' });
+    }
+    
     console.log('Obteniendo tipos de tarea para grupo:', grupo);
     
-    const client = await auth.getClient();
-    const sheets = google.sheets({ version: 'v4', auth: client });
+    const auth = getGoogleAuth();
+    const sheets = google.sheets({ version: 'v4', auth });
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
       range: 'TiposTareas',
@@ -658,10 +743,11 @@ app.get('/tipos-tarea/:grupo', async (req, res) => {
 });
 
 // Obtener todas las tareas
-app.get('/tasks', async (req, res) => {
+app.get('/tasks', optionalJWT, async (req, res) => {
   try {
-    const client = await auth.getClient();
-    const sheets = google.sheets({ version: 'v4', auth: client });
+    console.log('📋 GET /tasks - Usuario autenticado:', req.user ? req.user.userId : 'No autenticado');
+    const auth = getGoogleAuth();
+    const sheets = google.sheets({ version: 'v4', auth });
     
     // Buscar la hoja de Tareas (mayúscula o minúscula)
     const spreadsheetMeta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
@@ -775,14 +861,16 @@ app.get('/tasks', async (req, res) => {
 // Endpoint de login con logs detallados
 app.post('/login', async (req, res) => {
   const { id, password } = req.body;
-  console.log('Login recibido:', req.body);
+  console.log('🔐 POST /login - Petición recibida para usuario:', id);
+  console.log('📦 Body completo:', JSON.stringify(req.body, null, 2));
+  
   if (!id || !password) {
-    console.log('Faltan credenciales');
+    console.log('❌ Faltan credenciales en la petición');
     return res.status(400).json({ success: false, error: 'Faltan credenciales' });
   }
   try {
-    const client = await auth.getClient();
-    const sheets = google.sheets({ version: 'v4', auth: client });
+    const auth = getGoogleAuth();
+    const sheets = google.sheets({ version: 'v4', auth });
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
       range: 'Usuarios',
@@ -815,8 +903,34 @@ app.post('/login', async (req, res) => {
       const name = idxName !== -1 ? userRow[idxName] : id;
       const grupo_trabajo = idxGrupo !== -1 ? userRow[idxGrupo] : undefined;
       const cabezal = idxCabezal !== -1 ? userRow[idxCabezal] : undefined;
-      console.log('Login correcto:', { id, rol, name, grupo_trabajo, cabezal });
-      return res.json({ success: true, id, rol, name, grupo_trabajo, cabezal });
+      
+      // Crear el objeto usuario
+      const user = { id, rol, name, grupo_trabajo, cabezal };
+      
+      // Generar token JWT con duración de 24 horas
+      const token = jwt.sign(
+        {
+          userId: id,
+          name: name,
+          rol: rol,
+          grupo_trabajo: grupo_trabajo,
+          cabezal: cabezal,
+          nombre_completo: name
+        },
+        JWT_SECRET,
+        { expiresIn: '24h' }
+      );
+      
+      console.log('Login correcto:', user);
+      console.log('Token JWT generado para usuario:', id);
+      
+      return res.json({ 
+        success: true, 
+        token: token,
+        user: user,
+        // Mantener compatibilidad con frontend actual
+        id, rol, name, grupo_trabajo, cabezal 
+      });
     } else {
       console.log('ID o contraseña incorrectos');
       return res.json({ success: false });
@@ -827,8 +941,36 @@ app.post('/login', async (req, res) => {
   }
 });
 
+// Endpoint para verificar token JWT
+app.post('/verify-token', (req, res) => {
+  const { token } = req.body;
+  
+  if (!token) {
+    return res.json({ success: false, error: 'Token no proporcionado' });
+  }
+  
+  jwt.verify(token, JWT_SECRET, (err, decoded) => {
+    if (err) {
+      return res.json({ success: false, error: 'Token inválido o expirado' });
+    }
+    
+    // Token válido - devolver información del usuario
+    return res.json({ 
+      success: true, 
+      user: {
+        id: decoded.userId,
+        name: decoded.name,
+        rol: decoded.rol,
+        grupo_trabajo: decoded.grupo_trabajo,
+        cabezal: decoded.cabezal,
+        nombre_completo: decoded.nombre_completo
+      }
+    });
+  });
+});
+
 // Endpoint para obtener información de un usuario por ID
-app.get('/user/:id', async (req, res) => {
+app.get('/user/:id', optionalJWT, async (req, res) => {
   const { id } = req.params;
   console.log('Obteniendo información del usuario:', id);
   
@@ -837,8 +979,8 @@ app.get('/user/:id', async (req, res) => {
   }
 
   try {
-    const client = await auth.getClient();
-    const sheets = google.sheets({ version: 'v4', auth: client });
+    const auth = getGoogleAuth();
+    const sheets = google.sheets({ version: 'v4', auth });
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
       range: 'Usuarios',
@@ -879,10 +1021,13 @@ app.get('/user/:id', async (req, res) => {
 });
 
 // Endpoint para crear varias tareas a la vez
-app.post('/tasks', async (req, res) => {
+app.post('/tasks', verifyJWT, async (req, res) => {
   try {
-    const client = await auth.getClient();
-    const sheets = google.sheets({ version: 'v4', auth: client });
+    console.log('✅ POST /tasks - Usuario autenticado:', req.user?.userId);
+    console.log('📦 Datos recibidos:', JSON.stringify(req.body, null, 2));
+    
+    const auth = getGoogleAuth();
+    const sheets = google.sheets({ version: 'v4', auth });
 
     // UPDATE (edit task)
     if (req.body && req.body.action === 'update' && req.body.id) {
@@ -1095,7 +1240,7 @@ app.post('/tasks', async (req, res) => {
       // Registrar horas trabajadas si hay trabajadores asignados
       if (req.body.trabajadores_asignados && req.body.trabajadores_asignados.length > 0) {
         const encargadoNombre = req.body.encargado_nombre || 'Encargado'; // Obtener el nombre del encargado que actualiza
-        await registrarHorasTrabajadas(client, req.body.trabajadores_asignados, encargadoNombre, fechaActual, idToUpdate, false);
+        await registrarHorasTrabajadas(auth, req.body.trabajadores_asignados, encargadoNombre, fechaActual, idToUpdate, false);
       }
 
       console.log('Progreso actualizado para tarea:', idToUpdate, 'porcentaje:', req.body.progreso, 'hectáreas:', req.body.desarrollo_actual, 'jornales_reales:', req.body.jornales_reales, 'fecha_actualizacion:', fechaActual);
@@ -1216,7 +1361,7 @@ app.post('/tasks', async (req, res) => {
     }
     
     // Obtener dimensiones de invernaderos
-    const dimensiones = await getInvernaderosDimensions(client);
+    const dimensiones = await getInvernaderosDimensions(auth);
     console.log('Dimensiones obtenidas en CREATE:', dimensiones);
     console.log('Tipo de dimensiones:', typeof dimensiones);
     console.log('Claves disponibles:', Object.keys(dimensiones));
@@ -1324,7 +1469,7 @@ app.post('/tasks', async (req, res) => {
         console.log('📅 Fecha:', fechaActual);
         
         await registrarHorasTrabajadas(
-          client, 
+          auth, 
           tarea.trabajadores_asignados, 
           encargadoNombre, 
           fechaActual, 
@@ -1344,11 +1489,17 @@ app.post('/tasks', async (req, res) => {
 });
 
 // Endpoint para aceptar una tarea (encargado)
-app.post('/tasks/:id/accept', async (req, res) => {
+app.post('/tasks/:id/accept', verifyJWT, async (req, res) => {
   try {
     const taskId = req.params.id;
-    const client = await auth.getClient();
-    const sheets = google.sheets({ version: 'v4', auth: client });
+    
+    if (!taskId) {
+      return res.status(400).json({ success: false, error: 'ID de tarea requerido' });
+    }
+    
+    console.log('✅ POST /tasks/:id/accept - Usuario:', req.user?.userId, 'Tarea:', taskId);
+    const auth = getGoogleAuth();
+    const sheets = google.sheets({ version: 'v4', auth });
     
     const spreadsheetMeta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
     const tareasSheet = spreadsheetMeta.data.sheets.find(s =>
@@ -1400,15 +1551,21 @@ app.post('/tasks/:id/accept', async (req, res) => {
 });
 
 // Endpoint para completar tarea directamente (actualizar progreso al 100% y completar en una sola operación)
-app.post('/tasks/:id/complete-direct', async (req, res) => {
+app.post('/tasks/:id/complete-direct', verifyJWT, async (req, res) => {
   console.log('🎯 ENDPOINT /tasks/:id/complete-direct ALCANZADO');
   console.log('📋 Task ID recibido:', req.params.id);
   console.log('📦 Body recibido:', JSON.stringify(req.body, null, 2));
   
   try {
     const taskId = req.params.id;
-    const client = await auth.getClient();
-    const sheets = google.sheets({ version: 'v4', auth: client });
+    
+    if (!taskId) {
+      return res.status(400).json({ success: false, error: 'ID de tarea requerido' });
+    }
+    
+    console.log('✅ POST /tasks/:id/complete-direct - Usuario:', req.user?.userId, 'Tarea:', taskId);
+    const auth = getGoogleAuth();
+    const sheets = google.sheets({ version: 'v4', auth });
     
     console.log('=== COMPLETAR TAREA DIRECTAMENTE ===');
     console.log('Task ID:', taskId);
@@ -1498,7 +1655,7 @@ app.post('/tasks/:id/complete-direct', async (req, res) => {
     // PASO 3: Registrar horas trabajadas UNA SOLA VEZ
     if (req.body.trabajadores_asignados && req.body.trabajadores_asignados.length > 0) {
       const encargadoNombre = req.body.encargado_nombre || 'Encargado';
-      await registrarHorasTrabajadas(client, req.body.trabajadores_asignados, encargadoNombre, fechaActual, taskId, false);
+      await registrarHorasTrabajadas(auth, req.body.trabajadores_asignados, encargadoNombre, fechaActual, taskId, false);
     }
     
     console.log('Tarea completada directamente:', taskId, 'fecha_fin:', today, 'fecha_actualizacion:', fechaActual);
@@ -1511,11 +1668,17 @@ app.post('/tasks/:id/complete-direct', async (req, res) => {
 });
 
 // Endpoint para terminar una tarea (encargado)
-app.post('/tasks/:id/complete', async (req, res) => {
+app.post('/tasks/:id/complete', verifyJWT, async (req, res) => {
   try {
     const taskId = req.params.id;
-    const client = await auth.getClient();
-    const sheets = google.sheets({ version: 'v4', auth: client });
+    
+    if (!taskId) {
+      return res.status(400).json({ success: false, error: 'ID de tarea requerido' });
+    }
+    
+    console.log('✅ POST /tasks/:id/complete - Usuario:', req.user?.userId, 'Tarea:', taskId);
+    const auth = getGoogleAuth();
+    const sheets = google.sheets({ version: 'v4', auth });
     
     const spreadsheetMeta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
     const tareasSheet = spreadsheetMeta.data.sheets.find(s =>
@@ -1563,7 +1726,7 @@ app.post('/tasks/:id/complete', async (req, res) => {
     // Registrar horas trabajadas si hay trabajadores asignados al completar
     if (req.body.trabajadores_asignados && req.body.trabajadores_asignados.length > 0) {
       const encargadoNombre = req.body.encargado_nombre || 'Encargado'; // Obtener el nombre del encargado que completa la tarea
-      await registrarHorasTrabajadas(client, req.body.trabajadores_asignados, encargadoNombre, fechaActual, taskId, false);
+      await registrarHorasTrabajadas(auth, req.body.trabajadores_asignados, encargadoNombre, fechaActual, taskId, false);
     }
     
     console.log('Tarea completada:', taskId, 'fecha_fin:', today, 'fecha_actualizacion:', fechaActual);
@@ -1578,8 +1741,8 @@ app.post('/tasks/:id/complete', async (req, res) => {
 // Endpoint para obtener trabajadores de la hoja "Trabajadores"
 app.get('/trabajadores', async (req, res) => {
   try {
-    const client = await auth.getClient();
-    const sheets = google.sheets({ version: 'v4', auth: client });
+    const auth = getGoogleAuth();
+    const sheets = google.sheets({ version: 'v4', auth });
     
     // Buscar la hoja de Trabajadores
     const spreadsheetMeta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
@@ -1621,8 +1784,13 @@ app.get('/trabajadores', async (req, res) => {
 });
 
 // � Endpoint para obtener trabajadores de una tarea específica desde la hoja "Horas"
-app.get('/trabajadores-tarea/:taskId', async (req, res) => {
-  console.log('📋 GET /trabajadores-tarea/:taskId - Obteniendo trabajadores de tarea:', req.params.taskId);
+app.get('/trabajadores-tarea/:taskId', optionalJWT, async (req, res) => {
+  const { taskId } = req.params;
+  console.log('📋 GET /trabajadores-tarea/:taskId - Obteniendo trabajadores de tarea:', taskId);
+  
+  if (!taskId) {
+    return res.status(400).json({ success: false, error: 'ID de tarea requerido' });
+  }
   
   try {
     const auth = getGoogleAuth();
@@ -1738,7 +1906,7 @@ app.get('/health', (req, res) => {
 });
 
 // 🏪 GET géneros de confección para usuarios de ALMACÉN
-app.get('/generos-confecc', async (req, res) => {
+app.get('/generos-confecc', optionalJWT, async (req, res) => {
   console.log('📡', new Date().toISOString(), '- GET /generos-confecc from', req.ip || req.connection.remoteAddress);
   
   try {
@@ -1811,9 +1979,16 @@ const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Backend server running on 0.0.0.0:${PORT}`);
-  console.log(`🔍 Health check disponible en:`);
+  console.log(`� JWT Authentication: ENABLED (24h tokens)`);
+  console.log(`🛡️  Protected endpoints: /tasks (POST), /tasks/:id/* (POST)`);
+  console.log(`�🔍 Health check disponible en:`);
   console.log(`   - Localmente: http://localhost:${PORT}/health`);
   console.log(`   - Desde la red: http://192.168.0.85:${PORT}/health`);
+  console.log(`📡 Endpoints principales:`);
+  console.log(`   - POST /login - Autenticación con JWT`);
+  console.log(`   - POST /verify-token - Verificar token válido`);
+  console.log(`   - GET /tasks - Obtener tareas (opcional JWT)`);
+  console.log(`   - POST /tasks - Crear/actualizar tareas (requiere JWT)`);
 });
 
 

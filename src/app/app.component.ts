@@ -1,9 +1,8 @@
 // ...existing code...
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { HeaderComponent } from './header/header.component';
 import { TasksComponent } from './tasks/tasks.component';
-import { UserService } from './user/user.service';
-import { User } from './user/user.model';
+import { AuthService, User } from './auth/auth.service';
 import { LoginComponent } from './login.component';
 import { HttpClient } from '@angular/common/http';
 
@@ -15,47 +14,35 @@ import { HttpClient } from '@angular/common/http';
   styleUrls: ['./app.component.css'],
 })
 
-export class AppComponent {
+export class AppComponent implements OnInit {
   errorMsg: string | null = null;
   isAuthenticated = false;
   loggedUser?: User;
 
-  constructor(private userService: UserService, private http: HttpClient) {}
+  constructor(private authService: AuthService, private http: HttpClient) {}
 
-
-  get isSuperior() {
-    return this.loggedUser && (this.loggedUser as any).rol && (this.loggedUser as any).rol.toLowerCase() === 'superior';
-  }
-
-  get isEncargado() {
-    return this.loggedUser && (this.loggedUser as any).rol && (this.loggedUser as any).rol.toLowerCase() === 'encargado';
-  }
-
-  onLogin({username, password}: {username: string, password: string}) {
-    this.userService.login(username, password).subscribe({
-      next: res => {
-        if (res.success) {
-          this.isAuthenticated = true;
-          this.loggedUser = { id: username, name: res.name || username, rol: res.rol, grupo_trabajo: res.grupo_trabajo, cabezal: res.cabezal };
-        } else {
-          setTimeout(() => {
-            const loginCmp = document.querySelector('app-login') as any;
-            if (loginCmp && loginCmp.setError) loginCmp.setError('Usuario o contraseña incorrectos');
-          });
-        }
-      },
-      error: err => {
-        setTimeout(() => {
-          const loginCmp = document.querySelector('app-login') as any;
-          if (loginCmp && loginCmp.setError) loginCmp.setError('Error de red o backend');
-        });
-      }
+  ngOnInit() {
+    // Suscribirse a cambios en el estado de autenticación
+    this.authService.currentUser$.subscribe(user => {
+      this.isAuthenticated = !!user;
+      this.loggedUser = user || undefined;
     });
   }
 
+  get isSuperior() {
+    return this.authService.isSuperior();
+  }
+
+  get isEncargado() {
+    return this.authService.isEncargado();
+  }
+
+  onLogin({username, password}: {username: string, password: string}) {
+    // LoginComponent ahora maneja el login directamente
+    console.log('🔄 Login event received in AppComponent (backup)');
+  }
+
   logout() {
-    this.isAuthenticated = false;
-    this.loggedUser = undefined;
-    this.errorMsg = null;
+    this.authService.logout();
   }
 }

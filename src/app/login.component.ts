@@ -1,6 +1,8 @@
 import { Component, EventEmitter, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { AuthService } from './auth/auth.service';
+import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-login',
@@ -17,7 +19,9 @@ import { FormsModule } from '@angular/forms';
           <input [(ngModel)]="password" name="password" type="password" required />
         </div>
         <div *ngIf="error" class="login-error">{{error}}</div>
-        <button type="submit">Entrar</button>
+        <button type="submit" [disabled]="loading">
+          {{ loading ? 'Iniciando sesión...' : 'Entrar' }}
+        </button>
       </form>
   `,
   styles: [
@@ -81,12 +85,32 @@ export class LoginComponent {
   username = '';
   password = '';
   error: string | null = null;
+  loading = false;
 
   @Output() login = new EventEmitter<{username: string, password: string}>();
 
+  constructor(private authService: AuthService) {}
+
   onSubmit() {
     this.error = null;
-    this.login.emit({ username: this.username, password: this.password });
+    this.loading = true;
+    
+    this.authService.login({ id: this.username, password: this.password }).subscribe({
+      next: (response) => {
+        this.loading = false;
+        if (response.success) {
+          console.log('✅ Login exitoso, usuario autenticado');
+          // AuthService ya maneja la navegación y actualización del estado
+        } else {
+          this.error = response.error || 'Usuario o contraseña incorrectos';
+        }
+      },
+      error: (err) => {
+        this.loading = false;
+        this.error = 'Error de conexión con el servidor';
+        console.error('❌ Error en login:', err);
+      }
+    });
   }
 
   setError(msg: string) {
