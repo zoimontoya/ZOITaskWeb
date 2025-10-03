@@ -42,8 +42,8 @@ start "Frontend ZOI" cmd /k "echo 🚀 Iniciando frontend con proxy... && ng ser
 echo.
 echo 🎯 URLs IMPORTANTES:
 echo ===================
-echo 📱 Página de pruebas: http://192.168.0.85:4200/test-network.html
-echo 🏠 App principal: http://192.168.0.85:4200
+echo 📱 Página de pruebas: http://192.168.0.101:4200/test-network.html
+echo 🏠 App principal: http://192.168.0.101:4200
 echo 🖥️ En tu PC: http://localhost:4200/test-network.html
 echo.
 echo ⚠️  IMPORTANTE: 
@@ -51,6 +51,6 @@ echo    1. Espera 10-15 segundos a que compile Angular
 echo    2. Verifica que el terminal del Backend no muestre errores
 echo    3. Si hay errores, cierra todo y ejecuta de nuevo
 echo.
-echo 📱 Luego abre en tu móvil: http://192.168.0.85:4200/test-network.html
+echo 📱 Luego abre en tu móvil: http://192.168.0.101:4200/test-network.html
 echo.
 pause

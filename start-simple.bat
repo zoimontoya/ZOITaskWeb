@@ -42,9 +42,9 @@ start "Frontend ZOI" cmd /k "echo 🚀 Frontend sin proxy - conexión directa al
 echo.
 echo 🎯 URLs PARA PROBAR:
 echo ===================
-echo 📱 MÓVIL - App principal: http://192.168.0.85:4200
-echo 📱 MÓVIL - Página de test: http://192.168.0.85:4200/test-network.html  
-echo 📱 MÓVIL - Backend directo: http://192.168.0.85:3000/health
+echo 📱 MÓVIL - App principal: http://192.168.0.101:4200
+echo 📱 MÓVIL - Página de test: http://192.168.0.101:4200/test-network.html  
+echo 📱 MÓVIL - Backend directo: http://192.168.0.101:3000/health
 echo.
 echo 🖥️  PC - App principal: http://localhost:4200
 echo 🖥️  PC - Página de test: http://localhost:4200/test-network.html

@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable } from 'rxjs';
+import { BehaviorSubject, Observable, debounceTime } from 'rxjs';
 import { environment } from '../../environments/environment';
 
 export interface User {
@@ -17,7 +17,11 @@ export interface User {
 })
 export class AuthService {
   private currentUserSubject = new BehaviorSubject<User | null>(null);
-  public currentUser$ = this.currentUserSubject.asObservable();
+  public currentUser$ = this.currentUserSubject.asObservable().pipe(
+    debounceTime(100) // Evita múltiples emisiones rápidas durante cambios de usuario
+  );
+  
+  private isProcessingAuth = false; // Flag para evitar múltiples procesados simultáneos
 
   constructor(
     private http: HttpClient
@@ -30,11 +34,18 @@ export class AuthService {
    * Verificar si hay un token guardado y si es válido
    */
   private checkStoredToken() {
+    if (this.isProcessingAuth) {
+      console.log('🔄 Ya procesando autenticación, saltando verificación duplicada');
+      return;
+    }
+    
     const token = this.getToken();
     if (token) {
+      this.isProcessingAuth = true;
       // Verificar si el token es válido
       this.verifyToken(token).subscribe({
         next: (response) => {
+          this.isProcessingAuth = false;
           if (response.success) {
             this.currentUserSubject.next(response.user);
             console.log('✅ Sesión restaurada automáticamente:', response.user);
@@ -44,6 +55,7 @@ export class AuthService {
           }
         },
         error: () => {
+          this.isProcessingAuth = false;
           // Error verificando token, limpiar
           this.logout();
         }
@@ -56,6 +68,17 @@ export class AuthService {
    */
   login(credentials: { id: string; password: string }): Observable<any> {
     console.log('🔐 AuthService.login() - Iniciando login con:', credentials.id);
+    
+    // Evitar múltiples logins simultáneos
+    if (this.isProcessingAuth) {
+      console.log('🔄 Login ya en proceso, rechazando duplicado');
+      return new Observable(observer => {
+        observer.next({ success: false, message: 'Login ya en proceso' });
+        observer.complete();
+      });
+    }
+    
+    this.isProcessingAuth = true;
     
     return new Observable(observer => {
       this.http.post<any>(`${environment.apiBaseUrl}/login`, credentials).subscribe({
@@ -70,8 +93,11 @@ export class AuthService {
             console.log('💾 Token guardado en localStorage:', !!localStorage.getItem('authToken'));
             console.log('👤 Usuario guardado en localStorage:', !!localStorage.getItem('currentUser'));
             
-            // Actualizar el usuario actual
-            this.currentUserSubject.next(response.user);
+            // Actualizar el usuario actual con delay para evitar race conditions
+            setTimeout(() => {
+              this.currentUserSubject.next(response.user);
+              this.isProcessingAuth = false;
+            }, 50);
             
             console.log('✅ Login exitoso con JWT:', response.user);
             console.log('🎫 Token disponible después del login:', !!this.getToken());
@@ -79,12 +105,14 @@ export class AuthService {
             observer.next(response);
             observer.complete();
           } else {
+            this.isProcessingAuth = false;
             console.log('❌ Login fallido:', response);
             observer.next(response);
             observer.complete();
           }
         },
         error: (error) => {
+          this.isProcessingAuth = false;
           observer.error(error);
         }
       });
@@ -114,9 +142,15 @@ export class AuthService {
    * Cerrar sesión
    */
   logout() {
+    this.isProcessingAuth = false; // Reset del flag
     localStorage.removeItem('authToken');
     localStorage.removeItem('currentUser');
-    this.currentUserSubject.next(null);
+    
+    // Delay para evitar race conditions con login inmediato
+    setTimeout(() => {
+      this.currentUserSubject.next(null);
+    }, 50);
+    
     console.log('🚪 Sesión cerrada');
   }
 

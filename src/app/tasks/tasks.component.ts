@@ -36,6 +36,10 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   name?: string;
   userId!: string;
   loggedUser: User | undefined = undefined;
+  
+  // Control de carga para evitar múltiples inicializaciones
+  private isInitializing = false;
+  private currentUserId: string | null = null;
 
   isAddingTask = false;
   tasks: Task[] = [];
@@ -264,9 +268,26 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     // Suscribirse a cambios en el usuario autenticado
     this.authService.currentUser$.subscribe(user => {
       console.log('🔄 TasksComponent - Usuario cambió:', user);
-      if (user && (!this.loggedUser || this.loggedUser.id !== user.id)) {
-        // Usuario nuevo o cambió, reinicializar
-        this.initializeUser();
+      
+      // Evitar reinicialización si el usuario es el mismo o si ya estamos inicializando
+      if (this.isInitializing) {
+        console.log('⚠️ Ya inicializando, saltando cambio de usuario');
+        return;
+      }
+      
+      const newUserId = user?.id || null;
+      if (newUserId !== this.currentUserId) {
+        console.log(`👤 Cambio de usuario detectado: ${this.currentUserId} → ${newUserId}`);
+        this.currentUserId = newUserId;
+        
+        if (user) {
+          this.initializeUser();
+        } else {
+          // Usuario null, limpiar estado
+          this.clearUserState();
+        }
+      } else {
+        console.log('✅ Mismo usuario, no reinicializar');
       }
     });
     
@@ -275,6 +296,13 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   }
 
   private initializeUser() {
+    if (this.isInitializing) {
+      console.log('⚠️ Ya inicializando usuario, saltando duplicado');
+      return;
+    }
+    
+    this.isInitializing = true;
+    
     // Obtener usuario actual del AuthService
     const currentUser = this.authService.getCurrentUser();
     this.loggedUser = currentUser || undefined;
@@ -299,8 +327,20 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     } else {
       // Si no hay usuario, redirigir al login
       console.log('❌ No hay usuario autenticado, redirigiendo al login');
+      this.isInitializing = false;
       this.authService.logout();
     }
+  }
+
+  private clearUserState() {
+    console.log('🧹 Limpiando estado de usuario');
+    this.loggedUser = undefined;
+    this.userId = '';
+    this.name = undefined;
+    this.isEncargado = false;
+    this.tasks = [];
+    this.filteredTasks = [];
+    this.isInitializing = false;
   }
 
   ngOnDestroy() {
@@ -406,6 +446,9 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     console.log('👤 Usuario actual al cargar tareas:', this.loggedUser);
     console.log('🎫 Token disponible:', !!this.authService.getToken());
     
+    // Resetear flag de inicialización al completar carga
+    const wasInitializing = this.isInitializing;
+    
     this.loading = true;
     this.taskService.getTasks().subscribe({
       next: (tasks) => {
@@ -486,12 +529,14 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
         } else {
           this.applyFilters();
           this.loading = false;
+          if (wasInitializing) this.isInitializing = false; // Reset flag
         }
       },
       error: () => {
         this.tasks = [];
         this.filteredTasks = [];
         this.loading = false;
+        if (wasInitializing) this.isInitializing = false; // Reset flag
       }
     });
   }
@@ -503,6 +548,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     if (uniqueEncargadoIds.length === 0) {
       this.applyFilters();
       this.loading = false;
+      this.isInitializing = false; // Reset flag
       return;
     }
     
@@ -534,6 +580,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
             this.encargados = Array.from(new Set(Object.values(this.encargadosMap)));
             this.applyFilters();
             this.loading = false;
+            this.isInitializing = false; // Reset flag
           }
         },
         error: () => {
@@ -551,6 +598,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
             this.encargados = Array.from(new Set(Object.values(this.encargadosMap)));
             this.applyFilters();
             this.loading = false;
+            this.isInitializing = false; // Reset flag
           }
         }
       });

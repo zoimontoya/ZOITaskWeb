@@ -32,7 +32,7 @@ if %errorlevel%==0 (
 
 echo.
 echo 📋 Paso 4: Iniciando Frontend con proxy de red
-echo Esto abrirá el frontend en http://192.168.0.85:4200
+echo Esto abrirá el frontend en http://192.168.0.101:4200
 start cmd /k "echo Frontend iniciado... && ng serve --host 0.0.0.0 --disable-host-check --proxy-config proxy-network.conf.json"
 
 echo.
@@ -41,7 +41,7 @@ echo ================
 echo 1. Abre tu navegador de PC en: http://localhost:4200
 echo 2. Ve a: http://localhost:4200/test-network.html
 echo 3. Haz clic en los botones de prueba
-echo 4. Si funciona en PC, prueba desde el móvil: http://192.168.0.85:4200/test-network.html
+echo 4. Si funciona en PC, prueba desde el móvil: http://192.168.0.101:4200/test-network.html
 echo.
 echo 📱 En el móvil, toca los botones de prueba para ver qué pasa
 echo.

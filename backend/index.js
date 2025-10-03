@@ -1983,7 +1983,7 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`🛡️  Protected endpoints: /tasks (POST), /tasks/:id/* (POST)`);
   console.log(`�🔍 Health check disponible en:`);
   console.log(`   - Localmente: http://localhost:${PORT}/health`);
-  console.log(`   - Desde la red: http://192.168.0.85:${PORT}/health`);
+  console.log(`   - Desde la red: http://192.168.0.101:${PORT}/health`);
   console.log(`📡 Endpoints principales:`);
   console.log(`   - POST /login - Autenticación con JWT`);
   console.log(`   - POST /verify-token - Verificar token válido`);
