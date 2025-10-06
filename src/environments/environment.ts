@@ -1,4 +1,4 @@
 export const environment = {
   production: false,
-  apiBaseUrl: 'http://192.168.0.101:3000'
+  apiBaseUrl: '/api' // Usar proxy nginx tanto en desarrollo como en producción
 };

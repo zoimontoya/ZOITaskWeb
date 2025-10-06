@@ -24,7 +24,7 @@ FROM nginx:alpine
 COPY nginx.conf /etc/nginx/nginx.conf
 
 # Copiar archivos compilados
-COPY --from=build /app/dist/essentials /usr/share/nginx/html
+COPY --from=build /app/dist/essentials/browser /usr/share/nginx/html
 
 # Exponer puerto
 EXPOSE 80

@@ -1,4 +1,4 @@
 export const environment = {
   production: true,
-  apiBaseUrl: '/api' // En producción también usamos el proxy
+  apiBaseUrl: '/api' // Proxy configurado en nginx.conf
 };

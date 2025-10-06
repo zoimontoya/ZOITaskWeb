@@ -114,7 +114,7 @@ app.use((req, res, next) => {
 });
 
 const SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
-const SPREADSHEET_ID = '1EEZlootxR63QHicF2cQ5GDmzQJ31V22fE202LXkufc4';
+const SPREADSHEET_ID = process.env.SPREADSHEET_ID || '1EEZlootxR63QHicF2cQ5GDmzQJ31V22fE202LXkufc4';
 
 // 🔒 Configuración segura de credenciales de Google
 const getGoogleAuth = () => {
@@ -956,11 +956,12 @@ app.get('/tasks', optionalJWT, async (req, res) => {
 
 // Endpoint de login con logs detallados
 app.post('/login', async (req, res) => {
-  const { id, password } = req.body;
-  console.log('🔐 POST /login - Petición recibida para usuario:', id);
+  const { id, password, username } = req.body;
+  const userId = id || username; // Acepta tanto 'id' como 'username'
+  console.log('🔐 POST /login - Petición recibida para usuario:', userId);
   console.log('📦 Body completo:', JSON.stringify(req.body, null, 2));
   
-  if (!id || !password) {
+  if (!userId || !password) {
     console.log('❌ Faltan credenciales en la petición');
     return res.status(400).json({ success: false, error: 'Faltan credenciales' });
   }
@@ -991,22 +992,22 @@ app.post('/login', async (req, res) => {
       return res.status(500).json({ success: false, error: 'Faltan columnas id/password' });
     }
     const userRow = rows.slice(1).find(row => {
-      return String(row[idxId]) === String(id) && String(row[idxPassword]) === String(password);
+      return String(row[idxId]) === String(userId) && String(row[idxPassword]) === String(password);
     });
     console.log('Fila encontrada:', userRow);
     if (userRow) {
       const rol = idxRol !== -1 ? userRow[idxRol] : undefined;
-      const name = idxName !== -1 ? userRow[idxName] : id;
+      const name = idxName !== -1 ? userRow[idxName] : userId;
       const grupo_trabajo = idxGrupo !== -1 ? userRow[idxGrupo] : undefined;
       const cabezal = idxCabezal !== -1 ? userRow[idxCabezal] : undefined;
       
       // Crear el objeto usuario
-      const user = { id, rol, name, grupo_trabajo, cabezal };
+      const user = { id: userId, rol, name, grupo_trabajo, cabezal };
       
       // Generar token JWT con duración de 24 horas
       const token = jwt.sign(
         {
-          userId: id,
+          userId: userId,
           name: name,
           rol: rol,
           grupo_trabajo: grupo_trabajo,
@@ -1018,7 +1019,7 @@ app.post('/login', async (req, res) => {
       );
       
       console.log('Login correcto:', user);
-      console.log('Token JWT generado para usuario:', id);
+      console.log('Token JWT generado para usuario:', userId);
       
       return res.json({ 
         success: true, 
@@ -1036,6 +1037,8 @@ app.post('/login', async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 });
+
+
 
 // Endpoint para verificar token JWT
 app.post('/verify-token', (req, res) => {

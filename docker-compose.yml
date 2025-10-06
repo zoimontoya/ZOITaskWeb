@@ -3,18 +3,20 @@ services:
   backend:
     build: ./backend
     container_name: zoi-task-backend
-    ports:
-      - "3000:3000"
     environment:
       - NODE_ENV=production
       - PORT=3000
       # 🔒 Credenciales cargadas desde .env de forma segura
       - GOOGLE_SERVICE_ACCOUNT_JSON=${GOOGLE_SERVICE_ACCOUNT_JSON}
+      - SPREADSHEET_ID=${SPREADSHEET_ID}
     env_file:
       - .env
     networks:
       - zoi-network
     restart: unless-stopped
+    # No exponer puerto directamente - solo a través del frontend
+    expose:
+      - "3000"
 
   # Frontend (Angular + Nginx)
   frontend:
