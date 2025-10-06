@@ -26,8 +26,37 @@ export class AuthService {
   constructor(
     private http: HttpClient
   ) {
-    // Al iniciar el servicio, verificar si hay un token guardado
-    this.checkStoredToken();
+    console.log('🏗️ AuthService constructor iniciado');
+    
+    // Pequeño delay para asegurar que localStorage está disponible
+    setTimeout(() => {
+      // Restaurar usuario inmediatamente del localStorage si existe
+      this.restoreUserFromStorage();
+      // Luego verificar si hay un token guardado
+      this.checkStoredToken();
+    }, 10);
+    
+    console.log('🏗️ AuthService constructor completado');
+  }
+
+  /**
+   * Restaurar usuario del localStorage inmediatamente
+   */
+  private restoreUserFromStorage() {
+    console.log('🔄 restoreUserFromStorage() iniciado');
+    const token = localStorage.getItem('authToken');
+    const userStr = localStorage.getItem('currentUser');
+    
+    console.log('🔍 Token en localStorage:', !!token);
+    console.log('🔍 Usuario en localStorage:', !!userStr);
+    
+    const user = this.getCurrentUser();
+    if (user) {
+      console.log('👤 Usuario restaurado del localStorage:', user.name, '| Rol:', user.rol);
+      this.currentUserSubject.next(user);
+    } else {
+      console.log('❌ No se pudo restaurar usuario del localStorage');
+    }
   }
 
   /**
@@ -158,7 +187,17 @@ export class AuthService {
    * Verificar si el usuario está autenticado
    */
   isAuthenticated(): boolean {
-    return this.getToken() !== null && this.getCurrentUser() !== null;
+    const token = this.getToken();
+    const user = this.getCurrentUser();
+    
+    console.log('🔍 isAuthenticated() - Token presente:', !!token);
+    console.log('🔍 isAuthenticated() - Usuario presente:', !!user);
+    console.log('🔍 isAuthenticated() - Token valor:', token ? token.substring(0, 20) + '...' : 'null');
+    
+    // Solo verificar token - el usuario se carga asíncronamente
+    const result = token !== null;
+    console.log('🔍 isAuthenticated() - Resultado:', result);
+    return result;
   }
 
   /**
