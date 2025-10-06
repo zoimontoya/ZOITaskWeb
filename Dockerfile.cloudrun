@@ -1,0 +1,101 @@
+# Dockerfile optimizado para Google Cloud Run
+# Multi-stage build para mejor rendimiento
+
+# Stage 1: Build Angular Frontend
+FROM node:18-alpine as frontend-build
+
+WORKDIR /app
+
+# Copy package files and install dependencies
+COPY package*.json ./
+RUN npm ci --only=production
+
+# Copy source code and build
+COPY . .
+RUN npm run build
+
+# Stage 2: Setup Backend + Serve Frontend
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Install backend dependencies
+COPY backend/package*.json ./
+RUN npm ci --only=production
+
+# Copy backend source code
+COPY backend/ ./
+
+# Copy built frontend from previous stage
+COPY --from=frontend-build /app/dist/essentials/browser ./public
+
+# Create unified server for Cloud Run
+RUN cat > server.js << 'EOF'
+const express = require('express');
+const path = require('path');
+const cors = require('cors');
+
+const app = express();
+
+// Enable CORS
+app.use(cors());
+
+// Parse JSON bodies
+app.use(express.json());
+
+// Health check endpoint (required by Cloud Run)
+app.get('/_ah/health', (req, res) => {
+  res.status(200).json({ status: 'healthy', timestamp: new Date().toISOString() });
+});
+
+// API routes (import your existing backend)
+try {
+  // Import your existing API routes
+  const fs = require('fs');
+  const apiCode = fs.readFileSync('./index.js', 'utf8');
+  
+  // Extract and setup API routes
+  eval(apiCode.replace(/app\.listen.*/, '').replace(/const app = express\(\);/, ''));
+  
+  console.log('✅ API routes loaded successfully');
+} catch (error) {
+  console.error('❌ Error loading API routes:', error);
+}
+
+// Serve static files (Angular app)
+app.use(express.static('public', {
+  maxAge: '1d',
+  etag: true
+}));
+
+// Catch-all handler: send back Angular index.html for SPA routing
+app.get('*', (req, res) => {
+  // Don't serve index.html for API routes
+  if (req.path.startsWith('/api/')) {
+    return res.status(404).json({ error: 'API endpoint not found' });
+  }
+  
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Cloud Run uses PORT environment variable
+const PORT = process.env.PORT || 8080;
+const HOST = '0.0.0.0'; // Important for Cloud Run
+
+app.listen(PORT, HOST, () => {
+  console.log(`🚀 ZOI Task Web server running on ${HOST}:${PORT}`);
+  console.log(`📱 Frontend: http://${HOST}:${PORT}`);
+  console.log(`🔌 API: http://${HOST}:${PORT}/api/health`);
+  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+});
+EOF
+
+# Set environment variables for Cloud Run
+ENV NODE_ENV=production
+ENV PORT=8080
+
+# Expose port (Cloud Run requirement)
+EXPOSE 8080
+
+# Start the unified server
+CMD ["node", "server.js"]

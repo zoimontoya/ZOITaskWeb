@@ -1,0 +1,58 @@
+# .gcloudignore - archivos que no se suben a Cloud Build
+
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Docker
+docker-compose.yml
+Dockerfile
+nginx.conf
+
+# Logs
+logs/
+*.log
+
+# Build artifacts (se generan en Cloud Build)
+dist/
+build/
+
+# Environment files (se configuran en Cloud Run)
+.env
+.env.local
+.env.production
+
+# Documentation
+README.md
+*.md
+
+# Scripts locales
+start-*.bat
+test-*.bat
+deploy.bat
+setup-credentials.bat
+
+# Testing
+test/
+*.spec.ts
+*.test.js
+
+# Backup files
+*.backup
+*.bak
