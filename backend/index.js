@@ -226,6 +226,102 @@ async function getInvernaderosDimensions(authClient) {
   }
 }
 
+// Función auxiliar para obtener el ID más alto de ambas hojas: "Tareas" y "Trabajos"
+async function getMaxIdFromBothSheets(sheets) {
+  try {
+    let maxId = 0;
+    
+    // Obtener metadatos del spreadsheet para encontrar ambas hojas
+    const spreadsheetMeta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
+    
+    // Buscar hoja "Tareas"
+    const tareasSheet = spreadsheetMeta.data.sheets.find(s =>
+      s.properties && (s.properties.title === 'Tareas' || s.properties.title === 'tareas')
+    );
+    
+    // Buscar hoja "Trabajos"
+    const trabajosSheet = spreadsheetMeta.data.sheets.find(s =>
+      s.properties && (s.properties.title === 'Trabajos' || s.properties.title === 'trabajos')
+    );
+    
+    console.log('🔍 Buscando ID máximo en hojas:');
+    console.log(`- Tareas: ${tareasSheet ? 'Encontrada' : 'No encontrada'}`);
+    console.log(`- Trabajos: ${trabajosSheet ? 'Encontrada' : 'No encontrada'}`);
+    
+    // Verificar IDs en hoja "Tareas"
+    if (tareasSheet) {
+      const tareasResponse = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `${tareasSheet.properties.title}!A:A`, // Solo columna A (Código/ID)
+      });
+      
+      const tareasRows = tareasResponse.data.values || [];
+      console.log(`📋 Hoja "Tareas": ${tareasRows.length - 1} filas de datos`);
+      
+      if (tareasRows.length > 1) {
+        for (let i = 1; i < tareasRows.length; i++) {
+          const idValue = parseInt(tareasRows[i][0]);
+          if (!isNaN(idValue) && idValue > maxId) {
+            maxId = idValue;
+            console.log(`📈 Nuevo ID máximo en Tareas: ${maxId}`);
+          }
+        }
+      }
+    }
+    
+    // Verificar IDs en hoja "Trabajos"
+    if (trabajosSheet) {
+      const trabajosResponse = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `${trabajosSheet.properties.title}!A:A`, // Solo columna A (Código/ID)
+      });
+      
+      const trabajosRows = trabajosResponse.data.values || [];
+      console.log(`💼 Hoja "Trabajos": ${trabajosRows.length - 1} filas de datos`);
+      
+      if (trabajosRows.length > 1) {
+        for (let i = 1; i < trabajosRows.length; i++) {
+          const idValue = parseInt(trabajosRows[i][0]);
+          if (!isNaN(idValue) && idValue > maxId) {
+            maxId = idValue;
+            console.log(`📈 Nuevo ID máximo en Trabajos: ${maxId}`);
+          }
+        }
+      }
+    }
+    
+    console.log(`✅ ID máximo final encontrado: ${maxId}`);
+    return maxId;
+    
+  } catch (err) {
+    console.error('❌ Error obteniendo ID máximo de ambas hojas:', err);
+    // Si hay error, intentar obtener solo de "Tareas" como fallback
+    try {
+      const tareasResponse = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: 'Tareas!A:A',
+      });
+      
+      const rows = tareasResponse.data.values || [];
+      let fallbackMaxId = 0;
+      
+      if (rows.length > 1) {
+        for (let i = 1; i < rows.length; i++) {
+          const idValue = parseInt(rows[i][0]);
+          if (!isNaN(idValue) && idValue > fallbackMaxId) fallbackMaxId = idValue;
+        }
+      }
+      
+      console.log(`🔄 Fallback - ID máximo desde solo "Tareas": ${fallbackMaxId}`);
+      return fallbackMaxId;
+      
+    } catch (fallbackErr) {
+      console.error('❌ Error en fallback también:', fallbackErr);
+      return 0;
+    }
+  }
+}
+
 // Función auxiliar para registrar horas trabajadas en la hoja "Horas"
 async function registrarHorasTrabajadas(authClient, trabajadoresAsignados, encargadoNombre, fechaActualizacion, tareaId, esTareaUrgente = false) {
   try {
@@ -1376,22 +1472,15 @@ app.post('/tasks', verifyJWT, async (req, res) => {
       return res.status(500).json({ error: 'No se encontró la hoja "Tareas"' });
     }
     
-    const response = await sheets.spreadsheets.values.get({
-      spreadsheetId: SPREADSHEET_ID,
-      range: tareasSheet.properties.title,
-    });
-    const rows = response.data.values || [];
-    let lastId = 0;
-    if (rows.length > 1) {
-      for (let i = 1; i < rows.length; i++) {
-        const idValue = parseInt(rows[i][0]);
-        if (!isNaN(idValue) && idValue > lastId) lastId = idValue;
-      }
-    }
+    // Obtener el ID más alto de ambas hojas: "Tareas" y "Trabajos"
+    let lastId = await getMaxIdFromBothSheets(sheets);
+    console.log(`📊 ID más alto encontrado en ambas hojas (Tareas + Trabajos): ${lastId}`);
     const newRows = [];
     for (let i = 0; i < tareas.length; i++) {
       const tarea = tareas[i];
       tarea.id = ++lastId;
+      
+      console.log(`🆔 Asignando ID único ${tarea.id} a tarea ${i + 1}/${tareas.length} para invernadero: ${tarea.invernadero}`);
       
       // Usar el dimension_total que viene del frontend (seleccionado por el usuario)
       const dimensionTotalSeleccionada = Number(tarea.dimension_total) || 0;
