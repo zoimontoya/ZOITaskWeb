@@ -234,7 +234,7 @@ export class MainPageComponent implements OnInit, OnDestroy {
     this.renderer.removeClass(body, 'superior-mode');
     
     // Todos los usuarios usan el mismo fondo verde oscuro
-    const backgroundGradient = 'radial-gradient(circle at top left, #102310, #051905)';
+    const backgroundGradient = 'radial-gradient(circle at top left, #8dfd96ff 0%, #125f1dff 100%)';
     
     if (this.isEncargado && !this.isSuperior) {
       console.log('🎨 Aplicando estilos de encargado - mismo fondo que superiores');
