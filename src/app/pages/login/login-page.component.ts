@@ -68,7 +68,7 @@ import { AuthService } from '../../auth/auth.service';
       display: flex;
       align-items: center;
       justify-content: center;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: linear-gradient(135deg, #8dfd96ff 0%, #125f1dff 100%);
       font-family: 'Poppins', sans-serif;
     }
 
