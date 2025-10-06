@@ -23,7 +23,7 @@ services:
     build: .
     container_name: zoi-task-frontend
     ports:
-      - "80:80"
+      - "8080:80"  # Puerto 8080 para acceso externo más fácil
     depends_on:
       - backend
     networks:
