@@ -427,7 +427,7 @@ async function registrarHorasTrabajadas(authClient, trabajadoresAsignados, encar
   }
 }
 
-// Endpoint para obtener invernaderos filtrados por cabezal
+// Endpoint para obtener invernaderos filtrados por cabezal (soporta múltiples cabezales separados por ;)
 app.get('/invernaderos/:cabezal', async (req, res) => {
   try {
     const { cabezal } = req.params;
@@ -436,7 +436,9 @@ app.get('/invernaderos/:cabezal', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Cabezal requerido' });
     }
     
-    console.log('Obteniendo invernaderos para cabezal:', cabezal);
+    // Parsear múltiples cabezales separados por punto y coma
+    const cabezalesUsuario = cabezal.split(';').map(c => c.trim()).filter(c => c.length > 0);
+    console.log('Obteniendo invernaderos para cabezales:', cabezalesUsuario);
     
     const auth = getGoogleAuth();
     const sheets = google.sheets({ version: 'v4', auth });
@@ -475,15 +477,19 @@ app.get('/invernaderos/:cabezal', async (req, res) => {
 
     console.log(`Índices: nombre=${nameIdx}, cabezal=${cabezalIdx}, dimensiones=${dimensionIdx}`);
     
-    // Filtrar invernaderos por cabezal específico
-    const invernaderos = [];
+    // Agrupar invernaderos por cabezal, incluyendo todos los cabezales del usuario
+    const cabezalesMap = new Map();
     
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
       const cabezalValue = cabezalIdx !== -1 ? row[cabezalIdx] : 'Sin Cabezal';
       
-      // Solo incluir si coincide con el cabezal solicitado
-      if (String(cabezalValue).toUpperCase() === cabezal.toUpperCase()) {
+      // Verificar si este cabezal está en la lista de cabezales del usuario
+      const cabezalCoincide = cabezalesUsuario.some(userCabezal => 
+        String(cabezalValue).toUpperCase() === userCabezal.toUpperCase()
+      );
+      
+      if (cabezalCoincide) {
         const nombreInvernadero = row[nameIdx];
         if (nombreInvernadero && nombreInvernadero.trim()) {
           const valorDimension = dimensionIdx !== -1 ? row[dimensionIdx] : null;
@@ -501,7 +507,15 @@ app.get('/invernaderos/:cabezal', async (req, res) => {
             }
           }
           
-          invernaderos.push({
+          // Agregar invernadero al cabezal correspondiente
+          if (!cabezalesMap.has(String(cabezalValue))) {
+            cabezalesMap.set(String(cabezalValue), {
+              nombre: String(cabezalValue),
+              invernaderos: []
+            });
+          }
+          
+          cabezalesMap.get(String(cabezalValue)).invernaderos.push({
             nombre: nombreInvernadero.trim(),
             dimensiones: dimensionValue.toString()
           });
@@ -509,16 +523,19 @@ app.get('/invernaderos/:cabezal', async (req, res) => {
       }
     }
 
-    // Crear estructura de cabezal único
+    // Convertir Map a array, ordenar invernaderos dentro de cada cabezal
+    const cabezalesArray = Array.from(cabezalesMap.values()).map(cabezal => ({
+      ...cabezal,
+      invernaderos: cabezal.invernaderos.sort((a, b) => a.nombre.localeCompare(b.nombre))
+    }));
+
+    // Crear estructura de respuesta
     const result = {
-      cabezales: [{
-        nombre: cabezal,
-        invernaderos: invernaderos.sort((a, b) => a.nombre.localeCompare(b.nombre))
-      }]
+      cabezales: cabezalesArray
     };
 
-    console.log(`Invernaderos encontrados para ${cabezal}:`, invernaderos.length);
-    console.log('Dimensiones procesadas:', invernaderos.map(inv => `${inv.nombre}: ${inv.dimensiones}`));
+    console.log(`Invernaderos encontrados para cabezales [${cabezalesUsuario.join(', ')}]:`, cabezalesArray.reduce((total, c) => total + c.invernaderos.length, 0));
+    console.log('Cabezales procesados:', cabezalesArray.map(c => `${c.nombre} (${c.invernaderos.length} invernaderos)`));
     res.json(result);
   } catch (err) {
     console.error('Error en /invernaderos filtrados:', err);
@@ -666,7 +683,7 @@ app.get('/encargados', optionalJWT, async (req, res) => {
   }
 });
 
-// Obtener encargados filtrados por grupo de trabajo y cabezal
+// Obtener encargados filtrados por grupo de trabajo y cabezal (soporta múltiples cabezales separados por ;)
 app.get('/encargados/:grupo/:cabezal', optionalJWT, async (req, res) => {
   try {
     const { grupo, cabezal } = req.params;
@@ -675,7 +692,9 @@ app.get('/encargados/:grupo/:cabezal', optionalJWT, async (req, res) => {
       return res.status(400).json({ success: false, error: 'Grupo y cabezal requeridos' });
     }
     
-    console.log('Obteniendo encargados para grupo:', grupo, 'y cabezal:', cabezal);
+    // Parsear múltiples cabezales separados por punto y coma
+    const cabezalesUsuario = cabezal.split(';').map(c => c.trim()).filter(c => c.length > 0);
+    console.log('Obteniendo encargados para grupo:', grupo, 'y cabezales:', cabezalesUsuario);
     
     const auth = getGoogleAuth();
     const sheets = google.sheets({ version: 'v4', auth });
@@ -703,14 +722,33 @@ app.get('/encargados/:grupo/:cabezal', optionalJWT, async (req, res) => {
     }
     
     const encargados = rows.slice(1)
-      .filter(row => 
-        row[idxRol] && 
-        String(row[idxRol]).toLowerCase() === 'encargado' &&
-        row[idxGrupo] &&
-        String(row[idxGrupo]).toUpperCase() === grupo.toUpperCase() &&
-        row[idxCabezal] &&
-        String(row[idxCabezal]).toUpperCase() === cabezal.toUpperCase()
-      )
+      .filter(row => {
+        // Verificar rol de encargado
+        if (!row[idxRol] || String(row[idxRol]).toLowerCase() !== 'encargado') {
+          return false;
+        }
+        
+        // Verificar grupo de trabajo
+        if (!row[idxGrupo] || String(row[idxGrupo]).toUpperCase() !== grupo.toUpperCase()) {
+          return false;
+        }
+        
+        // Verificar que el cabezal del encargado coincida con alguno de los cabezales del usuario
+        if (!row[idxCabezal]) {
+          return false;
+        }
+        
+        const cabezalEncargado = String(row[idxCabezal]);
+        // Parsear cabezales del encargado (también puede tener múltiples)
+        const cabezalesEncargado = cabezalEncargado.split(';').map(c => c.trim()).filter(c => c.length > 0);
+        
+        // Verificar si hay alguna coincidencia entre cabezales del usuario y del encargado
+        return cabezalesUsuario.some(userCabezal => 
+          cabezalesEncargado.some(encargadoCabezal => 
+            userCabezal.toUpperCase() === encargadoCabezal.toUpperCase()
+          )
+        );
+      })
       .map(row => ({
         id: row[idxId],
         name: row[idxName],
@@ -719,7 +757,7 @@ app.get('/encargados/:grupo/:cabezal', optionalJWT, async (req, res) => {
         cabezal: row[idxCabezal]
       }));
     
-    console.log(`Encargados encontrados para ${grupo}/${cabezal}:`, encargados.length);
+    console.log(`Encargados encontrados para ${grupo}/[${cabezalesUsuario.join(', ')}]:`, encargados.length);
     res.json(encargados);
   } catch (err) {
     console.error('Error en /encargados filtrados:', err);
