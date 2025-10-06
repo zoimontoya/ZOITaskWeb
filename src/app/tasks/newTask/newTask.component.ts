@@ -74,7 +74,7 @@ export class newTaskComponent implements OnInit, OnChanges {
   expectedKilos: { [greenhouse: string]: number } = {}; // Kilos esperados por invernadero
   
   // Interruptor para horas por jornal: false = 6 horas, true = 8 horas
-  useEightHourJornal: boolean = false; // Explícitamente tipado y inicializado
+  useEightHourJornal: boolean = true; // Explícitamente tipado y inicializado
   
   // Interruptor para tipo de medición: false = Hectáreas, true = Kilos
   useKilosMode: boolean = false; // false = Hectáreas (0), true = Kilos (1)
