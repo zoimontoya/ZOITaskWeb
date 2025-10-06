@@ -522,6 +522,7 @@ export class newTaskComponent implements OnInit, OnChanges {
     console.log(`TOGGLE STATUS: useEightHourJornal = ${this.useEightHourJornal} (${this.useEightHourJornal ? '8h' : '6h'})`);
     
     // VALIDACIONES OBLIGATORIAS (todos los campos excepto descripción)
+    // NOTA: La descripción es SIEMPRE opcional, incluso para tareas urgentes
     
     // 1. Validar selección de invernaderos
     const selectedInvernaderos = this.getSelectedInvernaderos();
@@ -680,7 +681,7 @@ export class newTaskComponent implements OnInit, OnChanges {
         horas_kilos: horasKilos, // 0 = Hectáreas, 1 = Kilos
         fecha_limite: fechaLimite,
         encargado_id: encargadoId,
-        descripcion: this.description,
+        descripcion: this.description || '', // Descripción siempre opcional - string vacío si no se proporciona
         dimension_total: dimensionValue // Hectáreas O Kilos esperados (0 en ALMACÉN)
       };
       if (this.task && this.task.id) {

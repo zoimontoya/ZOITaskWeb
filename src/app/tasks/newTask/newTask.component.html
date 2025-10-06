@@ -1,7 +1,7 @@
 <div class="backdrop" (click)="onCancel()"></div>
 <dialog open>
   <h2>{{ task ? 'Editar Tarea' : 'Nueva Tarea' }}</h2>
-  <form (ngSubmit)="onSubmit()">
+  <form (ngSubmit)="onSubmit()" novalidate>
     <!-- Selector de invernaderos -->
     <app-invernadero-selector
       [initialValue]="task?.invernadero || ''"
@@ -259,9 +259,16 @@
         </div>
       </div>
     </div>
+    <!-- Descripción: SIEMPRE OPCIONAL - No requiere validación -->
     <p>
       <label for="description">Descripción (opcional)</label>
-      <textarea id="description" rows="3" name="description" [(ngModel)]="description" placeholder="Descripción opcional de la tarea..."></textarea>
+      <textarea 
+        id="description" 
+        rows="3" 
+        name="description" 
+        [(ngModel)]="description" 
+        placeholder="Descripción opcional de la tarea..."
+        [required]="false"></textarea>
     </p>
     <p class="actions">
       <button type="button" (click)="onCancel()">Cancelar</button>

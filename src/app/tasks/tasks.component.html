@@ -169,7 +169,7 @@
         
             <!-- Descripción -->
             <div class="form-group">
-                <label class="form-label" for="urgentDescripcion">Descripción de la tarea</label>
+                <label class="form-label" for="urgentDescripcion">Descripción de la tarea (opcional)</label>
             <textarea 
                 id="urgentDescripcion"
                 [(ngModel)]="urgentTask.descripcion"
@@ -198,7 +198,7 @@
                 <button type="button" class="task-action-btn cancel-btn" (click)="onCancelUrgentTask()">
                     <span class="icon">❌</span> Cancelar
                 </button>
-                <button type="submit" class="task-action-btn validate-btn" [disabled]="!urgentTask.invernadero || !urgentTask.tipo_tarea || !urgentTask.descripcion || urgentTask.horas_trabajadas <= 0 || urgentTaskWorkers.length === 0">
+                <button type="submit" class="task-action-btn validate-btn" [disabled]="!urgentTask.invernadero || !urgentTask.tipo_tarea || urgentTask.horas_trabajadas <= 0 || urgentTaskWorkers.length === 0">
                     <span class="icon">⚡</span> Registrar Tarea
                 </button>
             </div>
