@@ -1899,6 +1899,163 @@ ul {
   }
 }
 
+/* =========== ESTILOS PARA SLIDER DE HECTÁREAS EN TAREAS URGENTES =========== */
+
+.urgent-hectareas-controls {
+  background-color: rgba(115, 202, 122, 0.08);
+  border: 1px solid rgba(115, 202, 122, 0.15);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-top: 0.5rem;
+}
+
+.urgent-area-slider-container {
+  position: relative;
+  margin-bottom: 0.75rem;
+}
+
+.urgent-area-slider {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: transparent;
+  outline: none;
+  appearance: none;
+  cursor: pointer;
+  position: relative;
+  z-index: 2;
+}
+
+.urgent-area-slider::-webkit-slider-track {
+  height: 6px;
+  background: transparent;
+  border-radius: 3px;
+}
+
+.urgent-area-slider::-webkit-slider-thumb {
+  appearance: none;
+  height: 18px;
+  width: 18px;
+  border-radius: 50%;
+  background: #73ca7a;
+  cursor: pointer;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s ease;
+}
+
+.urgent-area-slider::-webkit-slider-thumb:hover {
+  background: #60ce5c;
+  transform: scale(1.1);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
+}
+
+.urgent-area-slider::-moz-range-track {
+  height: 6px;
+  background: transparent;
+  border-radius: 3px;
+  border: none;
+}
+
+.urgent-area-slider::-moz-range-thumb {
+  height: 18px;
+  width: 18px;
+  border-radius: 50%;
+  background: #73ca7a;
+  cursor: pointer;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s ease;
+}
+
+.urgent-area-slider::-moz-range-thumb:hover {
+  background: #60ce5c;
+  transform: scale(1.1);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
+}
+
+.urgent-slider-track-bg {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 6px;
+  background-color: rgba(162, 192, 154, 0.3);
+  border-radius: 3px;
+  transform: translateY(-50%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.urgent-slider-track-fill {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  height: 6px;
+  background: linear-gradient(90deg, #9dc09a, #73ca7a);
+  border-radius: 3px;
+  transform: translateY(-50%);
+  pointer-events: none;
+  z-index: 1;
+  transition: width 0.2s ease;
+}
+
+.urgent-area-input-container {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.urgent-area-input {
+  max-width: 100px;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #9dc09a;
+  border-radius: 4px;
+  background-color: #c2e1c4;
+  font: inherit;
+  text-align: right;
+  color: #2c5530;
+}
+
+.urgent-area-input:focus {
+  outline: none;
+  border-color: #7ab377;
+  box-shadow: 0 0 0 2px rgba(122, 179, 119, 0.2);
+}
+
+.urgent-area-unit {
+  font-size: 0.9rem;
+  color: #b3d8b8;
+  font-weight: 500;
+  min-width: 20px;
+}
+
+.urgent-area-percentage {
+  font-size: 0.9rem;
+  color: #8db48d;
+  font-weight: 500;
+  margin-left: 0.5rem;
+}
+
+.urgent-area-info {
+  text-align: center;
+  font-size: 0.85rem;
+  color: #8db48d;
+}
+
+/* Animación suave para los controles urgentes */
+.urgent-hectareas-controls {
+  transition: all 0.3s ease;
+}
+
+.urgent-hectareas-controls:hover {
+  background-color: rgba(115, 202, 122, 0.12);
+  border-color: rgba(115, 202, 122, 0.25);
+}
+
+/* =========== FIN ESTILOS HECTÁREAS URGENTES =========== */
+
 @media (min-width: 768px) {
   h2 {
     font-size: 1.25rem;

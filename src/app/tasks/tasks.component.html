@@ -54,6 +54,48 @@
                 </div>
             </div>
             
+            <!-- Control de Hectáreas Trabajadas (solo si hay invernadero seleccionado) -->
+            <div class="form-group" *ngIf="urgentTask.invernadero">
+                <label class="form-label">Hectáreas trabajadas</label>
+                <div class="urgent-hectareas-controls">
+                    <!-- Barra deslizante -->
+                    <div class="urgent-area-slider-container">
+                        <input 
+                            type="range" 
+                            class="urgent-area-slider"
+                            [min]="0"
+                            [max]="getSelectedInvernaderoMaxArea()"
+                            step="0.001"
+                            [value]="urgentTask.hectareas_trabajadas || 0"
+                            (input)="onUrgentHectareasSliderChange($event)"
+                            id="urgentHectareasSlider">
+                        <div class="urgent-slider-track-bg"></div>
+                        <div class="urgent-slider-track-fill" 
+                             [style.width.%]="getUrgentHectareasPercentage()"></div>
+                    </div>
+                    
+                    <!-- Input numérico -->
+                    <div class="urgent-area-input-container">
+                        <input 
+                            type="number" 
+                            class="urgent-area-input"
+                            [min]="0"
+                            [max]="getSelectedInvernaderoMaxArea()"
+                            step="0.001"
+                            [value]="getUrgentHectareasFormattedValue()"
+                            (input)="onUrgentHectareasInputChange($event)"
+                            placeholder="0.000">
+                        <span class="urgent-area-unit">Ha</span>
+                        <span class="urgent-area-percentage">({{ getUrgentHectareasPercentage().toFixed(1) }}%)</span>
+                    </div>
+                    
+                    <!-- Información del progreso -->
+                    <div class="urgent-area-info">
+                        <small>{{ urgentTask.hectareas_trabajadas.toFixed(3) }} / {{ getSelectedInvernaderoMaxArea().toFixed(3) }} Ha ({{ getUrgentHectareasPercentage().toFixed(1) }}%)</small>
+                    </div>
+                </div>
+            </div>
+            
             <!-- Selector de Tipo de Tarea -->
             <div class="form-group">
                 <label class="form-label">Tipo de tarea *</label>

@@ -1230,8 +1230,8 @@ app.post('/tasks', verifyJWT, async (req, res) => {
         req.body.nombre_superior || '',                // K: nombre_superior
         req.body.fecha_inicio || '',                   // L: fecha_inicio
         req.body.fecha_fin || '',                      // M: fecha_fin
-        Number(req.body.desarrollo_actual) || 0,      // N: desarrollo_actual
-        req.body.dimension_total || '0',               // O: dimension_total
+        parseFloat((parseFloat(req.body.desarrollo_actual) || 0).toFixed(3)),      // N: desarrollo_actual (máximo 3 decimales)
+        parseFloat((parseFloat(req.body.dimension_total) || 0).toFixed(3)),     // O: dimension_total (máximo 3 decimales)
         req.body.proceso || 'No iniciado',             // P: proceso (ÚNICO campo de estado)
         req.body.fecha_actualizacion || ''             // Q: fecha_actualizacion (se mantiene el valor existente al editar)
       ];
@@ -1329,7 +1329,7 @@ app.post('/tasks', verifyJWT, async (req, res) => {
         spreadsheetId: SPREADSHEET_ID,
         range: `${tareasSheet.properties.title}!${desarrolloColLetter}${rowIndex + 1}`,
         valueInputOption: 'RAW',
-        resource: { values: [[Number(req.body.desarrollo_actual) || 0]] }
+        resource: { values: [[parseFloat((parseFloat(req.body.desarrollo_actual) || 0).toFixed(3))]] }
       });
 
       // Actualizar progreso (porcentaje) si existe la columna
@@ -1566,8 +1566,8 @@ app.post('/tasks', verifyJWT, async (req, res) => {
         tarea.nombre_superior || '',                 // K: nombre_superior (CLAVE para detección)
         '',                                          // L: fecha_inicio (vacía al crear)
         '',                                          // M: fecha_fin (vacía al crear)
-        0,                                           // N: desarrollo_actual (inicia en 0)
-        dimensionTotalSeleccionada,                  // O: dimension_total (seleccionada por el usuario)
+        esTareaUrgente ? parseFloat((parseFloat(tarea.desarrollo_actual || dimensionTotalSeleccionada) || 0).toFixed(3)) : 0, // N: desarrollo_actual (para urgentes = dimension_total)
+        parseFloat((parseFloat(dimensionTotalSeleccionada) || 0).toFixed(3)), // O: dimension_total (máximo 3 decimales)
         tarea.proceso || 'No iniciado',              // P: proceso (respeta valor del frontend)
         ''                                           // Q: fecha_actualizacion (vacía al crear, se llenará al actualizar)
       ]);

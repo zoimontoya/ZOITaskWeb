@@ -69,7 +69,9 @@ export interface InvernaderoSelection {
                         [checked]="selectedInvernaderos.has(invernadero.nombre)"
                         (change)="toggleInvernaderoSelection(invernadero.nombre, cabezal.nombre, $event)">
                       <span class="checkbox-label">
-                        {{ invernadero.nombre }} ({{ invernadero.dimensiones.toString().replace('.', ',') }}m²)
+                                              <span class="checkbox-label">
+                        {{ invernadero.nombre }} ({{ invernadero.dimensiones.toString().replace('.', ',') }}ha)
+                      </span>
                       </span>
                     </label>
                   </div>

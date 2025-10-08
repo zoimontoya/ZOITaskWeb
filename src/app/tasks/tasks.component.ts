@@ -97,7 +97,10 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     invernadero: '',
     tipo_tarea: '',
     horas_trabajadas: 0,
-    descripcion: ''
+    descripcion: '',
+    hectareas_trabajadas: 0,
+    dimension_total: 0,
+    desarrollo_actual: 0
   };
   urgentTaskWorkers: TrabajadorAsignado[] = [];
   isCreatingUrgentTask = false;
@@ -111,6 +114,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   allUrgentTipos: string[] = [];
   filteredUrgentInvernaderos: string[] = [];
   filteredUrgentTipos: string[] = [];
+  urgentInvernaderosWithDimensions: { nombre: string; dimensiones: number }[] = [];
   urgentTiposJerarquicos: { tipo: string; subtipos: string[]; hasSubtipos: boolean }[] = [];
   filteredUrgentTiposJerarquicos: { tipo: string; subtipos: string[]; hasSubtipos: boolean }[] = [];
   
@@ -135,17 +139,23 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     private trabajadoresService: TrabajadoresService, 
     private http: HttpClient,
     private authService: AuthService
-  ) {}
+  ) {
+    console.log('🚨 TASKS COMPONENT - Constructor ejecutado, funcionalidad hectáreas activa');
+  }
   
   // ===== MÉTODOS PARA TAREAS URGENTES =====
   
   onStartUrgentTask() {
+    console.log('🚨 onStartUrgentTask - Iniciando modal de tarea urgente');
     this.showUrgentTaskModal = true;
     this.urgentTask = {
       invernadero: '',
       tipo_tarea: '',
       horas_trabajadas: 0,
-      descripcion: ''
+      descripcion: '',
+      hectareas_trabajadas: 0,
+      dimension_total: 0,
+      desarrollo_actual: 0
     };
     this.urgentTaskWorkers = [];
     this.isUrgentTaskWorkersMode = false; // Resetear flag
@@ -155,6 +165,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     this.isUrgentTipoOpen = false;
     this.urgentInvernaderoSearch = '';
     this.urgentTipoSearch = '';
+    console.log('🚨 onStartUrgentTask - Cargando invernaderos urgentes...');
     this.loadUrgentInvernaderos();
     this.loadUrgentTiposTarea();
   }
@@ -184,6 +195,121 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     this.trabajadoresValidados = false; // Resetear validación
     this.showWorkersModal = true;
   }
+
+  // =========== MÉTODOS PARA CONTROL DE HECTÁREAS EN TAREAS URGENTES ===========
+  
+  getSelectedInvernaderoMaxArea(): number {
+    console.log('getSelectedInvernaderoMaxArea - invernadero:', this.urgentTask.invernadero);
+    console.log('getSelectedInvernaderoMaxArea - dimensiones disponibles:', this.urgentInvernaderosWithDimensions);
+    
+    if (!this.urgentTask.invernadero) return 0;
+    
+    // Buscar el invernadero seleccionado en la lista con dimensiones
+    const invernadero = this.urgentInvernaderosWithDimensions.find(inv => inv.nombre === this.urgentTask.invernadero);
+    console.log('getSelectedInvernaderoMaxArea - invernadero encontrado:', invernadero);
+    
+    if (invernadero) {
+      const hectareas = invernadero.dimensiones; // Las dimensiones ya vienen en hectáreas
+      console.log('🚨 getSelectedInvernaderoMaxArea - dimensiones exactas:', invernadero.dimensiones);
+      console.log('🚨 getSelectedInvernaderoMaxArea - typeof dimensiones:', typeof invernadero.dimensiones);
+      console.log('🚨 getSelectedInvernaderoMaxArea - hectáreas devueltas:', hectareas);
+      return hectareas;
+    }
+    return 0;
+  }
+  
+  getUrgentHectareasPercentage(): number {
+    const currentArea = this.urgentTask.hectareas_trabajadas || 0;
+    const maxArea = this.getSelectedInvernaderoMaxArea();
+    if (maxArea === 0) return 0;
+    const percentage = (currentArea / maxArea) * 100;
+    console.log('🎯 PORCENTAJE FINAL:', percentage, '- currentArea:', currentArea, '- maxArea:', maxArea);
+    return percentage;
+  }
+
+  getUrgentHectareasFormattedValue(): string {
+    const value = this.urgentTask.hectareas_trabajadas || 0;
+    // Asegurar que siempre sea un número válido con máximo 3 decimales
+    const roundedValue = Math.round(value * 1000) / 1000;
+    return roundedValue.toFixed(3);
+  }
+  
+  onUrgentHectareasSliderChange(event: Event) {
+    const target = event.target as HTMLInputElement;
+    const newValue = parseFloat(target.value) || 0;
+    const maxArea = this.getSelectedInvernaderoMaxArea();
+    
+    // Limitar al rango permitido y redondear a 3 decimales
+    const clampedValue = Math.min(Math.max(newValue, 0), maxArea);
+    this.urgentTask.hectareas_trabajadas = Math.round(clampedValue * 1000) / 1000;
+    
+    // Forzar actualización del input para mostrar exactamente 3 decimales
+    setTimeout(() => {
+      const inputElement = document.querySelector('.urgent-area-input') as HTMLInputElement;
+      if (inputElement) {
+        inputElement.value = this.urgentTask.hectareas_trabajadas.toFixed(3);
+      }
+    }, 0);
+    
+    this.syncUrgentDimensionValues();
+  }
+  
+  onUrgentHectareasInputChange(event: Event) {
+    const target = event.target as HTMLInputElement;
+    const newValue = parseFloat(target.value.replace(',', '.')) || 0;
+    const maxArea = this.getSelectedInvernaderoMaxArea();
+    
+    // Limitar al rango permitido y redondear a 3 decimales
+    const clampedValue = Math.min(Math.max(newValue, 0), maxArea);
+    const finalValue = Math.round(clampedValue * 1000) / 1000;
+    this.urgentTask.hectareas_trabajadas = finalValue;
+    
+    // Actualizar el input con el valor final redondeado
+    target.value = finalValue.toString();
+    
+    this.syncUrgentDimensionValues();
+  }
+  
+  private syncUrgentDimensionValues() {
+    // Para tareas urgentes, tanto dimension_total como desarrollo_actual 
+    // deben tener las hectáreas seleccionadas en el slider (máximo 3 decimales)
+    const roundedValue = Math.round(this.urgentTask.hectareas_trabajadas * 1000) / 1000;
+    this.urgentTask.desarrollo_actual = roundedValue;
+    this.urgentTask.dimension_total = roundedValue;
+  }
+  
+  private loadAllUrgentInvernaderosFallback() {
+    // Intentar cargar todos los invernaderos como fallback
+    this.greenhouseService.getGreenhousesGrouped().subscribe({
+      next: (data) => {
+        console.log('Fallback - Datos recibidos:', data);
+        const invernaderos = data.cabezales.flatMap(cabezal => cabezal.invernaderos);
+        this.allUrgentInvernaderos = invernaderos.map(inv => inv.nombre).sort();
+        this.urgentInvernaderosWithDimensions = invernaderos.map(inv => ({
+          nombre: inv.nombre,
+          dimensiones: parseFloat(inv.dimensiones.replace(',', '.')) || 0
+        }));
+        console.log('Fallback - Invernaderos con dimensiones:', this.urgentInvernaderosWithDimensions);
+        this.filterUrgentInvernaderos();
+      },
+      error: (err) => {
+        console.error('Error en fallback cargando todos los invernaderos:', err);
+        // Último recurso: usar solo nombres de tareas existentes (sin dimensiones)
+        const allInvernaderos = new Set<string>();
+        this.tasks.forEach(task => {
+          if (task.invernadero && task.invernadero.trim()) {
+            allInvernaderos.add(task.invernadero);
+          }
+        });
+        this.allUrgentInvernaderos = Array.from(allInvernaderos).sort();
+        this.urgentInvernaderosWithDimensions = []; // Sin dimensiones disponibles
+        console.warn('No se pudieron cargar las dimensiones de los invernaderos');
+        this.filterUrgentInvernaderos();
+      }
+    });
+  }
+  
+  // =========== FIN MÉTODOS HECTÁREAS URGENTES ===========
   
   onSubmitUrgentTask() {
     if (this.isCreatingUrgentTask) return; // Evitar doble envío
@@ -217,8 +343,8 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
       encargado_id: this.userId,
       descripcion: this.buildUrgentTaskDescription(), // Descripción con género si es necesario
       nombre_superior: encargadoNombre, // ⭐ El encargado aparece como creador (CLAVE para detección)
-      desarrollo_actual: '',
-      dimension_total: '0', // Sin dimensiones para tareas urgentes
+      desarrollo_actual: this.urgentTask.desarrollo_actual.toString(),
+      dimension_total: this.urgentTask.dimension_total.toString(), // Hectáreas trabajadas en m²
       proceso: 'Por validar', // Estado especial para validación
       // Datos para registro directo en hoja "Horas"
       trabajadores_asignados: this.urgentTaskWorkers, // Trabajadores van directos a hoja "Horas"
@@ -1068,33 +1194,26 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     if (this.loggedUser?.cabezal) {
       this.greenhouseService.getGreenhousesByCabezal(this.loggedUser.cabezal).subscribe({
         next: (data) => {
+          console.log('Datos recibidos del servicio:', data);
           const invernaderos = data.cabezales.flatMap(cabezal => cabezal.invernaderos);
+          console.log('Invernaderos procesados:', invernaderos);
           this.allUrgentInvernaderos = invernaderos.map(inv => inv.nombre).sort();
+          this.urgentInvernaderosWithDimensions = invernaderos.map(inv => ({
+            nombre: inv.nombre,
+            dimensiones: parseFloat(inv.dimensiones.replace(',', '.')) || 0
+          }));
+          console.log('Invernaderos con dimensiones:', this.urgentInvernaderosWithDimensions);
           this.filterUrgentInvernaderos();
         },
         error: (err) => {
           console.error('Error cargando invernaderos por cabezal:', err);
-          // Fallback: usar invernaderos de tareas existentes
-          const allInvernaderos = new Set<string>();
-          this.tasks.forEach(task => {
-            if (task.invernadero && task.invernadero.trim()) {
-              allInvernaderos.add(task.invernadero);
-            }
-          });
-          this.allUrgentInvernaderos = Array.from(allInvernaderos).sort();
-          this.filterUrgentInvernaderos();
+          // Fallback: intentar cargar todos los invernaderos
+          this.loadAllUrgentInvernaderosFallback();
         }
       });
     } else {
-      // Fallback: usar invernaderos de tareas existentes
-      const allInvernaderos = new Set<string>();
-      this.tasks.forEach(task => {
-        if (task.invernadero && task.invernadero.trim()) {
-          allInvernaderos.add(task.invernadero);
-        }
-      });
-      this.allUrgentInvernaderos = Array.from(allInvernaderos).sort();
-      this.filterUrgentInvernaderos();
+      // Fallback: intentar cargar todos los invernaderos
+      this.loadAllUrgentInvernaderosFallback();
     }
   }
   
@@ -1204,9 +1323,29 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   }
   
   selectUrgentInvernadero(invernadero: string) {
+    console.log('🚨 selectUrgentInvernadero - Seleccionando:', invernadero);
     this.urgentTask.invernadero = invernadero;
+    
+    // Buscar directamente en urgentInvernaderosWithDimensions para obtener el área máxima
+    const invData = this.urgentInvernaderosWithDimensions.find(inv => inv.nombre === invernadero);
+    const maxArea = invData ? invData.dimensiones : 0;
+    
+    console.log('🚨 DETALLE - invData:', invData);
+    console.log('🚨 DETALLE - maxArea exacto:', maxArea);
+    console.log('🚨 DETALLE - typeof maxArea:', typeof maxArea);
+    console.log('🚨 DETALLE - maxArea como string:', maxArea.toString());
+    
+    // Inicializar con el área máxima disponible (como en newTask)
+    this.urgentTask.hectareas_trabajadas = maxArea;
+    
+    console.log('🚨 DETALLE - hectareas_trabajadas asignado:', this.urgentTask.hectareas_trabajadas);
+    console.log('🚨 DETALLE - hectareas_trabajadas como string:', this.urgentTask.hectareas_trabajadas.toString());
+    
+    this.syncUrgentDimensionValues();
     this.isUrgentInvernaderoOpen = false;
     this.urgentInvernaderoSearch = '';
+    this.filterUrgentInvernaderos();
+    console.log('🚨 selectUrgentInvernadero - Invernadero:', invernadero, 'Área máxima:', maxArea);
   }
   
   selectUrgentTipo(tipo: string) {
@@ -1366,7 +1505,10 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
       invernadero: '',
       tipo_tarea: '',
       horas_trabajadas: 0,
-      descripcion: ''
+      descripcion: '',
+      hectareas_trabajadas: 0,
+      dimension_total: 0,
+      desarrollo_actual: 0
     };
     this.urgentTaskWorkers = [];
     this.isUrgentTaskWorkersMode = false;
