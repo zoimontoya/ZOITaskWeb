@@ -73,6 +73,9 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   
   // Encargados del mismo cabezal (para validación de tareas urgentes)
   encargadosDelCabezal: string[] = [];
+  
+  // Invernaderos del cabezal del usuario (para filtrado de tareas)
+  invernaderosDelCabezal: string[] = [];
 
   // Protección contra double-click
   isProcessing = false;
@@ -447,7 +450,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
       if (!this.isEncargado && this.loggedUser?.grupo_trabajo && this.loggedUser?.cabezal) {
         this.loadEncargadosDelCabezal();
       } else {
-        // Para encargados, cargar tareas directamente
+        // Para encargados o superiores sin cabezal específico, cargar tareas directamente
         this.loadTasks();
       }
     } else {
@@ -635,7 +638,11 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
             const encargadoEsDelCabezal = this.encargadosDelCabezal.length > 0 && 
                                           this.encargadosDelCabezal.includes(encargadoTarea);
             
-            return esCreadorDeLaTarea || esTareaPropia || encargadoEsDelCabezal;
+            // 4. NUEVA LÓGICA: Tareas en invernaderos del cabezal del superior
+            // Esto asegura que vean TODAS las tareas de su cabezal, sin importar quién las creó
+            const tareaEnInvernaderoDeCabezal = this.isTaskInUserCabezal(t);
+            
+            return esCreadorDeLaTarea || esTareaPropia || encargadoEsDelCabezal || tareaEnInvernaderoDeCabezal;
           });
         }
         this.invernaderos = Array.from(new Set(this.tasks.map(t => t.invernadero).filter(Boolean)));
@@ -1523,20 +1530,57 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
 
   // Cargar encargados del mismo cabezal para validación de tareas urgentes
   loadEncargadosDelCabezal() {
-    if (this.loggedUser?.grupo_trabajo && this.loggedUser?.cabezal) {
-      this.http.get<any[]>(`${environment.apiBaseUrl}/encargados/${this.loggedUser.grupo_trabajo}/${this.loggedUser.cabezal}`).subscribe({
-        next: (encargados) => {
-          this.encargadosDelCabezal = encargados.map(e => e.nombre_completo || e.nombre || e.id).filter(Boolean);
-          console.log('Encargados del cabezal cargados:', this.encargadosDelCabezal);
-          // Recargar tareas para aplicar el filtrado con la nueva información
-          this.loadTasks();
-        },
-        error: (err) => {
-          console.error('Error cargando encargados del cabezal:', err);
-          this.encargadosDelCabezal = [];
-        }
-      });
+    if (!this.loggedUser?.grupo_trabajo) {
+      console.log('⚠️ Usuario sin grupo_trabajo, saltando carga de encargados del cabezal');
+      this.loadTasks();
+      return;
     }
+    
+    if (!this.loggedUser?.cabezal) {
+      console.log('⚠️ Usuario sin cabezal específico, saltando carga de encargados del cabezal');
+      this.loadTasks();
+      return;
+    }
+
+    // Cargar tanto encargados como invernaderos del cabezal
+    const encargadosRequest = this.http.get<any[]>(`${environment.apiBaseUrl}/encargados/${this.loggedUser.grupo_trabajo}/${this.loggedUser.cabezal}`);
+    const invernaderosRequest = this.greenhouseService.getGreenhousesByCabezal(this.loggedUser.cabezal);
+    
+    // Ejecutar ambas peticiones en paralelo
+    forkJoin({
+      encargados: encargadosRequest,
+      invernaderos: invernaderosRequest
+    }).subscribe({
+      next: ({ encargados, invernaderos }) => {
+        this.encargadosDelCabezal = encargados.map(e => e.nombre_completo || e.nombre || e.id).filter(Boolean);
+        console.log('Encargados del cabezal cargados:', this.encargadosDelCabezal);
+        
+        // Extraer nombres de invernaderos del cabezal
+        this.invernaderosDelCabezal = invernaderos.cabezales
+          .flatMap(cabezal => cabezal.invernaderos)
+          .map(inv => inv.nombre);
+        console.log('Invernaderos del cabezal cargados:', this.invernaderosDelCabezal);
+        
+        // Recargar tareas para aplicar el filtrado con la nueva información
+        this.loadTasks();
+      },
+      error: (err) => {
+        console.error('Error cargando datos del cabezal:', err);
+        this.encargadosDelCabezal = [];
+        this.invernaderosDelCabezal = [];
+        // Recargar tareas aunque haya error
+        this.loadTasks();
+      }
+    });
+  }
+
+  // Verificar si una tarea pertenece al cabezal del usuario
+  isTaskInUserCabezal(task: Task): boolean {
+    if (!task.invernadero || this.invernaderosDelCabezal.length === 0) {
+      return false;
+    }
+    
+    return this.invernaderosDelCabezal.includes(task.invernadero);
   }
 
   // Método para detectar si una tarea está vencida

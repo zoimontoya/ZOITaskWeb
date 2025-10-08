@@ -831,7 +831,9 @@ app.get('/tipos-tarea/:grupo', optionalJWT, async (req, res) => {
       return res.status(400).json({ success: false, error: 'Grupo requerido' });
     }
     
-    console.log('Obteniendo tipos de tarea para grupo:', grupo);
+    // Dividir grupos por ; para soportar múltiples grupos como "MANTENIMIENTO; TRANSPORTE"
+    const gruposUsuario = grupo.split(';').map(g => g.trim().toUpperCase()).filter(g => g.length > 0);
+    console.log('Obteniendo tipos de tarea para grupos:', gruposUsuario);
     
     const auth = getGoogleAuth();
     const sheets = google.sheets({ version: 'v4', auth });
@@ -857,8 +859,21 @@ app.get('/tipos-tarea/:grupo', optionalJWT, async (req, res) => {
     
     console.log('Índices encontrados:', { idxGrupo, idxFamilia, idxTipo, idxSubtipo, idxNombre, idxJornal });
     
+    // Debug: mostrar todos los grupos disponibles en la hoja
+    const gruposDisponibles = [...new Set(rows.slice(1).map(row => row[idxGrupo]).filter(g => g))];
+    console.log('🔍 Grupos disponibles en TiposTareas:', gruposDisponibles);
+    console.log('🎯 Grupos buscados por el usuario:', gruposUsuario);
+    
     const tiposTarea = rows.slice(1)
-      .filter(row => row[idxGrupo] && String(row[idxGrupo]).toUpperCase() === grupo.toUpperCase())
+      .filter(row => {
+        if (!row[idxGrupo]) return false;
+        const grupoTarea = String(row[idxGrupo]).toUpperCase();
+        const matched = gruposUsuario.includes(grupoTarea);
+        if (matched) {
+          console.log(`✅ Coincidencia encontrada: "${grupoTarea}" está en [${gruposUsuario.join(', ')}]`);
+        }
+        return matched;
+      })
       .map(row => ({
         grupo_trabajo: row[idxGrupo] || '',
         familia: row[idxFamilia] || '',
@@ -868,7 +883,7 @@ app.get('/tipos-tarea/:grupo', optionalJWT, async (req, res) => {
         jornal_unidad: row[idxJornal] || ''
       }));
     
-    console.log(`Tipos de tarea encontrados para ${grupo}:`, tiposTarea.length);
+    console.log(`Tipos de tarea encontrados para grupos [${gruposUsuario.join(', ')}]:`, tiposTarea.length);
     res.json(tiposTarea);
   } catch (err) {
     console.error('Error en /tipos-tarea:', err);
