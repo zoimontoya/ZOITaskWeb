@@ -15,7 +15,12 @@ export class TasksService {
   constructor(
     private http: HttpClient,
     private uuidService: UuidService
-  ) {}
+  ) {
+    // Limpiar cache de IDs cada 5 minutos para evitar acumulación
+    setInterval(() => {
+      this.uuidService.clearIdCache();
+    }, 5 * 60 * 1000);
+  }
 
   // Obtener todas las tareas
   getTasks(): Observable<any[]> {
@@ -32,8 +37,10 @@ export class TasksService {
     const tasksWithUniqueIds = tasksArray.map(task => {
       // Solo generar ID si no existe o es temporal/duplicado
       if (!task.id || task.id === '' || task.id.toString().includes('temp')) {
-        task.id = this.uuidService.generateTaskId(userId);
+        task.id = this.uuidService.generateUniqueTaskId(userId);
         console.log('🆔 Generado ID único para tarea:', task.id);
+      } else {
+        console.log('🔄 Preservando ID existente:', task.id);
       }
       return task;
     });

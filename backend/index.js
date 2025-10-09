@@ -1528,15 +1528,21 @@ app.post('/tasks', verifyJWT, async (req, res) => {
       return res.status(500).json({ error: 'No se encontró la hoja "Tareas"' });
     }
     
-    // Obtener el ID más alto de ambas hojas: "Tareas" y "Trabajos"
+    // Usar IDs del frontend si están disponibles, sino generar nuevos
     let lastId = await getMaxIdFromBothSheets(sheets);
     console.log(`📊 ID más alto encontrado en ambas hojas (Tareas + Trabajos): ${lastId}`);
     const newRows = [];
     for (let i = 0; i < tareas.length; i++) {
       const tarea = tareas[i];
-      tarea.id = ++lastId;
       
-      console.log(`🆔 Asignando ID único ${tarea.id} a tarea ${i + 1}/${tareas.length} para invernadero: ${tarea.invernadero}`);
+      // PRIORIDAD 1: Usar ID generado por frontend si existe y es válido
+      if (tarea.id && tarea.id !== '' && tarea.id !== 0) {
+        console.log(`� USANDO ID del frontend: ${tarea.id} para tarea ${i + 1}/${tareas.length} (${tarea.invernadero})`);
+      } else {
+        // FALLBACK: Generar ID secuencial solo si no viene del frontend
+        tarea.id = ++lastId;
+        console.log(`🔄 GENERANDO ID secuencial: ${tarea.id} para tarea ${i + 1}/${tareas.length} (${tarea.invernadero})`);
+      }
       
       // Usar el dimension_total que viene del frontend (seleccionado por el usuario)
       const dimensionTotalSeleccionada = Number(tarea.dimension_total) || 0;
@@ -1587,6 +1593,37 @@ app.post('/tasks', verifyJWT, async (req, res) => {
         ''                                           // Q: fecha_actualizacion (vacía al crear, se llenará al actualizar)
       ]);
     }
+    
+    // VALIDACIÓN FINAL: Verificar que no hay IDs duplicados en la hoja antes de insertar
+    console.log('🔍 === VERIFICACIÓN ANTI-DUPLICADOS ===');
+    const currentTasksResponse = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${tareasSheet.properties.title}!A:A`
+    });
+    
+    const existingIds = new Set();
+    if (currentTasksResponse.data.values && currentTasksResponse.data.values.length > 1) {
+      for (let i = 1; i < currentTasksResponse.data.values.length; i++) {
+        const existingId = currentTasksResponse.data.values[i][0];
+        if (existingId) existingIds.add(String(existingId));
+      }
+    }
+    
+    // Verificar cada nueva tarea
+    const idsToCreate = newRows.map(row => String(row[0]));
+    const duplicatedIds = idsToCreate.filter(id => existingIds.has(id));
+    
+    if (duplicatedIds.length > 0) {
+      console.error('🚨 DUPLICADOS DETECTADOS EN BACKEND:', duplicatedIds);
+      return res.status(409).json({ 
+        error: 'IDs duplicados detectados', 
+        duplicatedIds: duplicatedIds,
+        message: 'Por favor, regenere las tareas. Si el problema persiste, contacte al administrador.'
+      });
+    }
+    
+    console.log(`✅ Verificación completada: ${idsToCreate.length} IDs únicos confirmados`);
+    
     await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_ID,
       range: tareasSheet.properties.title,
