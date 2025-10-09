@@ -357,7 +357,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     
     console.log('Creando tarea urgente:', tareaUrgente);
     
-    this.taskService.addTask([tareaUrgente]).subscribe({
+    this.taskService.addTask([tareaUrgente], this.loggedUser?.nombre_completo || this.userId).subscribe({
       next: () => {
         this.isCreatingUrgentTask = false;
         this.hideLoadingOverlay();
@@ -873,7 +873,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     const taskCount = Array.isArray(tareasConSuperior) ? tareasConSuperior.length : 1;
     this.showLoadingOverlay(`Creando ${taskCount} tarea${taskCount > 1 ? 's' : ''}...`);
     
-    this.taskService.addTask(tareasConSuperior).subscribe({
+    this.taskService.addTask(tareasConSuperior, this.loggedUser?.nombre_completo || this.userId).subscribe({
       next: () => {
         this.hideLoadingOverlay();
         this.isAddingTask = false;

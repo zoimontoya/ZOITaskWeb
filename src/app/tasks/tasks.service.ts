@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { NewTask } from "./task/task.model";
 import { environment } from '../../environments/environment';
+import { UuidService } from '../core/services/uuid.service';
 
 @Injectable({
   providedIn: 'root'
@@ -11,7 +12,10 @@ import { environment } from '../../environments/environment';
 export class TasksService {
   private apiUrl = environment.apiBaseUrl;
 
-  constructor(private http: HttpClient) {}
+  constructor(
+    private http: HttpClient,
+    private uuidService: UuidService
+  ) {}
 
   // Obtener todas las tareas
   getTasks(): Observable<any[]> {
@@ -19,12 +23,27 @@ export class TasksService {
     return this.http.get<any[]>(`${this.apiUrl}/tasks`);
   }
 
-  // Agregar nueva tarea
-  addTask(taskData: any): Observable<any> {
+  // Agregar nueva tarea con ID único generado en frontend
+  addTask(taskData: any, userId?: string): Observable<any> {
+    // Asegurar que taskData sea un array
+    const tasksArray = Array.isArray(taskData) ? taskData : [taskData];
+    
+    // Generar IDs únicos para cada tarea
+    const tasksWithUniqueIds = tasksArray.map(task => {
+      // Solo generar ID si no existe o es temporal/duplicado
+      if (!task.id || task.id === '' || task.id.toString().includes('temp')) {
+        task.id = this.uuidService.generateTaskId(userId);
+        console.log('🆔 Generado ID único para tarea:', task.id);
+      }
+      return task;
+    });
+
     // El backend espera que las tareas estén en una propiedad 'tareas'
     const payload = {
-      tareas: Array.isArray(taskData) ? taskData : [taskData]
+      tareas: tasksWithUniqueIds
     };
+    
+    console.log('📤 Enviando tareas con IDs únicos:', payload);
     return this.http.post<any>(`${this.apiUrl}/tasks`, payload);
   }
 
