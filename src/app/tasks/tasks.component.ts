@@ -8,6 +8,7 @@ import { HttpClient } from '@angular/common/http';
 import { environment } from '../../environments/environment';
 import { forkJoin } from 'rxjs';
 import { AuthService, User } from '../auth/auth.service';
+import { DateFormatService } from '../core/services/date-format.service';
 
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
@@ -141,7 +142,8 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     private userService: UserService, 
     private trabajadoresService: TrabajadoresService, 
     private http: HttpClient,
-    private authService: AuthService
+    private authService: AuthService,
+    private dateFormatService: DateFormatService
   ) {
     console.log('🚨 TASKS COMPONENT - Constructor ejecutado, funcionalidad hectáreas activa');
   }
@@ -1595,20 +1597,8 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
       return false;
     }
     
-    try {
-      const today = new Date();
-      const dueDate = new Date(task.fecha_limite);
-      
-      // Normalizar las fechas para comparar solo la fecha (sin hora)
-      today.setHours(0, 0, 0, 0);
-      dueDate.setHours(0, 0, 0, 0);
-      
-      // La tarea está vencida si la fecha límite es anterior a hoy
-      return dueDate < today;
-    } catch (error) {
-      // Si hay error al parsear la fecha, no considerar vencida
-      return false;
-    }
+    // Usar el DateFormatService que maneja correctamente los formatos de fecha
+    return this.dateFormatService.isDateOverdue(task.fecha_limite);
   }
 
   // Formatear dimension_total para mostrar con coma decimal (hasta 4 decimales)

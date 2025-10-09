@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 import { NewTask } from "./task/task.model";
 import { environment } from '../../environments/environment';
 import { UuidService } from '../core/services/uuid.service';
+import { DateFormatService } from '../core/services/date-format.service';
 
 @Injectable({
   providedIn: 'root'
@@ -14,7 +15,8 @@ export class TasksService {
 
   constructor(
     private http: HttpClient,
-    private uuidService: UuidService
+    private uuidService: UuidService,
+    private dateFormatService: DateFormatService
   ) {
     // Limpiar cache de IDs cada 5 minutos para evitar acumulación
     setInterval(() => {
@@ -33,7 +35,7 @@ export class TasksService {
     // Asegurar que taskData sea un array
     const tasksArray = Array.isArray(taskData) ? taskData : [taskData];
     
-    // Generar IDs únicos para cada tarea
+    // Generar IDs únicos para cada tarea y convertir fechas
     const tasksWithUniqueIds = tasksArray.map(task => {
       // Solo generar ID si no existe o es temporal/duplicado
       if (!task.id || task.id === '' || task.id.toString().includes('temp')) {
@@ -42,6 +44,14 @@ export class TasksService {
       } else {
         console.log('🔄 Preservando ID existente:', task.id);
       }
+
+      // Convertir fecha_limite a formato europeo si viene en formato input (YYYY-MM-DD)
+      if (task.fecha_limite && task.fecha_limite.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        const fechaEuropea = this.dateFormatService.fromInputFormat(task.fecha_limite);
+        console.log(`📅 FRONTEND addTask - Convirtiendo fecha_limite: ${task.fecha_limite} → ${fechaEuropea}`);
+        task.fecha_limite = fechaEuropea;
+      }
+
       return task;
     });
 
@@ -138,10 +148,28 @@ export class TasksService {
 
   // Actualizar tarea
   updateTask(taskId: string, taskData: any): Observable<any> {
+    // Convertir fechas si vienen en formato input
+    const processedData = { ...taskData };
+    
+    if (processedData.fecha_limite && processedData.fecha_limite.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      processedData.fecha_limite = this.dateFormatService.fromInputFormat(processedData.fecha_limite);
+      console.log(`📅 FRONTEND updateTask - fecha_limite: ${taskData.fecha_limite} → ${processedData.fecha_limite}`);
+    }
+    
+    if (processedData.fecha_inicio && processedData.fecha_inicio.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      processedData.fecha_inicio = this.dateFormatService.fromInputFormat(processedData.fecha_inicio);
+      console.log(`📅 FRONTEND updateTask - fecha_inicio: ${taskData.fecha_inicio} → ${processedData.fecha_inicio}`);
+    }
+    
+    if (processedData.fecha_fin && processedData.fecha_fin.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      processedData.fecha_fin = this.dateFormatService.fromInputFormat(processedData.fecha_fin);
+      console.log(`📅 FRONTEND updateTask - fecha_fin: ${taskData.fecha_fin} → ${processedData.fecha_fin}`);
+    }
+
     return this.http.post<any>(`${this.apiUrl}/tasks`, { 
       action: 'update', 
       id: taskId,
-      ...taskData 
+      ...processedData 
     });
   }
 

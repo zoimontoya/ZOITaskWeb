@@ -116,6 +116,85 @@ app.use((req, res, next) => {
 const SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID || '1EEZlootxR63QHicF2cQ5GDmzQJ31V22fE202LXkufc4';
 
+// Función auxiliar para formatear fechas al formato europeo DD/MM/YYYY
+function formatDateToEuropean(date) {
+  console.log(`🔧 formatDateToEuropean ENTRADA: "${date}" tipo: ${typeof date}`);
+  
+  if (!date) {
+    console.log(`🔧 formatDateToEuropean SALIDA: fecha vacía`);
+    return '';
+  }
+  
+  let dateObj;
+  if (typeof date === 'string') {
+    // Si viene en formato YYYY-MM-DD, convertir correctamente
+    if (date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      console.log(`🔧 Detectado formato ISO: ${date}`);
+      const parts = date.split('-');
+      dateObj = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+      console.log(`🔧 Parseado manualmente: año=${parts[0]}, mes=${parts[1]}, día=${parts[2]}`);
+    } else if (date.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) {
+      // Si ya viene en formato DD/MM/YYYY, devolverlo tal como está
+      console.log(`🔧 Ya en formato europeo: ${date}`);
+      return date;
+    } else {
+      console.log(`🔧 Formato desconocido, usando new Date(): ${date}`);
+      dateObj = new Date(date);
+    }
+  } else {
+    console.log(`🔧 Entrada es objeto Date: ${date}`);
+    dateObj = new Date(date);
+  }
+  
+  // Verificar que es una fecha válida
+  if (isNaN(dateObj.getTime())) {
+    console.error('❌ Fecha inválida en backend:', date);
+    return '';
+  }
+  
+  // Formato DD/MM/YYYY garantizado
+  const day = dateObj.getDate().toString().padStart(2, '0');
+  const month = (dateObj.getMonth() + 1).toString().padStart(2, '0');
+  const year = dateObj.getFullYear();
+  
+  const result = `${day}/${month}/${year}`;
+  console.log(`📅 formatDateToEuropean RESULTADO: "${date}" → "${result}"`);
+  return result;
+}
+
+// Función auxiliar para obtener fecha actual en formato europeo
+function getCurrentEuropeanDate() {
+  return formatDateToEuropean(new Date());
+}
+
+// Función para convertir fecha europea (DD/MM/YYYY) a formato ISO (YYYY-MM-DD) para JavaScript
+function parseEuropeanDateToISO(europeanDate) {
+  console.log(`🔄 parseEuropeanDateToISO ENTRADA: "${europeanDate}"`);
+  
+  if (!europeanDate || europeanDate === '') {
+    console.log(`🔄 parseEuropeanDateToISO SALIDA: fecha vacía`);
+    return '';
+  }
+  
+  // Si ya está en formato ISO, devolverla como está
+  if (String(europeanDate).match(/^\d{4}-\d{2}-\d{2}/)) {
+    console.log(`🔄 parseEuropeanDateToISO YA ES ISO: ${europeanDate}`);
+    return String(europeanDate);
+  }
+  
+  // Buscar formato DD/MM/YYYY
+  const europeanMatch = String(europeanDate).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (europeanMatch) {
+    const [, day, month, year] = europeanMatch;
+    const isoDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    console.log(`🔄 parseEuropeanDateToISO CONVERSIÓN: ${europeanDate} → ${isoDate}`);
+    return isoDate;
+  }
+  
+  console.log(`🔄 parseEuropeanDateToISO NO CONVERTIBLE: ${europeanDate}`);
+  return String(europeanDate);
+}
+
 // 🔒 Configuración segura de credenciales de Google
 const getGoogleAuth = () => {
   // Opción 1: Variables de entorno (Docker/Producción)
@@ -939,12 +1018,18 @@ app.get('/tasks', optionalJWT, async (req, res) => {
         hora_jornal: (row[4] !== undefined && row[4] !== '') ? row[4] : '0',  // E - CAMPO CLAVE (por defecto 0 = 6h)
         horas_kilos: Number(row[5]) || 0,              // F - Convertir a número (0=Hectáreas, 1=Kilos)
         jornales_reales: row[6] || '0',                // G
-        fecha_limite: row[7] || '',                    // H
+        fecha_limite: (() => {
+          const originalDate = row[7] || '';
+          console.log(`🔍 FECHA LIMITE ORIGINAL - Tarea ${row[0]}: "${originalDate}" (tipo: ${typeof originalDate})`);
+          const convertedDate = parseEuropeanDateToISO(originalDate);
+          console.log(`🔍 FECHA LIMITE CONVERTIDA - Tarea ${row[0]}: "${originalDate}" → "${convertedDate}"`);
+          return convertedDate;
+        })(),  // H - Convertir DD/MM/YYYY a YYYY-MM-DD para JavaScript
         encargado_id: row[8] || '',                    // I
         descripcion: row[9] || '',                     // J
         nombre_superior: row[10] || '',                // K
-        fecha_inicio: row[11] || '',                   // L
-        fecha_fin: row[12] || '',                      // M
+        fecha_inicio: parseEuropeanDateToISO(row[11]) || '',  // L - Convertir DD/MM/YYYY a YYYY-MM-DD
+        fecha_fin: parseEuropeanDateToISO(row[12]) || '',     // M - Convertir DD/MM/YYYY a YYYY-MM-DD
         desarrollo_actual: row[13] || '',              // N
         dimension_total: row[14] || '',                // O
         proceso: row[15] || 'No iniciado',             // P - ÚNICO campo de estado
@@ -1239,12 +1324,12 @@ app.post('/tasks', verifyJWT, async (req, res) => {
         horaJornal,                                    // E: hora_jornal (0=6hrs, 1=8hrs)
         horasKilos,                                    // F: horas_kilos (0=Hectáreas, 1=Kilos)
         esTareaUrgente ? Number(rows[rowIndex][6]) || 0 : Number(req.body.jornales_reales) || 0,  // G: preservar jornales_reales originales para urgentes
-        req.body.fecha_limite,                         // H: fecha_limite
+        formatDateToEuropean(req.body.fecha_limite),   // H: fecha_limite en formato DD/MM/YYYY
         req.body.encargado_id,                         // I: encargado_id
         req.body.descripcion,                          // J: descripcion
         req.body.nombre_superior || '',                // K: nombre_superior
-        req.body.fecha_inicio || '',                   // L: fecha_inicio
-        req.body.fecha_fin || '',                      // M: fecha_fin
+        formatDateToEuropean(req.body.fecha_inicio),   // L: fecha_inicio en formato DD/MM/YYYY
+        formatDateToEuropean(req.body.fecha_fin),      // M: fecha_fin en formato DD/MM/YYYY
         parseFloat((parseFloat(req.body.desarrollo_actual) || 0).toFixed(3)),      // N: desarrollo_actual (máximo 3 decimales)
         parseFloat((parseFloat(req.body.dimension_total) || 0).toFixed(3)),     // O: dimension_total (máximo 3 decimales)
         req.body.proceso || 'No iniciado',             // P: proceso (ÚNICO campo de estado)
@@ -1573,7 +1658,12 @@ app.post('/tasks', verifyJWT, async (req, res) => {
         console.log(`📊 TAREA NORMAL - jornales_reales inicia en 0`);
       }
       
-      newRows.push([
+      console.log(`🚀 PREPARANDO FILA PARA GOOGLE SHEETS - tarea ID: ${tarea.id}`);
+      console.log(`📅 FECHA ANTES DE CONVERSION: "${tarea.fecha_limite}"`);
+      const fechaConvertida = formatDateToEuropean(tarea.fecha_limite);
+      console.log(`📅 FECHA DESPUES DE CONVERSION: "${fechaConvertida}"`);
+      
+      const row = [
         tarea.id,                                    // A: id
         tarea.invernadero,                           // B: invernadero
         tarea.tipo_tarea,                            // C: tipo_tarea
@@ -1581,7 +1671,7 @@ app.post('/tasks', verifyJWT, async (req, res) => {
         horaJornal,                                  // E: hora_jornal (0=SIN cálculos para urgentes, 1=8hrs)
         horasKilos,                                  // F: horas_kilos (0=Hectáreas, 1=Kilos)
         jornalesReales,                              // G: jornales_reales (0 para normales, horas directas para urgentes)
-        tarea.fecha_limite,                          // H: fecha_limite
+        fechaConvertida,                             // H: fecha_limite en formato DD/MM/YYYY
         tarea.encargado_id,                          // I: encargado_id
         tarea.descripcion,                           // J: descripcion
         tarea.nombre_superior || '',                 // K: nombre_superior (CLAVE para detección)
@@ -1591,7 +1681,10 @@ app.post('/tasks', verifyJWT, async (req, res) => {
         parseFloat((parseFloat(dimensionTotalSeleccionada) || 0).toFixed(3)), // O: dimension_total (máximo 3 decimales)
         tarea.proceso || 'No iniciado',              // P: proceso (respeta valor del frontend)
         ''                                           // Q: fecha_actualizacion (vacía al crear, se llenará al actualizar)
-      ]);
+      ];
+      
+      console.log(`📋 FILA COMPLETA PREPARADA:`, row);
+      newRows.push(row);
     }
     
     // VALIDACIÓN FINAL: Verificar que no hay IDs duplicados en la hoja antes de insertar
@@ -1714,7 +1807,7 @@ app.post('/tasks/:id/accept', verifyJWT, async (req, res) => {
     
     // Actualizar fecha_inicio (columna L = índice 11) y proceso (columna P = índice 15)
     // NO actualizamos fecha_actualizacion aquí porque "aceptar" no es lo mismo que "actualizar progreso"
-    currentRow[11] = today; // fecha_inicio (columna L)
+    currentRow[11] = getCurrentEuropeanDate(); // fecha_inicio (columna L) en formato DD/MM/YYYY
     currentRow[15] = 'Iniciada'; // proceso (columna P)
     
     await sheets.spreadsheets.values.update({
@@ -1822,7 +1915,7 @@ app.post('/tasks/:id/complete-direct', verifyJWT, async (req, res) => {
     }
     
     // PASO 2: Completar la tarea
-    currentRow[12] = today; // fecha_fin (columna M)
+    currentRow[12] = getCurrentEuropeanDate(); // fecha_fin (columna M) en formato DD/MM/YYYY
     currentRow[15] = 'Terminada'; // proceso (columna P)
     currentRow[16] = fechaActual; // fecha_actualizacion (columna Q)
     
@@ -1891,10 +1984,10 @@ app.post('/tasks/:id/complete', verifyJWT, async (req, res) => {
       currentRow.push('');
     }
     
-    const fechaActual = new Date().toLocaleDateString('es-ES'); // Formato DD/MM/YYYY
+    const fechaActual = getCurrentEuropeanDate(); // Formato DD/MM/YYYY consistente
 
     // Actualizar fecha_fin (columna M = índice 12), proceso (columna P = índice 15) y fecha_actualizacion (columna Q = índice 16)
-    currentRow[12] = today; // fecha_fin (columna M) - YYYY-MM-DD
+    currentRow[12] = getCurrentEuropeanDate(); // fecha_fin (columna M) en formato DD/MM/YYYY
     currentRow[15] = 'Terminada'; // proceso (columna P)
     currentRow[16] = fechaActual; // fecha_actualizacion (columna Q) - DD/MM/YYYY - para tracking
     
