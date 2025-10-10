@@ -1,3 +1,4 @@
+// ...imports y declaraciones previas...
 import { Component, Input, OnInit, OnDestroy, OnChanges } from '@angular/core';
 import { TasksService } from './tasks.service';
 import { Task } from './task/task.model';
@@ -32,6 +33,12 @@ interface TipoTarea {
   styleUrls: ['./tasks.component.css']
 })
 export class TasksComponent implements OnInit, OnDestroy, OnChanges {
+  // Devuelve el progreso mínimo permitido (el actual de la tarea)
+  getMinProgress(): number {
+    if (!this.taskToComplete) return 0;
+    // Puede venir como string o number
+    return Number(this.taskToComplete.progreso) || 0;
+  }
   // Propiedades de usuario - ahora se obtienen del AuthService
   isEncargado: boolean = false;
   name?: string;
@@ -574,7 +581,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
 
   loadTasks() {
     console.log('📋 TasksComponent.loadTasks() INICIADO');
-    console.log('👤 Usuario actual al cargar tareas:', this.loggedUser);
+    console.log('👤 Usuario current al cargar tareas:', this.loggedUser);
     console.log('🎫 Token disponible:', !!this.authService.getToken());
     
     // Resetear flag de inicialización al completar carga
@@ -928,7 +935,8 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     }
     
     this.taskToComplete = task;
-    this.progressValue = Number(this.getTaskState(task)) || 0; // Usar el estado unificado para el porcentaje
+    // Usar el porcentaje real de progreso si existe, si no, 0
+    this.progressValue = Number(task.progreso) || 0;
     this.jornalesRealesValue = 0; // Siempre empezar vacío para que el encargado ingrese las horas del día
     
     // Resetear validación de trabajadores
@@ -949,32 +957,32 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
 
   onUpdateProgressOnly() {
     if (!this.taskToComplete || this.isProcessing) return;
-    
     // Verificar si la tarea ya fue actualizada hoy
     if (this.isTaskUpdatedToday(this.taskToComplete)) {
       this.showNotificationMessage('Esta tarea ya fue actualizada hoy. Podrá actualizarla mañana.', 'warning');
       return;
     }
-    
+    // Solo permitir actualizar si el progreso subió
+    const minProgress = this.getMinProgress();
+    if (!this.isKilosMode(this.taskToComplete) && Number(this.progressValue) === Number(minProgress)) {
+      this.showNotificationMessage('Debes mover la barra de progreso para actualizar.', 'warning');
+      return;
+    }
     this.isProcessing = true;
-    
     // Validar que se haya ingresado el número de horas reales
     if (!this.jornalesRealesValue || this.jornalesRealesValue <= 0) {
       this.showNotificationMessage('Por favor, ingresa el número de horas realmente trabajadas.', 'warning');
       this.isProcessing = false;
       return;
     }
-
     // Validar que se hayan asignado trabajadores
     if (!this.canProceedWithUpdate()) {
       this.showNotificationMessage('Debe asignar trabajadores y validar que las horas cuadren antes de actualizar el progreso.', 'warning');
       this.isProcessing = false;
       return;
     }
-    
     let progressValue: number | string;
     let desarrolloValue: number;
-    
     if (this.isKilosMode(this.taskToComplete)) {
       // MODO KILOS: Solo registrar kilos recogidos sin calcular porcentaje ni meta
       if (!this.kilosRecogidosValue || this.kilosRecogidosValue <= 0) {
@@ -982,50 +990,46 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
         this.isProcessing = false;
         return;
       }
-      
       // En modo kilos: progreso siempre permanece como "Iniciada"
-      progressValue = "Iniciada"; // Mantener como "Iniciada" para tareas de kilos
+      progressValue = "Iniciada";
       desarrolloValue = this.kilosRecogidosValue;
-      
       console.log(`MODO KILOS: ${this.kilosRecogidosValue} kg registrados (progreso: Iniciada)`);
     } else {
-      // MODO HECTÁREAS: Como antes
-      if (this.progressValue === (Number(this.taskToComplete.progreso) || 0)) {
-        return; // No hay cambios
+      // MODO HECTÁREAS: Solo permitir aumentar el progreso
+      if (this.progressValue < minProgress) {
+        this.progressValue = minProgress;
+        this.showNotificationMessage('No puedes bajar el progreso de la tarea.', 'warning');
+        this.isProcessing = false;
+        return;
       }
-      
       const totalHectares = this.parseDimension(this.taskToComplete.dimension_total);
       const hectareasActuales = (totalHectares * this.progressValue) / 100;
-      
       progressValue = this.progressValue;
       desarrolloValue = hectareasActuales;
-      
       console.log(`MODO HECTÁREAS: ${this.progressValue}% = ${hectareasActuales}/${totalHectares} Ha`);
     }
-    
     this.showLoadingOverlay('Actualizando progreso...');
-    
     this.taskService.updateTaskProgress(this.taskToComplete.id, progressValue, desarrolloValue, this.jornalesRealesValue, this.trabajadoresAsignados, this.name).subscribe({
-        next: () => {
-          console.log('Progreso actualizado correctamente');
-          this.hideLoadingOverlay();
-          this.showCompleteModal = false;
-          this.taskToComplete = null;
-          this.progressValue = 0;
-          this.jornalesRealesValue = 0; // Limpiar jornales reales
-          this.kilosRecogidosValue = 0; // Limpiar kilos recogidos
-          this.hectareasTrabajadasValue = 0; // Limpiar hectáreas trabajadas
-          this.loadTasks(); // Recargar para ver cambios
-          this.isProcessing = false;
-          this.showNotificationMessage('Progreso actualizado correctamente', 'success');
-        },
-        error: (err: any) => {
-          console.error('Error al actualizar progreso:', err);
-          this.hideLoadingOverlay();
-          this.showNotificationMessage('Error al actualizar el progreso. Inténtalo de nuevo.', 'error');
-          this.isProcessing = false;
-        }
-      });
+      next: () => {
+        console.log('Progreso actualizado correctamente');
+        this.hideLoadingOverlay();
+        this.showCompleteModal = false;
+        this.taskToComplete = null;
+        this.progressValue = 0;
+        this.jornalesRealesValue = 0;
+        this.kilosRecogidosValue = 0;
+        this.hectareasTrabajadasValue = 0;
+        this.loadTasks();
+        this.isProcessing = false;
+        this.showNotificationMessage('Progreso actualizado correctamente', 'success');
+      },
+      error: (err: any) => {
+        console.error('Error al actualizar progreso:', err);
+        this.hideLoadingOverlay();
+        this.showNotificationMessage('Error al actualizar el progreso. Inténtalo de nuevo.', 'error');
+        this.isProcessing = false;
+      }
+    });
   }
 
   onConfirmCompleteTask() {
@@ -1794,10 +1798,27 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   // Sincronizar porcentaje con hectáreas trabajadas
   onProgressSliderChange(): void {
     if (!this.taskToComplete) return;
-    
     const totalHectares = this.parseDimension(this.taskToComplete.dimension_total);
     if (totalHectares > 0) {
       // Calcular las hectáreas basado en el porcentaje
+      this.hectareasTrabajadasValue = parseFloat(((totalHectares * this.progressValue) / 100).toFixed(2));
+    }
+  }
+
+  // Lógica para evitar que el usuario baje del progreso actual visualmente en el slider
+  onProgressSliderInput(event: Event): void {
+    if (!this.taskToComplete) return;
+    const min = this.getMinProgress();
+    const input = event.target as HTMLInputElement;
+    let value = Number(input.value);
+    if (value < min) {
+      value = min;
+      input.value = String(min);
+    }
+    this.progressValue = value;
+    // Sincronizar hectáreas trabajadas
+    const totalHectares = this.parseDimension(this.taskToComplete.dimension_total);
+    if (totalHectares > 0) {
       this.hectareasTrabajadasValue = parseFloat(((totalHectares * this.progressValue) / 100).toFixed(2));
     }
   }

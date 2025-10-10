@@ -274,10 +274,10 @@
                 <div class="progress-container">
                     <input 
                         type="range" 
-                        min="0" 
+                        min="0"
                         max="100" 
                         [(ngModel)]="progressValue"
-                        (input)="onProgressSliderChange()"
+                        (input)="onProgressSliderInput($event)"
                         class="progress-slider"
                         [class.complete]="progressValue === 100">
                     <div class="progress-display">
@@ -388,12 +388,12 @@
             </div>
         </div>
         <div class="modal-actions">
-            <button 
-                class="task-action-btn update-btn" 
-                (click)="onUpdateProgressOnly()"
-                [disabled]="isProcessing || !canProceedWithUpdate() || (!isKilosMode(taskToComplete) && (progressValue === (taskToComplete?.progreso || 0) || progressValue === 100))">
-                📊 <span *ngIf="isKilosMode(taskToComplete)">{{isProcessing ? 'Registrando...' : 'Registrar kilos'}}</span><span *ngIf="!isKilosMode(taskToComplete)">{{isProcessing ? 'Actualizando...' : 'Actualizar progreso'}}</span>
-            </button>
+                <button 
+                    class="task-action-btn update-btn" 
+                    (click)="onUpdateProgressOnly()"
+                    [disabled]="isProcessing || !canProceedWithUpdate() || (!isKilosMode(taskToComplete) && (toNumber(progressValue) === toNumber(getMinProgress()) || toNumber(progressValue) === 100))">
+                    📊 <span *ngIf="isKilosMode(taskToComplete)">{{isProcessing ? 'Registrando...' : 'Registrar kilos'}}</span><span *ngIf="!isKilosMode(taskToComplete)">{{isProcessing ? 'Actualizando...' : 'Actualizar progreso'}}</span>
+                </button>
             <button 
                 class="task-action-btn complete-btn" 
                 (click)="onConfirmCompleteTask()"
