@@ -1,6 +1,3 @@
-
-
-
 <app-newTask *ngIf="isAddingTask" [loggedUser]="loggedUser" (cancel)="onCancelAddTask()" (add)="onAddTask($event)"></app-newTask>
 <app-newTask *ngIf="editingTask" [task]="editingTask" [loggedUser]="loggedUser" (cancel)="onCancelEditTask()" (add)="onEditTask($event)"></app-newTask>
 
@@ -59,19 +56,23 @@
                 <label class="form-label">Hectáreas trabajadas</label>
                 <div class="urgent-hectareas-controls">
                     <!-- Barra deslizante -->
-                    <div class="urgent-area-slider-container">
+                    <div class="urgent-area-slider-container" style="position: relative; width: 100%;">
+                        <!-- Barra de fondo (track) -->
+                        <div class="urgent-slider-track-bg" style="width: 90%; left: 5%; position: absolute; top: 50%; transform: translateY(-50%); z-index: 1;" *ngIf="getSelectedInvernaderoMaxArea() > 0"></div>
+                        <div class="urgent-slider-track-fill" 
+                             [style.width.%]="(urgentTask.hectareas_trabajadas / getSelectedInvernaderoMaxArea()) * 90"
+                             style="left: 5%; position: absolute; top: 50%; transform: translateY(-50%); z-index: 2; background: #90ee90; height: 6px; border-radius: 3px;"
+                             *ngIf="getSelectedInvernaderoMaxArea() > 0"></div>
                         <input 
                             type="range" 
-                            class="urgent-area-slider"
-                            [min]="0"
+                            min="0.001"
                             [max]="getSelectedInvernaderoMaxArea()"
                             step="0.001"
-                            [value]="urgentTask.hectareas_trabajadas || 0"
+                            [value]="urgentTask.hectareas_trabajadas || 0.001"
                             (input)="onUrgentHectareasSliderChange($event)"
-                            id="urgentHectareasSlider">
-                        <div class="urgent-slider-track-bg"></div>
-                        <div class="urgent-slider-track-fill" 
-                             [style.width.%]="getUrgentHectareasPercentage()"></div>
+                            id="urgentHectareasSlider"
+                            class="progress-slider"
+                            style="position: relative; z-index: 3; width: 100%; background: transparent;">
                     </div>
                     
                     <!-- Input numérico -->
@@ -79,7 +80,7 @@
                         <input 
                             type="number" 
                             class="urgent-area-input"
-                            [min]="0"
+                            min="0.001"
                             [max]="getSelectedInvernaderoMaxArea()"
                             step="0.001"
                             [value]="getUrgentHectareasFormattedValue()"

@@ -332,12 +332,15 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
         this.urgentTask.horas_trabajadas <= 0) {
       return;
     }
-    
+    // Validar que las hectáreas trabajadas sean mayores a 0
+    if (!this.urgentTask.hectareas_trabajadas || this.urgentTask.hectareas_trabajadas <= 0) {
+      this.showNotificationMessage('Debes indicar una cantidad de hectáreas trabajadas mayor a 0.', 'warning');
+      return;
+    }
     // 🏪 Validación específica para tareas de confección
     if (this.shouldShowGeneroSelector() && !this.selectedGenero.trim()) {
       return; // Si es una tarea ALMACEN-CONFECC, el género es obligatorio
     }
-    
     this.isCreatingUrgentTask = true;
     this.showLoadingOverlay('Creando tarea urgente...');
     
@@ -648,7 +651,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
                                           this.encargadosDelCabezal.includes(encargadoTarea);
             
             // 4. NUEVA LÓGICA: Tareas en invernaderos del cabezal del superior
-            // Esto asegura que vean TODAS las tareas de su cabezal, sin importar quién las creó
+            // Esto asegura que vean TODAS las tareas de su cabezal, sin importar quién las crearon
             const tareaEnInvernaderoDeCabezal = this.isTaskInUserCabezal(t);
             
             return esCreadorDeLaTarea || esTareaPropia || encargadoEsDelCabezal || tareaEnInvernaderoDeCabezal;
@@ -1338,22 +1341,15 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   selectUrgentInvernadero(invernadero: string) {
     console.log('🚨 selectUrgentInvernadero - Seleccionando:', invernadero);
     this.urgentTask.invernadero = invernadero;
-    
     // Buscar directamente en urgentInvernaderosWithDimensions para obtener el área máxima
     const invData = this.urgentInvernaderosWithDimensions.find(inv => inv.nombre === invernadero);
     const maxArea = invData ? invData.dimensiones : 0;
-    
-    console.log('🚨 DETALLE - invData:', invData);
-    console.log('🚨 DETALLE - maxArea exacto:', maxArea);
-    console.log('🚨 DETALLE - typeof maxArea:', typeof maxArea);
-    console.log('🚨 DETALLE - maxArea como string:', maxArea.toString());
-    
-    // Inicializar con el área máxima disponible (como en newTask)
-    this.urgentTask.hectareas_trabajadas = maxArea;
-    
-    console.log('🚨 DETALLE - hectareas_trabajadas asignado:', this.urgentTask.hectareas_trabajadas);
-    console.log('🚨 DETALLE - hectareas_trabajadas como string:', this.urgentTask.hectareas_trabajadas.toString());
-    
+    // Inicializar al 100% del área si hay área, si no, 0
+    if (maxArea > 0) {
+      this.urgentTask.hectareas_trabajadas = maxArea;
+    } else {
+      this.urgentTask.hectareas_trabajadas = 0;
+    }
     this.syncUrgentDimensionValues();
     this.isUrgentInvernaderoOpen = false;
     this.urgentInvernaderoSearch = '';
