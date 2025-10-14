@@ -1,0 +1,5 @@
+@import './modal-message.component.css';
+.modal-message.confirm-exit-modal,
+.modal-message.confirm-exit-modal .modal-text {
+  color: #000 !important;
+}

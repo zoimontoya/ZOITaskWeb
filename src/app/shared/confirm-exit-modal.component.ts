@@ -7,7 +7,7 @@ import { CommonModule } from '@angular/common';
   imports: [CommonModule],
   template: `
     <div class="modal-backdrop" *ngIf="visible"></div>
-    <div class="modal-message" *ngIf="visible">
+    <div class="modal-message confirm-exit-modal" *ngIf="visible">
       <div class="modal-content">
         <h3>¿Salir del formulario?</h3>
         <div class="modal-text">Si sales ahora, perderás los cambios no guardados.</div>
@@ -18,7 +18,7 @@ import { CommonModule } from '@angular/common';
       </div>
     </div>
   `,
-  styleUrls: ['./modal-message.component.css']
+  styleUrls: ['./confirm-exit-modal.component.css']
 })
 export class ConfirmExitModalComponent {
   @Input() visible = false;

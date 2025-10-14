@@ -774,7 +774,7 @@ select:required::after {
 }
 
 .encargado-mode-toggle .toggle-description {
-  color: #b8e6b8;
+  color: #000000;
   font-size: 0.8rem;
   font-style: italic;
 }
