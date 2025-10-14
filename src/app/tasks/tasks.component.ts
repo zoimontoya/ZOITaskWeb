@@ -16,6 +16,7 @@ import { CommonModule } from '@angular/common';
 import { newTaskComponent } from './newTask/newTask.component';
 import { AsignarTrabajadoresComponent } from '../trabajadores/asignar-trabajadores/asignar-trabajadores.component';
 import { ModalMessageComponent } from '../shared/modal-message.component';
+import { ConfirmExitModalComponent } from '../shared/confirm-exit-modal.component';
 
 interface TipoTarea {
   grupo_trabajo: string;
@@ -29,11 +30,15 @@ interface TipoTarea {
 @Component({
   selector: 'app-tasks',
   standalone: true,
-  imports: [CommonModule, FormsModule, newTaskComponent, AsignarTrabajadoresComponent, ModalMessageComponent],
+  imports: [CommonModule, FormsModule, newTaskComponent, AsignarTrabajadoresComponent, ModalMessageComponent, ConfirmExitModalComponent],
   templateUrl: './tasks.component.html',
   styleUrls: ['./tasks.component.css']
 })
 export class TasksComponent implements OnInit, OnDestroy, OnChanges {
+  // Modal de confirmación de salida
+  showConfirmExitModal = false;
+  pendingExitAction: (() => void) | null = null;
+// ...existing code...
   // Devuelve el progreso mínimo permitido (el actual de la tarea)
   getMinProgress(): number {
     if (!this.taskToComplete) return 0;
@@ -186,8 +191,11 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   }
   
   onCancelUrgentTask() {
-    this.showUrgentTaskModal = false;
-    this.resetUrgentTask();
+    this.showConfirmExitModal = true;
+    this.pendingExitAction = () => {
+      this.showUrgentTaskModal = false;
+      this.resetUrgentTask();
+    };
   }
   
   onUrgentTaskModalOverlayClick(event: MouseEvent) {
@@ -852,7 +860,10 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   }
 
   onCancelEditTask() {
-    this.editingTask = null;
+    this.showConfirmExitModal = true;
+    this.pendingExitAction = () => {
+      this.editingTask = null;
+    };
   }
 
   onEditTask(updatedTask: any) {
@@ -909,7 +920,10 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   }
 
   onCancelAddTask() {
-    this.isAddingTask = false;
+    this.showConfirmExitModal = true;
+    this.pendingExitAction = () => {
+      this.isAddingTask = false;
+    };
   }
 
   onAddTask(taskData: any) {
@@ -1160,7 +1174,22 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
 
   onModalOverlayClick(event: MouseEvent) {
     // Cerrar modal al hacer clic en el overlay (fuera del modal)
-    this.onCancelCompleteTask();
+    this.showConfirmExitModal = true;
+    this.pendingExitAction = () => {
+      this.onCancelCompleteTask();
+    };
+  }
+  onConfirmExit() {
+    if (this.pendingExitAction) {
+      this.pendingExitAction();
+    }
+    this.showConfirmExitModal = false;
+    this.pendingExitAction = null;
+  }
+
+  onCancelExit() {
+    this.showConfirmExitModal = false;
+    this.pendingExitAction = null;
   }
 
   onDeleteModalOverlayClick(event: MouseEvent) {

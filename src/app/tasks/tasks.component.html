@@ -264,6 +264,11 @@
 </div>
 
 <!-- ModalMessageComponent always on top -->
+<app-confirm-exit-modal 
+    [visible]="showConfirmExitModal" 
+    (confirm)="onConfirmExit()" 
+    (cancel)="onCancelExit()">
+</app-confirm-exit-modal>
 <app-modal-message #modalMessage></app-modal-message>
 
 <div *ngIf="showCompleteModal" class="modal-overlay" (click)="onModalOverlayClick($event)">
@@ -696,4 +701,10 @@
         <div class="loading-message">{{loadingMessage}}</div>
     </div>
 </div>
+
+<app-confirm-exit-modal 
+  [visible]="showConfirmExitModal" 
+  (confirm)="onConfirmExit()" 
+  (cancel)="onCancelExit()">
+</app-confirm-exit-modal>
 
