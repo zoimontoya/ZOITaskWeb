@@ -1439,7 +1439,17 @@ app.post('/tasks', verifyJWT, async (req, res) => {
         
         // Para tareas de kilos, mantener el valor como string, para hectáreas convertir a número
         let progresoValue;
-        if (req.body.progreso === 'Iniciada' || req.body.progreso === 'No iniciado' || req.body.progreso === 'Terminada') {
+        // Si la tarea es de kilos y no está terminada, poner 'Recolectando'
+        const horasKilosCol = headers.findIndex(h => h && h.toLowerCase().includes('horas_kilos'));
+        let isKilosTask = false;
+        if (horasKilosCol >= 0 && rows[rowIndex][horasKilosCol] !== undefined) {
+          isKilosTask = String(rows[rowIndex][horasKilosCol]).trim() === '1';
+        } else if (req.body.horas_kilos !== undefined) {
+          isKilosTask = String(req.body.horas_kilos).trim() === '1';
+        }
+        if (isKilosTask && req.body.progreso !== 'Terminada') {
+          progresoValue = 'Recolectando';
+        } else if (req.body.progreso === 'Iniciada' || req.body.progreso === 'No iniciado' || req.body.progreso === 'Terminada') {
           progresoValue = req.body.progreso; // Mantener como string
         } else {
           progresoValue = Number(req.body.progreso) || 0; // Convertir a número para porcentajes
