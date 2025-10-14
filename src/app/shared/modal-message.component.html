@@ -1,0 +1,8 @@
+<div class="modal-backdrop" *ngIf="visible"></div>
+<div class="modal-message" *ngIf="visible">
+  <div class="modal-content">
+    <h3>{{ title }}</h3>
+    <p>{{ message }}</p>
+    <button (click)="hide()">Cerrar</button>
+  </div>
+</div>

@@ -258,9 +258,13 @@
         <div class="modal-actions">
             <button class="task-action-btn delete-btn" (click)="confirmDeleteTask()">Sí, eliminar</button>
             <button class="task-action-btn" (click)="cancelDeleteTask()">Cancelar</button>
+
         </div>
     </div>
 </div>
+
+<!-- ModalMessageComponent always on top -->
+<app-modal-message #modalMessage></app-modal-message>
 
 <div *ngIf="showCompleteModal" class="modal-overlay" (click)="onModalOverlayClick($event)">
     <div class="modal-confirm complete-modal" (click)="$event.stopPropagation()">

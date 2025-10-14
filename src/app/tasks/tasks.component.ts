@@ -1,5 +1,5 @@
 // ...imports y declaraciones previas...
-import { Component, Input, OnInit, OnDestroy, OnChanges } from '@angular/core';
+import { Component, Input, OnInit, OnDestroy, OnChanges, ViewChild, ChangeDetectorRef } from '@angular/core';
 import { TasksService } from './tasks.service';
 import { Task } from './task/task.model';
 import { GreenhouseService, Greenhouse } from './greenhouse.service';
@@ -15,6 +15,7 @@ import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { newTaskComponent } from './newTask/newTask.component';
 import { AsignarTrabajadoresComponent } from '../trabajadores/asignar-trabajadores/asignar-trabajadores.component';
+import { ModalMessageComponent } from '../shared/modal-message.component';
 
 interface TipoTarea {
   grupo_trabajo: string;
@@ -28,7 +29,7 @@ interface TipoTarea {
 @Component({
   selector: 'app-tasks',
   standalone: true,
-  imports: [CommonModule, FormsModule, newTaskComponent, AsignarTrabajadoresComponent],
+  imports: [CommonModule, FormsModule, newTaskComponent, AsignarTrabajadoresComponent, ModalMessageComponent],
   templateUrl: './tasks.component.html',
   styleUrls: ['./tasks.component.css']
 })
@@ -143,6 +144,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   
 
 
+  @ViewChild('modalMessage', { static: false }) modalMessage!: ModalMessageComponent;
   constructor(
     private taskService: TasksService, 
     private greenhouseService: GreenhouseService, 
@@ -150,11 +152,12 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     private trabajadoresService: TrabajadoresService, 
     private http: HttpClient,
     private authService: AuthService,
-    private dateFormatService: DateFormatService
+    private dateFormatService: DateFormatService,
+    private cdr: ChangeDetectorRef
   ) {
     console.log('🚨 TASKS COMPONENT - Constructor ejecutado, funcionalidad hectáreas activa');
   }
-  
+
   // ===== MÉTODOS PARA TAREAS URGENTES =====
   
   onStartUrgentTask() {
@@ -325,25 +328,41 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   
   onSubmitUrgentTask() {
     if (this.isCreatingUrgentTask) return; // Evitar doble envío
-    
+
     // Validaciones básicas
-    if (!this.urgentTask.invernadero.trim() || 
-        !this.urgentTask.tipo_tarea.trim() || 
-        this.urgentTask.horas_trabajadas <= 0) {
+    if (!this.urgentTask.invernadero.trim() || !this.urgentTask.tipo_tarea.trim() || this.urgentTask.horas_trabajadas <= 0) {
+      if (this.modalMessage) {
+        this.modalMessage.show('Debes completar todos los campos obligatorios (invernadero, tipo de tarea y horas trabajadas).', 'Campos requeridos');
+        this.cdr.detectChanges();
+      }
       return;
     }
     // Validar que las hectáreas trabajadas sean mayores a 0
     if (!this.urgentTask.hectareas_trabajadas || this.urgentTask.hectareas_trabajadas <= 0) {
-      this.showNotificationMessage('Debes indicar una cantidad de hectáreas trabajadas mayor a 0.', 'warning');
+      if (this.modalMessage) {
+        this.modalMessage.show('Debes indicar una cantidad de hectáreas trabajadas mayor a 0.', 'Campos requeridos');
+        this.cdr.detectChanges();
+      }
       return;
     }
     // 🏪 Validación específica para tareas de confección
     if (this.shouldShowGeneroSelector() && !this.selectedGenero.trim()) {
+      if (this.modalMessage) {
+        this.modalMessage.show('Debes seleccionar un género para tareas de confección.', 'Campos requeridos');
+        this.cdr.detectChanges();
+      }
       return; // Si es una tarea ALMACEN-CONFECC, el género es obligatorio
+    }
+    if (!this.urgentTaskWorkers || this.urgentTaskWorkers.length === 0) {
+      if (this.modalMessage) {
+        this.modalMessage.show('Debes asignar al menos un trabajador a la tarea urgente.', 'Campos requeridos');
+        this.cdr.detectChanges();
+      }
+      return;
     }
     this.isCreatingUrgentTask = true;
     this.showLoadingOverlay('Creando tarea urgente...');
-    
+
     // Crear tarea con estado "Por validar"  
     // Para tareas urgentes, el encargado que la crea será quien aparezca como creador
     const encargadoNombre = this.loggedUser?.nombre_completo || this.name || this.userId || '';
@@ -366,24 +385,27 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
       encargado_nombre: encargadoNombre,
       es_tarea_urgente: true // Flag para registro directo
     };
-    
+
     console.log('Creando tarea urgente:', tareaUrgente);
-    
+
     this.taskService.addTask([tareaUrgente], this.loggedUser?.nombre_completo || this.userId).subscribe({
       next: () => {
         this.isCreatingUrgentTask = false;
         this.hideLoadingOverlay();
         this.showUrgentTaskModal = false;
-        
+
         // Si hay trabajadores asignados, registrarlos
         if (this.urgentTaskWorkers.length > 0) {
           // Aquí registrarías las horas de los trabajadores
           console.log('Trabajadores para tarea urgente:', this.urgentTaskWorkers);
         }
-        
+
         this.resetUrgentTask();
         this.loadTasks();
-        this.showNotificationMessage('Tarea urgente creada exitosamente', 'success');
+        if (this.modalMessage) {
+          this.modalMessage.show('Tarea urgente creada exitosamente', 'Éxito');
+          this.cdr.detectChanges();
+        }
       },
       error: (err) => {
         this.isCreatingUrgentTask = false;
@@ -393,10 +415,16 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
           this.showUrgentTaskModal = false;
           this.resetUrgentTask();
           this.loadTasks();
-          this.showNotificationMessage('Tarea urgente creada exitosamente', 'success');
+          if (this.modalMessage) {
+            this.modalMessage.show('Tarea urgente creada exitosamente', 'Éxito');
+            this.cdr.detectChanges();
+          }
         } else {
           console.error('Error creando tarea urgente:', err);
-          this.showNotificationMessage('Error al crear la tarea urgente', 'error');
+          if (this.modalMessage) {
+            this.modalMessage.show('Error al crear la tarea urgente', 'Error');
+            this.cdr.detectChanges();
+          }
         }
       }
     });
@@ -1393,32 +1421,10 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
         tarea: t,
         matchTipoSubtipo,
         matchTareaNombre, 
-        matchConstructed,
-        constructedName
+        matchConstructed
       });
-      
       return matchTipoSubtipo || matchTareaNombre || matchConstructed;
     }) || null;
-    
-    console.log('🏪 Resultado búsqueda:', {
-      tareaEncontrada: this.selectedTipoTarea,
-      familia: this.selectedTipoTarea?.familia,
-      esALMACEN_CONFECC: this.selectedTipoTarea?.familia === 'ALMACEN-CONFECC'
-    });
-    
-    // CAMBIO IMPORTANTE: Usar tarea_nombre si se encuentra la tarea, sino usar el tipo original
-    if (this.selectedTipoTarea && this.selectedTipoTarea.tarea_nombre) {
-      this.urgentTask.tipo_tarea = this.selectedTipoTarea.tarea_nombre;
-      console.log('🏪 Usando tarea_nombre:', this.selectedTipoTarea.tarea_nombre);
-    } else {
-      this.urgentTask.tipo_tarea = tipo;
-      console.log('🏪 Usando tipo original (no se encontró tarea):', tipo);
-    }
-    
-    // Si cambió la tarea, resetear género seleccionado
-    this.selectedGenero = '';
-    
-    // Si es una tarea de confección, cargar géneros
     if (this.shouldShowGeneroSelector()) {
       this.loadGenerosConfecc();
     }

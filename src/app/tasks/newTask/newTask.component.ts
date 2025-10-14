@@ -1,4 +1,4 @@
-import { Component, Output, EventEmitter, Input, OnInit, OnChanges, SimpleChanges } from '@angular/core';
+import { Component, Output, EventEmitter, Input, OnInit, OnChanges, SimpleChanges, AfterViewInit, ViewChild, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatSelectModule } from '@angular/material/select';
@@ -10,20 +10,24 @@ import { User } from '../../user/user.model';
 import { InvernaderoSelectorComponent, InvernaderoSelection } from '../../shared/invernadero-selector/invernadero-selector.component';
 import { SearchableDropdownComponent, DropdownOption } from '../../shared/searchable-dropdown/searchable-dropdown.component';
 import { HierarchicalTaskSelectorComponent } from '../../shared/hierarchical-task-selector/hierarchical-task-selector.component';
+import { ModalMessageComponent } from '../../shared/modal-message.component';
 import { environment } from '../../../environments/environment';
+
 
 @Component({
   selector: 'app-newTask',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatSelectModule, MatCheckboxModule, InvernaderoSelectorComponent, SearchableDropdownComponent, HierarchicalTaskSelectorComponent],
+  imports: [CommonModule, FormsModule, MatSelectModule, MatCheckboxModule, InvernaderoSelectorComponent, SearchableDropdownComponent, HierarchicalTaskSelectorComponent, ModalMessageComponent],
   templateUrl: './newTask.component.html',
   styleUrls: ['./newTask.component.css']
 })
-
-export class newTaskComponent implements OnInit, OnChanges {
+export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
   @Input() task: any = null;
   @Output() cancel = new EventEmitter<void>();
   @Output() add = new EventEmitter<any>();
+  @ViewChild('modalMessage', { static: false }) modalMessage!: ModalMessageComponent;
+
+  ngAfterViewInit(): void {}
 
   greenhouses: Greenhouse[] = [];
   taskTypes: TaskType[] = [];
@@ -84,7 +88,7 @@ export class newTaskComponent implements OnInit, OnChanges {
   selectedTareaJerarquica: string = '';
   grupoTrabajo: string = '';
 
-  ngOnInit() {
+  ngOnInit(): void {
     // Establecer grupo de trabajo del usuario logueado
     if (this.loggedUser?.grupo_trabajo) {
       this.grupoTrabajo = this.loggedUser.grupo_trabajo;
@@ -129,7 +133,8 @@ export class newTaskComponent implements OnInit, OnChanges {
     }
   }
 
-  ngOnChanges(changes: SimpleChanges) {
+  ngOnChanges(changes: SimpleChanges): void {
+  // (eliminado duplicado)
     if (changes['task']) {
       // Solo inicializar si los invernaderos ya están cargados
       if (this.greenhouses.length > 0) {
@@ -138,11 +143,14 @@ export class newTaskComponent implements OnInit, OnChanges {
       // Si no están cargados, ngOnInit se encargará de llamar initFormFromTask
     }
   }
+  
+  // (eliminado duplicado)
 
   constructor(
     private greenhouseService: GreenhouseService,
     private taskTypeService: TaskTypeService,
-    private http: HttpClient
+    private http: HttpClient,
+    private cdr: ChangeDetectorRef
   ) {}
 
   initFormFromTask() {
@@ -519,178 +527,158 @@ export class newTaskComponent implements OnInit, OnChanges {
 
 
   onSubmit() {
-    console.log(`TOGGLE STATUS: useEightHourJornal = ${this.useEightHourJornal} (${this.useEightHourJornal ? '8h' : '6h'})`);
-    
-    // VALIDACIONES OBLIGATORIAS (todos los campos excepto descripción)
-    // NOTA: La descripción es SIEMPRE opcional, incluso para tareas urgentes
-    
-    // 1. Validar selección de invernaderos
+  console.log('🟢 onSubmit ejecutado');
+  // Interceptar validación nativa y mostrar modal personalizado si hay errores
     const selectedInvernaderos = this.getSelectedInvernaderos();
+    let errorMsg = '';
+
+    // Sincronizar encargado global con individuales antes de validar
+    if (!this.useIndividualEncargados && this.selectedEncargado) {
+      selectedInvernaderos.forEach(inv => {
+        this.selectedEncargados[inv] = this.selectedEncargado;
+      });
+    }
+    // LOG para depuración encargado
+    (window as any)['__debugEncargado'] = {
+      selectedEncargado: this.selectedEncargado,
+      selectedEncargados: this.selectedEncargados,
+      selectedInvernaderos: selectedInvernaderos
+    };
+    console.log('🟡 DEBUG ENCARGADO', {
+      selectedEncargado: this.selectedEncargado,
+      selectedEncargados: JSON.stringify(this.selectedEncargados),
+      selectedInvernaderos: selectedInvernaderos
+    });
+
+    // Validación de invernaderos
     if (selectedInvernaderos.length === 0) {
-      alert('Por favor, selecciona al menos un invernadero.');
-      return;
+      errorMsg = 'Por favor, selecciona al menos un invernadero.';
     }
 
-    // 2. Validar tipo de tarea
-    if (!this.selectedTaskType || this.selectedTaskType.trim() === '') {
-      alert('Por favor, selecciona un tipo de tarea.');
-      return;
+    // Validación de tipo de tarea
+    if (!errorMsg && (!this.selectedTaskType || this.selectedTaskType.trim() === '')) {
+      errorMsg = 'Por favor, selecciona un tipo de tarea.';
     }
 
-    // 3. Validar estimaciones de jornales por invernadero (saltar en modo ALMACÉN)
-    if (!this.isAlmacenMode) {
+    // Validación de estimaciones (si no es modo almacén)
+    if (!errorMsg && !this.isAlmacenMode) {
       const invalidEstimations = selectedInvernaderos.filter((inv: string) => {
         const estimation = this.estimations[inv];
         return !estimation || estimation <= 0;
       });
-      
       if (invalidEstimations.length > 0) {
-        alert(`Por favor, ingresa una estimación de jornales válida (mayor que 0) para: ${invalidEstimations.join(', ')}`);
-        return;
+        errorMsg = `Por favor, ingresa una estimación de jornales válida (mayor que 0) para: ${invalidEstimations.join(', ')}`;
       }
     }
 
-    // 4. Validar encargados según el modo
-    if (selectedInvernaderos.length === 1 || this.useIndividualEncargados) {
-      // Modo encargados individuales (o un solo invernadero)
-      const invalidEncargados = selectedInvernaderos.filter((inv: string) => {
-        return !this.selectedEncargados[inv] || this.selectedEncargados[inv].trim() === '';
-      });
-      
+    // Validación de fechas
+    if (!errorMsg) {
+      if (selectedInvernaderos.length === 1 || this.useIndividualDates) {
+        const missingDates = selectedInvernaderos.some((g: string) => !this.dueDates[g] || this.dueDates[g].trim() === '');
+        if (missingDates) {
+          errorMsg = 'Por favor, selecciona una fecha límite para cada invernadero seleccionado.';
+        }
+      } else {
+        if (!this.singleDate || this.singleDate.trim() === '') {
+          errorMsg = 'Por favor, selecciona la fecha límite para todos los invernaderos.';
+        }
+      }
+    }
+
+    // Validación de encargados (unificada)
+    if (!errorMsg) {
+      const invalidEncargados = selectedInvernaderos.filter((g: string) => !this.selectedEncargados[g] || this.selectedEncargados[g].trim() === '');
       if (invalidEncargados.length > 0) {
-        alert(`Por favor, selecciona un encargado para: ${invalidEncargados.join(', ')}`);
-        return;
-      }
-    } else {
-      // Modo encargado global (múltiples invernaderos con toggle desactivado)
-      if (!this.selectedEncargado || this.selectedEncargado.trim() === '') {
-        alert('Por favor, selecciona un encargado para todos los invernaderos.');
-        return;
+        if (this.useIndividualEncargados || selectedInvernaderos.length > 1) {
+          errorMsg = `Por favor, selecciona un encargado para: ${invalidEncargados.join(', ')}`;
+        } else {
+          errorMsg = 'Por favor, selecciona un encargado para el invernadero.';
+        }
       }
     }
-    
-    // 5. Validar fechas según el modo
-    if (selectedInvernaderos.length === 1 || this.useIndividualDates) {
-      // Modo fechas individuales (o un solo invernadero)
-      const missingDates = selectedInvernaderos.some((g: string) => !this.dueDates[g] || this.dueDates[g].trim() === '');
-      if (missingDates) {
-        alert('Por favor, selecciona una fecha límite para cada invernadero seleccionado.');
-        return;
-      }
-    } else {
-      // Modo fecha global (múltiples invernaderos con toggle desactivado)
-      if (!this.singleDate || this.singleDate.trim() === '') {
-        alert('Por favor, selecciona la fecha límite para todos los invernaderos.');
-        return;
-      }
-    }
-    
-    // 6. Validar dimensiones según el tipo de medición (saltar en modo ALMACÉN)
-    if (!this.isAlmacenMode) {
+
+    // Validación de kilos/área (si no es modo almacén)
+    if (!errorMsg && !this.isAlmacenMode) {
       if (this.useKilosMode) {
-        // MODO KILOS: Validar que se hayan ingresado kilos esperados
         const invalidKilos = selectedInvernaderos.filter((g: string) => {
           const kilos = this.expectedKilos[g];
           return !kilos || kilos <= 0;
         });
-        
         if (invalidKilos.length > 0) {
-          alert(`Por favor, ingresa los kilos esperados (mayor que 0) para: ${invalidKilos.join(', ')}`);
-          return;
+          errorMsg = `Por favor, ingresa los kilos esperados (mayor que 0) para: ${invalidKilos.join(', ')}`;
         }
       } else {
-        // MODO HECTÁREAS: Validar áreas como antes
         const invalidAreas = selectedInvernaderos.filter((g: string) => {
           const area = this.workingAreas[g];
           return !area || area <= 0;
         });
-        
         if (invalidAreas.length > 0) {
-          alert(`Por favor, selecciona un área de trabajo válida (mayor que 0) para: ${invalidAreas.join(', ')}`);
-          return;
+          errorMsg = `Por favor, selecciona un área de trabajo válida (mayor que 0) para: ${invalidAreas.join(', ')}`;
         }
-
-        // Validar que las áreas no excedan el máximo disponible
         const exceedingAreas = selectedInvernaderos.filter((g: string) => {
           const area = this.workingAreas[g];
           const maxArea = this.getMaxArea(g);
           return area > maxArea;
         });
-
-        if (exceedingAreas.length > 0) {
-          alert(`El área seleccionada excede el máximo disponible para: ${exceedingAreas.join(', ')}`);
-          return;
+        if (!errorMsg && exceedingAreas.length > 0) {
+          errorMsg = `El área seleccionada excede el máximo disponible para: ${exceedingAreas.join(', ')}`;
         }
       }
     }
-    
-    // Emitir un array de tareas, una por invernadero
+
+    // Mostrar modal si hay error
+    if (errorMsg) {
+      console.log('MOSTRANDO MODAL DE ERROR:', errorMsg);
+      if (this.modalMessage) {
+        this.modalMessage.show(errorMsg);
+        this.cdr.markForCheck();
+      } else {
+        console.error('DEBUG: modalMessage ViewChild es undefined');
+      }
+      return;
+    }
+    // Si todo es válido, continuar con la lógica normal
     const tareas = selectedInvernaderos.map((g: string) => {
-      // En modo ALMACÉN, usar valores por defecto simplificados
       let estimationNum: number;
       let estimacionEnHoras: number;
       let dimensionValue: number;
       let horaJornal: number;
       let horasKilos: number;
-      
       if (this.isAlmacenMode) {
-        // MODO ALMACÉN: Valores por defecto
-        estimationNum = 1; // 1 jornal por defecto
-        horaJornal = 1; // 8 horas por defecto para almacén
-        const factor = 8; // Siempre 8 horas en ALMACÉN
-        estimacionEnHoras = estimationNum * factor; // 8 horas
-        horasKilos = 0; // Siempre hectáreas (aunque no se use)
-        dimensionValue = 0; // Sin dimensiones
+        estimationNum = 1;
+        horaJornal = 1;
+        const factor = 8;
+        estimacionEnHoras = estimationNum * factor;
+        horasKilos = 0;
+        dimensionValue = 0;
       } else {
-        // MODO NORMAL: Usar valores del formulario
         estimationNum = Number(this.estimations[g]);
         if (isNaN(estimationNum)) estimationNum = 0;
-        
-        // CONVERSIÓN SIMPLE: Jornales a Horas
-        horaJornal = this.useEightHourJornal ? 1 : 0; // 0=6h, 1=8h
-        const factor = this.useEightHourJornal ? 8 : 6; // Horas por jornal
-        estimacionEnHoras = estimationNum * factor; // Conversión
-        
-        // TIPO DE MEDICIÓN: Hectáreas vs Kilos
-        horasKilos = this.useKilosMode ? 1 : 0; // 0=Hectáreas, 1=Kilos
+        horaJornal = this.useEightHourJornal ? 1 : 0;
+        const factor = this.useEightHourJornal ? 8 : 6;
+        estimacionEnHoras = estimationNum * factor;
+        horasKilos = this.useKilosMode ? 1 : 0;
         const workingArea = this.workingAreas[g] || 0;
-        dimensionValue = this.useKilosMode ? 
-          (this.expectedKilos[g] || 0) :  // Kilos esperados
-          workingArea;                     // Hectáreas seleccionadas
+        dimensionValue = this.useKilosMode ? (this.expectedKilos[g] || 0) : workingArea;
       }
-      
-      // Usar fecha según el modo (global o individual)
-      const fechaLimite = (selectedInvernaderos.length > 1 && !this.useIndividualDates) 
-        ? this.singleDate 
-        : this.dueDates[g];
-      
-      // Usar encargado según el modo (global o individual)
-      const encargadoId = (selectedInvernaderos.length > 1 && !this.useIndividualEncargados) 
-        ? this.selectedEncargado 
-        : this.selectedEncargados[g];
-      
-      console.log(`${this.isAlmacenMode ? '[ALMACÉN]' : '[NORMAL]'} ${g}: ${estimationNum} jornales × ${this.isAlmacenMode ? 8 : (this.useEightHourJornal ? 8 : 6)}h = ${estimacionEnHoras}h`);
-      console.log(`MEDICIÓN ${g}: ${this.isAlmacenMode ? 'SIN DIMENSIONES' : (this.useKilosMode ? 'KILOS' : 'HECTÁREAS')} = ${dimensionValue}`);
-      console.log(`ENCARGADO ${g}: ${encargadoId}`);
-      
+      const fechaLimite = (selectedInvernaderos.length > 1 && !this.useIndividualDates) ? this.singleDate : this.dueDates[g];
+      const encargadoId = (selectedInvernaderos.length > 1 && !this.useIndividualEncargados) ? this.selectedEncargado : this.selectedEncargados[g];
       const data: any = {
         invernadero: g,
         tipo_tarea: this.selectedTaskType,
-        estimacion_horas: estimacionEnHoras, // YA EN HORAS TOTALES
-        hora_jornal: horaJornal, // 0 = 6 horas, 1 = 8 horas
-        horas_kilos: horasKilos, // 0 = Hectáreas, 1 = Kilos
+        estimacion_horas: estimacionEnHoras,
+        hora_jornal: horaJornal,
+        horas_kilos: horasKilos,
         fecha_limite: fechaLimite,
         encargado_id: encargadoId,
-        descripcion: this.description || '', // Descripción siempre opcional - string vacío si no se proporciona
-        dimension_total: dimensionValue // Hectáreas O Kilos esperados (0 en ALMACÉN)
+        descripcion: this.description || '',
+        dimension_total: dimensionValue
       };
       if (this.task && this.task.id) {
         data.id = this.task.id;
       }
-      
       return data;
     });
-    
     this.add.emit(tareas);
   }
 
@@ -739,5 +727,15 @@ export class newTaskComponent implements OnInit, OnChanges {
         console.error('Error cargando todos los invernaderos:', err);
       }
     });
+  }
+
+  // Sincroniza el encargado global con los individuales al seleccionar uno globalmente
+  onGlobalEncargadoSelected(encargadoId: string) {
+    this.selectedEncargado = encargadoId;
+    if (!this.useIndividualEncargados) {
+      this.getSelectedInvernaderos().forEach((inv: string) => {
+        this.selectedEncargados[inv] = encargadoId;
+      });
+    }
   }
 }

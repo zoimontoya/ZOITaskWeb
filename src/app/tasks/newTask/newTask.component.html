@@ -1,7 +1,8 @@
 <div class="backdrop" (click)="onCancel()"></div>
 <dialog open>
+  <app-modal-message #modalMessage></app-modal-message>
   <h2>{{ task ? 'Editar Tarea' : 'Nueva Tarea' }}</h2>
-  <form (ngSubmit)="onSubmit()" novalidate>
+  <form (ngSubmit)="onSubmit(); $event.preventDefault();" novalidate>
     <!-- Selector de invernaderos -->
     <app-invernadero-selector
       [initialValue]="task?.invernadero || ''"
@@ -125,7 +126,7 @@
           label="Encargado para todos los invernaderos"
           [options]="encargadoOptions"
           [selectedValue]="selectedEncargado"
-          (selectionChange)="selectedEncargado = $event; onSingleEncargadoChange()"
+          (selectionChange)="onGlobalEncargadoSelected($event)"
           placeholder="Selecciona un encargado"
           searchPlaceholder="Buscar encargado..."
           [required]="true">
