@@ -507,7 +507,7 @@
 
 /* Mensaje de actualización bloqueada */
 .update-blocked-info {
-  color: #d32f2f;
+  color: #000000;
   font-size: 0.8rem;
   font-weight: 500;
   margin-top: 0.3rem;
@@ -1756,7 +1756,7 @@ ul {
   background-color: rgba(255, 193, 7, 0.1);
   border: 1px solid rgba(255, 193, 7, 0.3);
   border-radius: 6px;
-  color: #333;
+  color: #000000;
 }
 
 .warning-icon {
