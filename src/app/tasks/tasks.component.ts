@@ -331,33 +331,57 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
 
     // Validaciones básicas
     if (!this.urgentTask.invernadero.trim() || !this.urgentTask.tipo_tarea.trim() || this.urgentTask.horas_trabajadas <= 0) {
-      if (this.modalMessage) {
-        this.modalMessage.show('Debes completar todos los campos obligatorios (invernadero, tipo de tarea y horas trabajadas).', 'Campos requeridos');
-        this.cdr.detectChanges();
-      }
+      console.warn('[DEBUG] Falta campo obligatorio. modalMessage:', this.modalMessage);
+      setTimeout(() => {
+        console.warn('[DEBUG][setTimeout] Intentando mostrar modal de campos obligatorios. modalMessage:', this.modalMessage);
+        if (this.modalMessage) {
+          this.modalMessage.show('Debes completar todos los campos obligatorios (invernadero, tipo de tarea y horas trabajadas).', 'Campos requeridos');
+          console.warn('[DEBUG][setTimeout] show() llamado para campos obligatorios.');
+        } else {
+          console.error('[DEBUG][setTimeout] modalMessage NO disponible.');
+        }
+      }, 0);
       return;
     }
     // Validar que las hectáreas trabajadas sean mayores a 0
     if (!this.urgentTask.hectareas_trabajadas || this.urgentTask.hectareas_trabajadas <= 0) {
-      if (this.modalMessage) {
-        this.modalMessage.show('Debes indicar una cantidad de hectáreas trabajadas mayor a 0.', 'Campos requeridos');
-        this.cdr.detectChanges();
-      }
+      console.warn('[DEBUG] hectáreas <= 0. modalMessage:', this.modalMessage);
+      setTimeout(() => {
+        console.warn('[DEBUG][setTimeout] Intentando mostrar modal de hectáreas. modalMessage:', this.modalMessage);
+        if (this.modalMessage) {
+          this.modalMessage.show('Debes indicar una cantidad de hectáreas trabajadas mayor a 0.', 'Campos requeridos');
+          console.warn('[DEBUG][setTimeout] show() llamado para hectáreas.');
+        } else {
+          console.error('[DEBUG][setTimeout] modalMessage NO disponible.');
+        }
+      }, 0);
       return;
     }
     // 🏪 Validación específica para tareas de confección
     if (this.shouldShowGeneroSelector() && !this.selectedGenero.trim()) {
-      if (this.modalMessage) {
-        this.modalMessage.show('Debes seleccionar un género para tareas de confección.', 'Campos requeridos');
-        this.cdr.detectChanges();
-      }
+      console.warn('[DEBUG] Falta género. modalMessage:', this.modalMessage);
+      setTimeout(() => {
+        console.warn('[DEBUG][setTimeout] Intentando mostrar modal de género. modalMessage:', this.modalMessage);
+        if (this.modalMessage) {
+          this.modalMessage.show('Debes seleccionar un género para tareas de confección.', 'Campos requeridos');
+          console.warn('[DEBUG][setTimeout] show() llamado para género.');
+        } else {
+          console.error('[DEBUG][setTimeout] modalMessage NO disponible.');
+        }
+      }, 0);
       return; // Si es una tarea ALMACEN-CONFECC, el género es obligatorio
     }
     if (!this.urgentTaskWorkers || this.urgentTaskWorkers.length === 0) {
-      if (this.modalMessage) {
-        this.modalMessage.show('Debes asignar al menos un trabajador a la tarea urgente.', 'Campos requeridos');
-        this.cdr.detectChanges();
-      }
+      console.warn('[DEBUG] No hay trabajadores. modalMessage:', this.modalMessage);
+      setTimeout(() => {
+        console.warn('[DEBUG][setTimeout] Intentando mostrar modal de trabajadores. modalMessage:', this.modalMessage);
+        if (this.modalMessage) {
+          this.modalMessage.show('Debes asignar al menos un trabajador a la tarea urgente.', 'Campos requeridos');
+          console.warn('[DEBUG][setTimeout] show() llamado para trabajadores.');
+        } else {
+          console.error('[DEBUG][setTimeout] modalMessage NO disponible.');
+        }
+      }, 0);
       return;
     }
     this.isCreatingUrgentTask = true;
@@ -402,10 +426,6 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
 
         this.resetUrgentTask();
         this.loadTasks();
-        if (this.modalMessage) {
-          this.modalMessage.show('Tarea urgente creada exitosamente', 'Éxito');
-          this.cdr.detectChanges();
-        }
       },
       error: (err) => {
         this.isCreatingUrgentTask = false;
@@ -415,10 +435,6 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
           this.showUrgentTaskModal = false;
           this.resetUrgentTask();
           this.loadTasks();
-          if (this.modalMessage) {
-            this.modalMessage.show('Tarea urgente creada exitosamente', 'Éxito');
-            this.cdr.detectChanges();
-          }
         } else {
           console.error('Error creando tarea urgente:', err);
           if (this.modalMessage) {
@@ -1386,8 +1402,9 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   }
   
   selectUrgentTipo(tipo: string) {
-    this.isUrgentTipoOpen = false;
-    this.urgentTipoSearch = '';
+  this.urgentTask.tipo_tarea = tipo;
+  this.isUrgentTipoOpen = false;
+  this.urgentTipoSearch = '';
     
     // 🏪 Buscar la tarea seleccionada para verificar si es ALMACEN-CONFECC
     // El tipo puede venir como "Tipo - Subtipo" o como "Tipo" solo

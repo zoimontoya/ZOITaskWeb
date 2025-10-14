@@ -241,7 +241,7 @@
                 <button type="button" class="task-action-btn cancel-btn" (click)="onCancelUrgentTask()">
                     <span class="icon">❌</span> Cancelar
                 </button>
-                <button type="submit" class="task-action-btn validate-btn" [disabled]="!urgentTask.invernadero || !urgentTask.tipo_tarea || urgentTask.horas_trabajadas <= 0 || urgentTaskWorkers.length === 0">
+                <button type="submit" class="task-action-btn validate-btn">
                     <span class="icon">⚡</span> Registrar Tarea
                 </button>
             </div>
