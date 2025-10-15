@@ -22,6 +22,37 @@ import { environment } from '../../../environments/environment';
   styleUrls: ['./newTask.component.css']
 })
 export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
+  // Estado para el carrusel de invernaderos
+  activeInvernaderoIndex: number = 0;
+
+  // Helpers para navegación
+  // Mantener solo una versión, ya existe más abajo
+
+  setActiveInvernadero(idx: number) {
+    const invernaderos = this.getSelectedInvernaderos();
+    if (idx >= 0 && idx < invernaderos.length) {
+      this.activeInvernaderoIndex = idx;
+    }
+  }
+
+  prevInvernadero() {
+    if (this.activeInvernaderoIndex > 0) {
+      this.activeInvernaderoIndex--;
+    }
+  }
+
+  nextInvernadero() {
+    if (this.activeInvernaderoIndex < this.getSelectedInvernaderos().length - 1) {
+      this.activeInvernaderoIndex++;
+    }
+  }
+
+  isActiveInvernadero(idx: number): boolean {
+    return this.activeInvernaderoIndex === idx;
+  }
+
+  // Reset índice si cambia la selección
+  // Mantener solo la versión principal más abajo
   @Input() task: any = null;
   @Output() cancel = new EventEmitter<void>();
   @Output() add = new EventEmitter<any>();
