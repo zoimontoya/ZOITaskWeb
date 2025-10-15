@@ -1,3 +1,88 @@
+/* ====== ESTILOS MEJORADOS PARA CARRUSEL Y TABS DE INVERNADEROS ====== */
+.invernadero-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  justify-content: center;
+}
+
+.invernadero-tabs button {
+  background: #fff;
+  color: #2d5a2f;
+  border: 2px solid #73ca7a;
+  border-radius: 8px 8px 0 0;
+  padding: 0.5rem 1.2rem;
+  font-weight: 600;
+  font-size: 1rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+  transition: all 0.2s;
+  outline: none;
+  position: relative;
+  z-index: 2;
+}
+
+.invernadero-tabs button.active,
+.invernadero-tabs button:focus {
+  background: #f5fff5;
+  color: #219150;
+  border-bottom: 2px solid #fff;
+  box-shadow: 0 4px 16px rgba(76,175,80,0.10);
+  z-index: 3;
+}
+
+.invernadero-tabs button:hover:not(.active) {
+  background: #f0f8f0;
+  color: #388e3c;
+  border-color: #60ce5c;
+}
+
+.invernadero-carousel-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.2rem;
+  margin-bottom: 1.2rem;
+}
+
+.invernadero-carousel-nav button {
+  background: #fff;
+  color: #219150;
+  border: 2px solid #73ca7a;
+  border-radius: 50%;
+  width: 2.5rem;
+  height: 2.5rem;
+  font-size: 1.5rem;
+  font-weight: bold;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  outline: none;
+}
+
+.invernadero-carousel-nav button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #f5f5f5;
+}
+
+.invernadero-carousel-nav button:hover:not(:disabled) {
+  background: #f5fff5;
+  color: #388e3c;
+  border-color: #60ce5c;
+}
+
+.carousel-index {
+  background: #fff;
+  color: #388e3c;
+  border: 1.5px solid #73ca7a;
+  border-radius: 8px;
+  padding: 0.3rem 1.1rem;
+  font-weight: 600;
+  font-size: 1rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
 .backdrop {
   background-color: rgba(0, 0, 0, 0.9);
   position: fixed;
