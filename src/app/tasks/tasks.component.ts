@@ -679,35 +679,25 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
           const userIdNorm = String(this.userId).trim().toLowerCase();
           this.tasks = tasksConvertidas.filter(t => String(t.encargado_id).trim().toLowerCase() === userIdNorm);
         } else {
-          // Para superiores: mostrar TODAS las tareas relacionadas con su cabezal
+          // Para superiores: mostrar solo tareas de invernaderos de sus cabezales (y opcionalmente las que ellos mismos han creado)
           const userNameNorm = String(this.name || '').trim().toLowerCase();
           const userFullName = String(this.loggedUser?.nombre_completo || '').trim().toLowerCase();
           const userIdStr = String(this.userId || '').trim().toLowerCase();
-          
+
+          console.log('🔎 Invernaderos del cabezal del usuario:', this.invernaderosDelCabezal);
           this.tasks = tasksConvertidas.filter(t => {
             const taskSuperior = String(t.nombre_superior || '').trim().toLowerCase();
-            const encargadoTarea = String(t.encargado_id || '').trim();
-            
-            // 1. Tareas que el superior ha creado directamente (nombre_superior = él)
+            // Solo mostrar tareas creadas por el usuario o cuyo invernadero pertenezca a sus cabezales
             const esCreadorDeLaTarea = taskSuperior === userNameNorm || 
                                        taskSuperior === userFullName ||
                                        taskSuperior === userIdStr;
-            
-            // 2. Tareas donde el superior aparece como encargado (él debe hacerlas)
-            const esTareaPropia = encargadoTarea.toLowerCase() === userIdStr ||
-                                  encargadoTarea.toLowerCase() === userNameNorm ||
-                                  encargadoTarea.toLowerCase() === userFullName;
-            
-            // 3. Tareas de encargados que pertenecen a su cabezal (TODAS, no solo urgentes)
-            const encargadoEsDelCabezal = this.encargadosDelCabezal.length > 0 && 
-                                          this.encargadosDelCabezal.includes(encargadoTarea);
-            
-            // 4. NUEVA LÓGICA: Tareas en invernaderos del cabezal del superior
-            // Esto asegura que vean TODAS las tareas de su cabezal, sin importar quién las crearon
             const tareaEnInvernaderoDeCabezal = this.isTaskInUserCabezal(t);
-            
-            return esCreadorDeLaTarea || esTareaPropia || encargadoEsDelCabezal || tareaEnInvernaderoDeCabezal;
+            if (!tareaEnInvernaderoDeCabezal && !esCreadorDeLaTarea && t.invernadero) {
+              console.log(`🚫 Tarea ${t.id} (${t.invernadero}) excluida para usuario ${this.loggedUser?.nombre_completo}`);
+            }
+            return esCreadorDeLaTarea || tareaEnInvernaderoDeCabezal;
           });
+          console.log('✅ Tareas filtradas para usuario:', this.loggedUser?.nombre_completo, this.tasks.map(t => `${t.id} (${t.invernadero})`));
         }
         this.invernaderos = Array.from(new Set(this.tasks.map(t => t.invernadero).filter(Boolean)));
         this.tiposTarea = Array.from(new Set(this.tasks.map(t => t.tipo_tarea).filter(Boolean)));
