@@ -879,21 +879,25 @@ app.get('/encargados/:grupo', optionalJWT, async (req, res) => {
       return res.status(500).json({ error: 'Faltan columnas necesarias' });
     }
     
+    // Soportar múltiples grupos separados por ; tanto en el usuario como en el encargado
+    const gruposUsuario = grupo.split(';').map(g => g.trim().toUpperCase()).filter(g => g.length > 0);
     const encargados = rows.slice(1)
-      .filter(row => 
-        row[idxRol] && 
-        String(row[idxRol]).toLowerCase() === 'encargado' &&
-        row[idxGrupo] &&
-        String(row[idxGrupo]).toUpperCase() === grupo.toUpperCase()
-      )
+      .filter(row => {
+        if (!row[idxRol] || String(row[idxRol]).toLowerCase() !== 'encargado') return false;
+        if (!row[idxGrupo]) return false;
+        // El encargado puede tener varios grupos separados por ;
+        const gruposEncargado = String(row[idxGrupo]).split(';').map(g => g.trim().toUpperCase()).filter(g => g.length > 0);
+        // Coincide si al menos un grupo del usuario está en los grupos del encargado
+        return gruposUsuario.some(grupoU => gruposEncargado.includes(grupoU));
+      })
       .map(row => ({
         id: row[idxId],
         name: row[idxName],
         rol: row[idxRol],
         grupo_trabajo: row[idxGrupo]
       }));
-    
-    console.log(`Encargados encontrados para ${grupo}:`, encargados.length);
+
+    console.log(`Encargados encontrados para [${gruposUsuario.join(', ')}]:`, encargados.length);
     res.json(encargados);
   } catch (err) {
     console.error('Error en /encargados filtrados:', err);

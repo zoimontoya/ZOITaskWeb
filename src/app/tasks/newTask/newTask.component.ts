@@ -150,16 +150,15 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
         label: t.tipo
       }));
     });
-    // Obtener encargados filtrados por grupo de trabajo y cabezal
-    if (this.grupoTrabajo && this.loggedUser?.cabezal) {
-      this.http.get<User[]>(`${environment.apiBaseUrl}/encargados/${this.grupoTrabajo}/${this.loggedUser.cabezal}`).subscribe(encargados => {
+    // Obtener encargados filtrados solo por grupo de trabajo (sin filtrar por cabezal)
+    if (this.grupoTrabajo) {
+      this.http.get<User[]>(`${environment.apiBaseUrl}/encargados/${this.grupoTrabajo}`).subscribe(encargados => {
         this.encargados = encargados;
         // Convertir a opciones para el dropdown con buscador
         this.encargadoOptions = this.encargados.map(e => ({
           value: e.id,
           label: e.name
         }));
-
       });
     }
   }
