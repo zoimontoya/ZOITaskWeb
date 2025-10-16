@@ -669,7 +669,7 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
     }
     // Si todo es válido, continuar con la lógica normal
     const tareas = selectedInvernaderos.map((g: string) => {
-      let estimationNum: number;
+  let estimationNum: number;
       let estimacionEnHoras: number;
       let dimensionValue: number;
       let horaJornal: number;
@@ -682,7 +682,11 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
         horasKilos = 0;
         dimensionValue = 0;
       } else {
-        estimationNum = Number(this.estimations[g]);
+        // Permitir comas como separador decimal
+        let rawEstimation = this.estimations[g];
+        let estimationStr = typeof rawEstimation === 'string' ? rawEstimation : String(rawEstimation);
+        estimationStr = estimationStr.replace(',', '.');
+        estimationNum = parseFloat(estimationStr);
         if (isNaN(estimationNum)) estimationNum = 0;
         horaJornal = this.useEightHourJornal ? 1 : 0;
         const factor = this.useEightHourJornal ? 8 : 6;

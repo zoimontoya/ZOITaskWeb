@@ -1081,7 +1081,14 @@ app.get('/tasks', optionalJWT, async (req, res) => {
       
       // SIMPLIFICADO: Solo devolver los valores tal como están almacenados
       // La conversión se hace en el frontend
-      finalObj.estimacion_horas = Number(finalObj.estimacion_horas) || 0;
+      // Procesar estimacion_horas para convertir formato europeo (coma) a americano (punto)
+      let estimacionHorasValue = finalObj.estimacion_horas || '';
+      if (estimacionHorasValue && typeof estimacionHorasValue === 'string') {
+        estimacionHorasValue = estimacionHorasValue.replace(',', '.');
+        finalObj.estimacion_horas = Number(estimacionHorasValue) || 0;
+      } else {
+        finalObj.estimacion_horas = Number(estimacionHorasValue) || 0;
+      }
       finalObj.hora_jornal = Number(finalObj.hora_jornal) || 0;
       
       // jornales_reales se mantiene en horas tal como está almacenado (encargados ingresan horas directamente)
