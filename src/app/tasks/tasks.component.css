@@ -16,6 +16,8 @@
 .accordion-cabezal-content {
   background: #f7fafc;
   padding: 0 0 0 8px;
+  min-width: 100%;
+  box-sizing: border-box;
 }
 
 .urgent-option {
@@ -1346,10 +1348,6 @@ ul {
     max-width: 95vw;
     padding: 1rem;
   }
-  
-  .modal-confirm h3 {
-    font-size: 1rem;
-  }
 }
 
 /* Estilos para tarea urgente */
@@ -1456,12 +1454,14 @@ ul {
   top: 100%;
   left: 0;
   right: 0;
+  min-width: 320px;
+  width: 100%;
   background: white;
   border: 2px solid #4a7c59;
   border-top: none;
   border-radius: 0 0 0.5rem 0.5rem;
-  max-height: 200px; /* Reducido para evitar scroll */
-  overflow-y: auto; /* Solo scroll en dropdown si es necesario */
+  max-height: 600px; /* Mucho más alto para ver más opciones */
+  overflow-y: auto;
   z-index: 1001;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
