@@ -1,3 +1,37 @@
+/* Forzar color visible en acordeón urgente */
+.accordion-cabezal-header {
+  padding: 8px 12px;
+  background: #e6f4ea;
+  color: #2d3748 !important;
+  font-weight: bold;
+  font-size: 14px;
+  cursor: pointer;
+  border-bottom: 1px solid #c3e6cb;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: background 0.2s;
+}
+
+.accordion-cabezal-content {
+  background: #f7fafc;
+  padding: 0 0 0 8px;
+}
+
+.urgent-option {
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  color: #2d3748 !important;
+  border-bottom: 1px solid #f7fafc;
+  font-size: 13px;
+  background: transparent;
+}
+
+.urgent-option.selected {
+  background: #3182ce;
+  color: #fff !important;
+}
 /* Variables de color para consistencia */
 :root {
   --primary-text: #e8f5e8;        /* Verde muy claro para texto principal */

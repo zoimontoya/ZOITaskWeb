@@ -35,14 +35,24 @@
                                     (input)="filterUrgentInvernaderos()">
                             </div>
                             <div class="urgent-options-list">
-                                <div 
-                                    *ngFor="let inv of filteredUrgentInvernaderos" 
-                                    class="urgent-option"
-                                    (click)="selectUrgentInvernadero(inv)"
-                                    [class.selected]="urgentTask.invernadero === inv">
-                                    {{ inv }}
+                                <div *ngFor="let cabezal of urgentInvernaderosByCabezal; let idx = index">
+                                    <div class="accordion-cabezal-header" (click)="toggleCabezalAccordion(idx)">
+                                        <span>{{ cabezal.nombre }}</span>
+                                        <span class="accordion-icon">{{ expandedCabezalIndices.has(idx) ? '▼' : '►' }}</span>
+                                    </div>
+                                    <div class="accordion-cabezal-content" *ngIf="expandedCabezalIndices.has(idx)">
+                                        <div *ngFor="let inv of filterInvernaderosBySearch(cabezal.invernaderos)"
+                                             class="urgent-option"
+                                             (click)="selectUrgentInvernaderoFromAccordion(inv)"
+                                             [class.selected]="urgentTask.invernadero === inv.nombre">
+                                            {{ inv.nombre }} <span class="inv-dim">({{ inv.dimensiones }} Ha)</span>
+                                        </div>
+                                        <div *ngIf="filterInvernaderosBySearch(cabezal.invernaderos).length === 0" class="urgent-no-results">
+                                            No se encontraron invernaderos
+                                        </div>
+                                    </div>
                                 </div>
-                                <div *ngIf="filteredUrgentInvernaderos.length === 0" class="urgent-no-results">
+                                <div *ngIf="urgentInvernaderosByCabezal.length === 0" class="urgent-no-results">
                                     No se encontraron invernaderos
                                 </div>
                             </div>

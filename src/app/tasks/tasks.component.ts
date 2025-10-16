@@ -1,3 +1,4 @@
+  // Filter invernaderos by search term for accordion
 // ...imports y declaraciones previas...
 import { Component, Input, OnInit, OnDestroy, OnChanges, ViewChild, ChangeDetectorRef } from '@angular/core';
 import { TasksService } from './tasks.service';
@@ -35,6 +36,12 @@ interface TipoTarea {
   styleUrls: ['./tasks.component.css']
 })
 export class TasksComponent implements OnInit, OnDestroy, OnChanges {
+  // Filter invernaderos by search term for accordion
+  filterInvernaderosBySearch(invernaderos: Array<{ nombre: string; dimensiones: number }>): Array<{ nombre: string; dimensiones: number }> {
+    const term = (this.urgentInvernaderoSearch || '').toLowerCase();
+    if (!term) return invernaderos;
+    return invernaderos.filter(inv => inv.nombre && inv.nombre.toLowerCase().includes(term));
+  }
   // Modal de confirmación de salida
   showConfirmExitModal = false;
   pendingExitAction: (() => void) | null = null;
@@ -132,6 +139,10 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   filteredUrgentInvernaderos: string[] = [];
   filteredUrgentTipos: string[] = [];
   urgentInvernaderosWithDimensions: { nombre: string; dimensiones: number }[] = [];
+
+  // Accordion state for urgent invernaderos grouped by cabezal
+  urgentInvernaderosByCabezal: { nombre: string; invernaderos: { nombre: string; dimensiones: number }[] }[] = [];
+  expandedCabezalIndices: Set<number> = new Set();
   urgentTiposJerarquicos: { tipo: string; subtipos: string[]; hasSubtipos: boolean }[] = [];
   filteredUrgentTiposJerarquicos: { tipo: string; subtipos: string[]; hasSubtipos: boolean }[] = [];
   
@@ -219,6 +230,8 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     this.showWorkersModal = true;
   }
 
+  // Filter invernaderos by search term for accordion
+
   // =========== MÉTODOS PARA CONTROL DE HECTÁREAS EN TAREAS URGENTES ===========
   
   getSelectedInvernaderoMaxArea(): number {
@@ -302,17 +315,24 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   }
   
   private loadAllUrgentInvernaderosFallback() {
-    // Intentar cargar todos los invernaderos como fallback
+    // Cargar todos los invernaderos agrupados por cabezal para el acordeón
     this.greenhouseService.getGreenhousesGrouped().subscribe({
       next: (data) => {
-        console.log('Fallback - Datos recibidos:', data);
+        // Agrupar por cabezal para el acordeón
+        this.urgentInvernaderosByCabezal = data.cabezales.map(cabezal => ({
+          nombre: cabezal.nombre,
+          invernaderos: cabezal.invernaderos.map(inv => ({
+            nombre: inv.nombre,
+            dimensiones: parseFloat(inv.dimensiones.replace(',', '.')) || 0
+          }))
+        }));
+        // Flat list for compatibility
         const invernaderos = data.cabezales.flatMap(cabezal => cabezal.invernaderos);
         this.allUrgentInvernaderos = invernaderos.map(inv => inv.nombre).sort();
         this.urgentInvernaderosWithDimensions = invernaderos.map(inv => ({
           nombre: inv.nombre,
           dimensiones: parseFloat(inv.dimensiones.replace(',', '.')) || 0
         }));
-        console.log('Fallback - Invernaderos con dimensiones:', this.urgentInvernaderosWithDimensions);
         this.filterUrgentInvernaderos();
       },
       error: (err) => {
@@ -325,11 +345,26 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
           }
         });
         this.allUrgentInvernaderos = Array.from(allInvernaderos).sort();
-        this.urgentInvernaderosWithDimensions = []; // Sin dimensiones disponibles
-        console.warn('No se pudieron cargar las dimensiones de los invernaderos');
+        this.urgentInvernaderosWithDimensions = [];
+        this.urgentInvernaderosByCabezal = [];
         this.filterUrgentInvernaderos();
       }
     });
+  }
+
+  // Toggle accordion panel for cabezal index
+  toggleCabezalAccordion(idx: number) {
+    if (this.expandedCabezalIndices.has(idx)) {
+      this.expandedCabezalIndices.delete(idx);
+    } else {
+      this.expandedCabezalIndices.add(idx);
+    }
+  }
+
+  // Select urgent invernadero from accordion
+  selectUrgentInvernaderoFromAccordion(inv: { nombre: string; dimensiones: number }) {
+    this.selectUrgentInvernadero(inv.nombre);
+    this.isUrgentInvernaderoOpen = false;
   }
   
   // =========== FIN MÉTODOS HECTÁREAS URGENTES ===========
@@ -1269,31 +1304,40 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   }
   
   loadUrgentInvernaderos() {
-    // Cargar invernaderos filtrados por cabezal del usuario
-    if (this.loggedUser?.cabezal) {
-      this.greenhouseService.getGreenhousesByCabezal(this.loggedUser.cabezal).subscribe({
-        next: (data) => {
-          console.log('Datos recibidos del servicio:', data);
-          const invernaderos = data.cabezales.flatMap(cabezal => cabezal.invernaderos);
-          console.log('Invernaderos procesados:', invernaderos);
-          this.allUrgentInvernaderos = invernaderos.map(inv => inv.nombre).sort();
-          this.urgentInvernaderosWithDimensions = invernaderos.map(inv => ({
-            nombre: inv.nombre,
-            dimensiones: parseFloat(inv.dimensiones.replace(',', '.')) || 0
+    // Siempre cargar todos los cabezales y sus invernaderos para el acordeón
+    this.greenhouseService.getGreenhousesGrouped().subscribe({
+      next: (data) => {
+        // Obtener los cabezales del usuario (pueden ser varios separados por ';')
+        let userCabezalStr = this.loggedUser?.cabezal || '';
+        let userCabezales = userCabezalStr.split(';').map(c => c.trim()).filter(Boolean);
+        // Filtrar solo los cabezales a los que pertenece el usuario
+        this.urgentInvernaderosByCabezal = data.cabezales
+          .filter(cabezal => userCabezales.includes(cabezal.nombre))
+          .map(cabezal => ({
+            nombre: cabezal.nombre,
+            invernaderos: cabezal.invernaderos.map(inv => ({
+              nombre: inv.nombre,
+              dimensiones: parseFloat((typeof inv.dimensiones === 'string' ? inv.dimensiones : String(inv.dimensiones)).replace(',', '.')) || 0
+            }))
           }));
-          console.log('Invernaderos con dimensiones:', this.urgentInvernaderosWithDimensions);
-          this.filterUrgentInvernaderos();
-        },
-        error: (err) => {
-          console.error('Error cargando invernaderos por cabezal:', err);
-          // Fallback: intentar cargar todos los invernaderos
-          this.loadAllUrgentInvernaderosFallback();
-        }
-      });
-    } else {
-      // Fallback: intentar cargar todos los invernaderos
-      this.loadAllUrgentInvernaderosFallback();
-    }
+        // No expandir ningún cabezal por defecto
+        this.expandedCabezalIndices = new Set();
+        console.log('🚨 urgentInvernaderosByCabezal (filtrado):', this.urgentInvernaderosByCabezal);
+        // Flat list para compatibilidad
+        const invernaderos = this.urgentInvernaderosByCabezal.flatMap(cabezal => cabezal.invernaderos);
+        this.allUrgentInvernaderos = invernaderos.map(inv => inv.nombre).sort();
+        this.urgentInvernaderosWithDimensions = invernaderos.map(inv => ({
+          nombre: inv.nombre,
+          dimensiones: parseFloat((typeof inv.dimensiones === 'string' ? inv.dimensiones : String(inv.dimensiones)).replace(',', '.')) || 0
+        }));
+        this.filterUrgentInvernaderos();
+      },
+      error: (err) => {
+        console.error('Error cargando invernaderos agrupados:', err);
+        // Fallback: intentar cargar todos los invernaderos planos
+        this.loadAllUrgentInvernaderosFallback();
+      }
+    });
   }
   
   loadUrgentTiposTarea() {
