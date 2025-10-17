@@ -69,6 +69,14 @@
   z-index: 999;
 }
 @media (max-width: 600px) {
+  /* Allow full-width content in the tasks section so header buttons can expand */
+  #tasks {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+    box-sizing: border-box !important;
+  }
   .header-flex {
     flex-direction: row;
     gap: 0.2em;
@@ -603,7 +611,17 @@
   position: relative;
 }
 .filter-menu {
-  z-index: 100;
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: #fff;
+  color: #333;
+  border: 1px solid rgba(0,0,0,0.08);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+  padding: 0.6rem;
+  border-radius: 6px;
+  z-index: 1200; /* overlay above everything */
+  min-width: 220px;
 }
 .filter-overlay {
   position: fixed;
@@ -808,6 +826,157 @@ header {
   gap: 1rem;
 }
 
+/* Superior header: centrar y mostrar en columna (titulo, añadir, urgente, filtrar) */
+.superior-header-vertical {
+  /* Force full-width container so centering works reliably inside the header flex */
+  display: flex !important;
+  width: 100% !important;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  margin: 0 auto; /* center horizontally */
+  text-align: center;
+}
+
+.superior-header-vertical h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  text-align: center;
+}
+
+/* Encargado: header vertical (Mis Tareas -> Tarea Urgente -> Filtrar) */
+.encargado-header-vertical {
+  display: flex !important;
+  width: 100% !important;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 0 auto;
+  text-align: center;
+}
+.encargado-header-vertical h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+.encargado-actions-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  align-items: center;
+  width: 100%;
+}
+
+/* Make encargado filter dropdown an overlay (same behaviour as superior) */
+.filter-dropdown-encargado {
+  position: relative;
+}
+.filter-dropdown-encargado .filter-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: #fff;
+  color: #333;
+  border: 1px solid rgba(0,0,0,0.08);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+  padding: 0.6rem;
+  border-radius: 6px;
+  z-index: 1200;
+  min-width: 220px;
+}
+
+/* Mobile: ensure encargado header buttons expand like superior header */
+@media (max-width: 600px) {
+  .encargado-actions-stack .task-action-btn,
+  .filter-dropdown-encargado .task-action-btn {
+    width: calc(100% - 1rem) !important;
+    margin-left: 0.5rem !important;
+    margin-right: 0.5rem !important;
+    display: block !important;
+  }
+  .filter-dropdown-encargado .filter-menu {
+    left: 0 !important;
+    right: 0 !important;
+    width: calc(100% - 1rem) !important;
+    margin-left: 0.5rem !important;
+    margin-right: 0.5rem !important;
+  }
+}
+
+.superior-actions-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.4rem;
+}
+
+.filter-dropdown-superior {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (min-width: 900px) {
+  /* En pantallas anchas, mantener el header centrado visualmente dentro del espacio */
+  .superior-header-vertical {
+    align-items: center;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 900px) {
+  .superior-header-vertical h2 {
+    font-size: 1rem;
+  }
+  .add-task-btn, .urgent-task-btn, .filter-btn {
+    min-width: 160px;
+  }
+}
+
+/* Mobile: botones del header superior más anchos y centrados */
+@media (max-width: 600px) {
+  .superior-actions-stack {
+    /* Almost full-bleed: reduce gutter to small margins */
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+    box-sizing: border-box !important;
+  }
+
+  .superior-actions-stack .task-action-btn {
+    width: 100% !important;
+    min-width: 0;
+    padding: 0.7rem 0.8rem;
+    font-size: 1rem;
+  }
+
+  .filter-dropdown-superior .task-action-btn {
+    width: 100%;
+  }
+}
+
+/* High-specificity override: ensure buttons are full-width on small devices */
+@media (max-width: 600px) {
+  /* Final override to ensure full-width layout on small viewports */
+  header > .superior-header-vertical .superior-actions-stack .task-action-btn,
+  header > .superior-header-vertical .filter-dropdown-superior .task-action-btn,
+  header menu > .task-action-btn.add-task-btn,
+  header menu > .task-action-btn.urgent-task-btn {
+    width: calc(100% - 1rem) !important; /* small gutter total 1rem */
+    display: block !important;
+    min-width: 0 !important;
+    margin-left: 0.5rem !important;
+    margin-right: 0.5rem !important;
+    padding: 0.95rem 0.9rem !important;
+    font-size: 1.05rem !important;
+    box-sizing: border-box !important;
+  }
+}
+
 h2 {
   margin: 0;
   font-size: 0.9rem;
@@ -835,6 +1004,13 @@ menu button, .task-action-btn {
   transition: background 0.15s, box-shadow 0.15s;
   box-shadow: 0 1px 2px rgba(0,0,0,0.07);
   margin-right: 0.5em;
+}
+
+/* Make the filter button slightly smaller than main action buttons */
+.filter-btn {
+  padding: 0.35rem 0.6rem;
+  font-size: 0.85rem;
+  min-width: 110px;
 }
 
 menu button:hover, menu button:active,
@@ -2203,5 +2379,95 @@ ul {
 
   menu {
     width: auto;
+  }
+}
+
+/* Unificar apariencia entre 'Añadir tarea' y 'Tarea Urgente' */
+.add-task-btn,
+.urgent-task-btn {
+  padding: 0.6rem 1rem; /* mismas alturas horizontales */
+  min-height: 42px;     /* garantizar misma altura */
+  font-size: 0.95rem;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+}
+
+/* Ajuste del icono para ambos botones */
+.task-action-btn .icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.05em;
+}
+
+/* Si hay botones en un menu, mantener el mismo tamaño visual */
+menu button.add-task-btn,
+menu button.urgent-task-btn {
+  padding: 0.55rem 0.9rem;
+  min-height: 40px;
+}
+
+@media (max-width: 600px) {
+  /* En móviles, que se adapten a ancho completo y sigan parejos */
+  .add-task-btn, .urgent-task-btn {
+    width: auto; /* permitimos que el layout del header ajuste, evita bloquear inline */
+    min-width: 44%;
+    max-width: 48%;
+    padding: 0.55rem 0.8rem;
+  }
+  menu button.add-task-btn, menu button.urgent-task-btn {
+    min-width: 46%;
+    max-width: 52%;
+  }
+}
+
+/* Final overrides: ensure filter menu overlay and smaller filter button, and ensure full-width header buttons on mobile */
+.filter-dropdown .filter-menu {
+  position: absolute !important;
+  top: calc(100% + 8px) !important;
+  right: 0 !important;
+  left: auto !important;
+  width: auto !important;
+  max-width: 320px !important;
+  display: none;
+  z-index: 2000;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+}
+.filter-dropdown.open .filter-menu {
+  display: block !important;
+}
+.filter-btn {
+  padding: 0.25rem 0.6rem !important;
+  font-size: 0.85rem !important;
+  min-width: 96px !important;
+}
+@media (max-width: 600px) {
+  /* Make sure filter button stays compact and header buttons fill width */
+  .filter-btn {
+    width: auto !important;
+    min-width: 44% !important;
+    max-width: 48% !important;
+    padding: 0.6rem 0.8rem !important;
+  }
+  .filter-dropdown .filter-menu {
+    right: 0 !important;
+    left: 0 !important;
+    top: calc(100% + 6px) !important;
+    width: calc(100% - 1rem) !important;
+    max-width: calc(100% - 1rem) !important;
+    margin-left: 0.5rem !important;
+    margin-right: 0.5rem !important;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+  }
+  /* Ensure superior header buttons are full-bleed (small gutters) */
+  header > .superior-header-vertical .superior-actions-stack .task-action-btn,
+  header > .superior-header-vertical .filter-dropdown-superior .task-action-btn {
+    width: calc(100% - 1rem) !important;
+    margin-left: 0.5rem !important;
+    margin-right: 0.5rem !important;
+    display: block !important;
   }
 }

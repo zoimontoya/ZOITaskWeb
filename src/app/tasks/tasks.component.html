@@ -428,89 +428,94 @@
 <section id="tasks">
     <header>
         <ng-container *ngIf="isEncargado; else superiorHeader">
-            <div class="header-flex">
-                <div *ngIf="!isAddingTask && !editingTask" class="filter-dropdown filter-pegado" [class.open]="showFilterMenu" tabindex="0">
-                    <button class="task-action-btn filter-btn" (click)="toggleFilterMenu()" type="button">
-                        <span class="icon">🔽</span> Filtrar/Ordenar
-                    </button>
-                    <div class="filter-menu" *ngIf="showFilterMenu">
-                        <div class="filter-group">
-                            <label>Filtrar por invernadero:</label>
-                            <select [(ngModel)]="selectedInvernadero" (change)="applyFilters()">
-                                <option value="">Todos</option>
-                                <option *ngFor="let inv of invernaderos" [value]="inv">{{inv}}</option>
-                            </select>
-                        </div>
-                        <div class="filter-group">
-                            <label>Filtrar por tipo:</label>
-                            <select [(ngModel)]="selectedTipo" (change)="applyFilters()">
-                                <option value="">Todos</option>
-                                <option *ngFor="let tipo of tiposTarea" [value]="tipo">{{tipo}}</option>
-                            </select>
-                        </div>
-                        <div class="filter-group">
-                            <label>Ordenar por fecha límite:</label>
-                            <select [(ngModel)]="selectedFechaOrden" (change)="applyFilters()">
-                                <option value="desc">Más lejana primero</option>
-                                <option value="asc">Más cercana primero</option>
-                            </select>
-                        </div>
-                        <button class="task-action-btn" (click)="resetFilters()">Quitar filtros</button>
-                    </div>
-                </div>
-                <div class="encargado-header-actions">
-                    <h2 style="margin-left:0.5em;">Mis Tareas</h2>
+            <div class="encargado-header-vertical">
+                <h2>Mis Tareas</h2>
+
+                <div class="encargado-actions-stack">
                     <button class="task-action-btn urgent-task-btn" (click)="onStartUrgentTask()">
                         <span class="icon">⚡</span> Tarea Urgente
                     </button>
+
+                    <div *ngIf="!isAddingTask && !editingTask" class="filter-dropdown filter-dropdown-encargado" [class.open]="showFilterMenu" tabindex="0">
+                        <button class="task-action-btn filter-btn" (click)="toggleFilterMenu()" type="button">
+                            <span class="icon">🔽</span> Filtrar/Ordenar
+                        </button>
+                        <div class="filter-menu" *ngIf="showFilterMenu">
+                            <div class="filter-group">
+                                <label>Filtrar por invernadero:</label>
+                                <select [(ngModel)]="selectedInvernadero" (change)="applyFilters()">
+                                    <option value="">Todos</option>
+                                    <option *ngFor="let inv of invernaderos" [value]="inv">{{inv}}</option>
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <label>Filtrar por tipo:</label>
+                                <select [(ngModel)]="selectedTipo" (change)="applyFilters()">
+                                    <option value="">Todos</option>
+                                    <option *ngFor="let tipo of tiposTarea" [value]="tipo">{{tipo}}</option>
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <label>Ordenar por fecha límite:</label>
+                                <select [(ngModel)]="selectedFechaOrden" (change)="applyFilters()">
+                                    <option value="desc">Más lejana primero</option>
+                                    <option value="asc">Más cercana primero</option>
+                                </select>
+                            </div>
+                            <button class="task-action-btn" (click)="resetFilters()">Quitar filtros</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </ng-container>
         <ng-template #superiorHeader>
-            <h2>Gestión de Tareas</h2>
-            <div class="header-actions">
-                <div *ngIf="!isAddingTask && !editingTask" class="filter-dropdown" [class.open]="showFilterMenu" tabindex="0">
-                    <button class="task-action-btn filter-btn" (click)="toggleFilterMenu()" type="button">
-                        <span class="icon">🔽</span> Filtrar/Ordenar
-                    </button>
-                    <div class="filter-menu" *ngIf="showFilterMenu">
-                        <div class="filter-group">
-                            <label>Filtrar por invernadero:</label>
-                            <select [(ngModel)]="selectedInvernadero" (change)="applyFilters()">
-                                <option value="">Todos</option>
-                                <option *ngFor="let inv of invernaderos" [value]="inv">{{inv}}</option>
-                            </select>
-                        </div>
-                        <div class="filter-group">
-                            <label>Filtrar por tipo:</label>
-                            <select [(ngModel)]="selectedTipo" (change)="applyFilters()">
-                                <option value="">Todos</option>
-                                <option *ngFor="let tipo of tiposTarea" [value]="tipo">{{tipo}}</option>
-                            </select>
-                        </div>
-                        <div class="filter-group">
-                            <label>Filtrar por encargado:</label>
-                            <select [(ngModel)]="selectedEncargado" (change)="applyFilters()">
-                                <option value="">Todos</option>
-                                <option *ngFor="let encargado of encargados" [value]="encargado">{{encargado}}</option>
-                            </select>
-                        </div>
-                        <div class="filter-group">
-                            <label>Ordenar por fecha límite:</label>
-                            <select [(ngModel)]="selectedFechaOrden" (change)="applyFilters()">
-                                <option value="desc">Más lejana primero</option>
-                                <option value="asc">Más cercana primero</option>
-                            </select>
-                        </div>
-                        <button class="task-action-btn" (click)="resetFilters()">Quitar filtros</button>
-                    </div>
-                </div>
-                <menu *ngIf="!isEncargado">
-                    <button (click)="onStartAddTask()">Añadir tarea</button>
+            <div class="superior-header-vertical">
+                <h2>Gestión de Tareas</h2>
+
+                <div class="superior-actions-stack">
+                    <button class="task-action-btn add-task-btn" (click)="onStartAddTask()">Añadir tarea</button>
+
                     <button class="task-action-btn urgent-task-btn" (click)="onStartUrgentTask()">
                         <span class="icon">⚡</span> Tarea Urgente
                     </button>
-                </menu>
+
+                    <div *ngIf="!isAddingTask && !editingTask" class="filter-dropdown filter-dropdown-superior" [class.open]="showFilterMenu" tabindex="0">
+                        <button class="task-action-btn filter-btn" (click)="toggleFilterMenu()" type="button">
+                            <span class="icon">🔽</span> Filtrar/Ordenar
+                        </button>
+                        <div class="filter-menu" *ngIf="showFilterMenu">
+                            <div class="filter-group">
+                                <label>Filtrar por invernadero:</label>
+                                <select [(ngModel)]="selectedInvernadero" (change)="applyFilters()">
+                                    <option value="">Todos</option>
+                                    <option *ngFor="let inv of invernaderos" [value]="inv">{{inv}}</option>
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <label>Filtrar por tipo:</label>
+                                <select [(ngModel)]="selectedTipo" (change)="applyFilters()">
+                                    <option value="">Todos</option>
+                                    <option *ngFor="let tipo of tiposTarea" [value]="tipo">{{tipo}}</option>
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <label>Filtrar por encargado:</label>
+                                <select [(ngModel)]="selectedEncargado" (change)="applyFilters()">
+                                    <option value="">Todos</option>
+                                    <option *ngFor="let encargado of encargados" [value]="encargado">{{encargado}}</option>
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <label>Ordenar por fecha límite:</label>
+                                <select [(ngModel)]="selectedFechaOrden" (change)="applyFilters()">
+                                    <option value="desc">Más lejana primero</option>
+                                    <option value="asc">Más cercana primero</option>
+                                </select>
+                            </div>
+                            <button class="task-action-btn" (click)="resetFilters()">Quitar filtros</button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </ng-template>
     </header>
