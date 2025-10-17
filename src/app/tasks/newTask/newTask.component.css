@@ -20,7 +20,6 @@
   position: relative;
   z-index: 2;
 }
-
 .invernadero-tabs button.active,
 .invernadero-tabs button:focus {
   background: #f5fff5;
@@ -900,28 +899,68 @@ select:required::after {
 /* Responsive adjustments for blocks */
 @media (max-width: 768px) {
   .invernadero-block {
-    padding: 1rem;
-    margin-bottom: 1rem;
+    padding: 1.2rem;
+    margin-bottom: 1.2rem;
   }
-  
+
   .invernadero-block-title {
-    font-size: 1rem;
-    padding: 0.4rem;
+    font-size: 1.15rem;
+    padding: 0.6rem;
   }
-  
+
   .global-settings {
-    padding: 0.8rem;
+    padding: 1rem;
   }
-  
+
   dialog {
-    width: 95%;
+    width: 99vw;
     max-width: none;
+    min-width: 0;
+    left: 0;
+    margin: 0;
+    border-radius: 0.7rem;
+    padding: 0.5rem;
   }
-}
+
+  ::ng-deep .searchable-dropdown .dropdown-content {
+    min-width: 90vw !important;
+    max-width: 99vw !important;
+    max-height: 60vh !important;
+    overflow-y: auto !important;
+    font-size: 1.1em;
+    padding: 0.5rem 0.2rem;
+  }
+
+  ::ng-deep .searchable-dropdown .dropdown-header {
+    min-width: 90vw !important;
+    font-size: 1.1em;
+    padding: 0.7rem 0.5rem;
+  }
+
+  ::ng-deep .searchable-dropdown .search-input {
+    font-size: 1.1em;
+    padding: 0.7rem 0.5rem;
+    min-width: 80vw !important;
+  }
+
+  ::ng-deep .searchable-dropdown .dropdown-label {
+    font-size: 1.1em;
+    padding: 0.5rem 0.2rem;
+  }
+
+  /* Botones y campos clave más grandes para facilitar el toque */
+  button, .btn, input, select {
+    font-size: 1.1em !important;
+    min-height: 2.5em;
+    padding: 0.7em 1em;
+  }
+
 
 
 
 /* Estilos para información de jornal_unidad */
+}
+
 .jornal-info {
   background-color: rgba(255, 255, 255, 0.1);
   border-left: 3px solid #4CAF50;
@@ -965,6 +1004,8 @@ select:required::after {
   from { opacity: 0; transform: translateY(-5px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+
 
 @media (min-width: 768px) {
   dialog {

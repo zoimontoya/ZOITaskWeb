@@ -1,3 +1,10 @@
+/* Mantener ancho 100% y box-sizing en el dropdown y el botón */
+.urgent-dropdown .urgent-dropdown-header,
+.urgent-dropdown .urgent-dropdown-content {
+  width: 100% !important;
+  box-sizing: border-box !important;
+  border: none !important;
+}
 /* Forzar color visible en acordeón urgente */
 .accordion-cabezal-header {
   padding: 8px 12px;
@@ -399,6 +406,15 @@
 
 /* Optimización completa para móviles y tablets */
 @media (max-width: 768px) {
+  .urgent-dropdown-header,
+  .urgent-dropdown-content {
+    border: 2px solid red !important;
+  }
+  .urgent-selector-container {
+    width: 100% !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+  }
   /* Header principal más compacto */
   header {
     padding: 0.5rem;
@@ -1452,16 +1468,60 @@ ul {
 .urgent-dropdown-content {
   position: absolute;
   top: 100%;
-  left: 0;
-  right: 0;
-  min-width: 320px;
-  width: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 0;
+  width: auto;
+  max-width: 100%;
   background: white;
   border: 2px solid #4a7c59;
   border-top: none;
-  border-radius: 0 0 0.5rem 0.5rem;
-  max-height: 600px; /* Mucho más alto para ver más opciones */
+  border-radius: 0 0 0.7rem 0.7rem;
+  max-height: 180vh;
   overflow-y: auto;
+  z-index: 9999;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+@media (max-width: 768px) {
+  .urgent-dropdown,
+  .urgent-dropdown-header,
+  .urgent-dropdown-content {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    margin: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+  .urgent-dropdown-content {
+    min-width: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    left: 0 !important;
+    transform: none !important;
+    max-height: 98vh !important;
+    font-size: 1.18em;
+    padding: 0.8rem 0.4rem;
+  }
+  .urgent-dropdown-header {
+    font-size: 1.1em;
+    padding-top: 0.7rem;
+    padding-bottom: 0.7rem;
+    border-radius: 0.5rem 0.5rem 0 0 !important;
+  }
+  .urgent-search-input {
+    font-size: 1.1em;
+    padding-top: 0.7rem;
+    padding-bottom: 0.7rem;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+  .urgent-option {
+    font-size: 1.1em;
+    padding-top: 0.7rem;
+    padding-bottom: 0.7rem;
+  }
+}
   z-index: 1001;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }

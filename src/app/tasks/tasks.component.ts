@@ -1465,49 +1465,34 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   }
   
   selectUrgentTipo(tipo: string) {
-  this.urgentTask.tipo_tarea = tipo;
   this.isUrgentTipoOpen = false;
   this.urgentTipoSearch = '';
-    
-    // 🏪 Buscar la tarea seleccionada para verificar si es ALMACEN-CONFECC
-    // El tipo puede venir como "Tipo - Subtipo" o como "Tipo" solo
-    let tipoToSearch = tipo;
-    let subtipoToSearch = '';
-    
-    if (tipo.includes(' - ')) {
-      const parts = tipo.split(' - ');
-      tipoToSearch = parts[0];
-      subtipoToSearch = parts[1];
-    }
-    
-    console.log('🏪 DEBUG - Buscando tarea:', {
-      tipoOriginal: tipo,
-      tipoToSearch,
-      subtipoToSearch,
-      totalTareas: this.allTiposTareaObjects.length
-    });
-    
-    // Buscar de múltiples formas para asegurar que encontramos la tarea
-    this.selectedTipoTarea = this.allTiposTareaObjects.find(t => {
-      // Opción 1: Buscar por tipo y subtipo exactos
-      const matchTipoSubtipo = t.tipo === tipoToSearch && t.subtipo === subtipoToSearch;
-      // Opción 2: Buscar por tarea_nombre exacto
-      const matchTareaNombre = t.tarea_nombre === tipo;
-      // Opción 3: Buscar por construcción del nombre
-      const constructedName = t.subtipo ? `${t.tipo} - ${t.subtipo}` : t.tipo;
-      const matchConstructed = constructedName === tipo;
-      
-      console.log(`🏪 Comparando con tarea:`, {
-        tarea: t,
-        matchTipoSubtipo,
-        matchTareaNombre, 
-        matchConstructed
-      });
-      return matchTipoSubtipo || matchTareaNombre || matchConstructed;
-    }) || null;
-    if (this.shouldShowGeneroSelector()) {
-      this.loadGenerosConfecc();
-    }
+
+  // 🏪 Buscar la tarea seleccionada para verificar si es ALMACEN-CONFECC
+  // El tipo puede venir como "Tipo - Subtipo" o como "Tipo" solo
+  let tipoToSearch = tipo;
+  let subtipoToSearch = '';
+
+  if (tipo.includes(' - ')) {
+    const parts = tipo.split(' - ');
+    tipoToSearch = parts[0];
+    subtipoToSearch = parts[1];
+  }
+
+  this.selectedTipoTarea = this.allTiposTareaObjects.find(t => {
+    const matchTipoSubtipo = t.tipo === tipoToSearch && t.subtipo === subtipoToSearch;
+    const matchTareaNombre = t.tarea_nombre === tipo;
+    const constructedName = t.subtipo ? `${t.tipo} - ${t.subtipo}` : t.tipo;
+    const matchConstructed = constructedName === tipo;
+    return matchTipoSubtipo || matchTareaNombre || matchConstructed;
+  }) || null;
+
+  // Guardar el nombre real de la tarea
+  this.urgentTask.tipo_tarea = this.selectedTipoTarea?.tarea_nombre || tipo;
+
+  if (this.shouldShowGeneroSelector()) {
+    this.loadGenerosConfecc();
+  }
   }
 
   // 🏪 Métodos para género de confección (ALMACÉN)
