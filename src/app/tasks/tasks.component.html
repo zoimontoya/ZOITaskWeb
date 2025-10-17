@@ -507,6 +507,9 @@
                 </div>
                 <menu *ngIf="!isEncargado">
                     <button (click)="onStartAddTask()">Añadir tarea</button>
+                    <button class="task-action-btn urgent-task-btn" (click)="onStartUrgentTask()">
+                        <span class="icon">⚡</span> Tarea Urgente
+                    </button>
                 </menu>
             </div>
         </ng-template>

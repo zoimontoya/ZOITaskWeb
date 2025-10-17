@@ -125,6 +125,8 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     hectareas_trabajadas: 0,
     dimension_total: 0,
     desarrollo_actual: 0
+    ,
+    matricula: ''
   };
   urgentTaskWorkers: TrabajadorAsignado[] = [];
   isCreatingUrgentTask = false;
@@ -187,6 +189,8 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
       hectareas_trabajadas: 0,
       dimension_total: 0,
       desarrollo_actual: 0
+      ,
+      matricula: ''
     };
     this.urgentTaskWorkers = [];
     this.isUrgentTaskWorkersMode = false; // Resetear flag
@@ -430,28 +434,45 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     this.isCreatingUrgentTask = true;
     this.showLoadingOverlay('Creando tarea urgente...');
 
-    // Crear tarea con estado "Por validar"  
-    // Para tareas urgentes, el encargado que la crea será quien aparezca como creador
+    // Crear tarea urgente. Si el creador es SUPERIOR, marcarla directamente como Terminada
     const encargadoNombre = this.loggedUser?.nombre_completo || this.name || this.userId || '';
-    const tareaUrgente = {
+    const isSuperior = !this.isEncargado;
+    const todayIso = new Date().toISOString().split('T')[0];
+    const fechaActualizacion = new Date().toLocaleDateString('es-ES');
+    // Hora jornal especial para "Manten. Vehículos"
+    const horaJornalValue = this.urgentTask.tipo_tarea === 'Manten. Vehículos' ? 1 : 0;
+
+    const tareaUrgente: any = {
       invernadero: this.urgentTask.invernadero.trim(),
       tipo_tarea: this.urgentTask.tipo_tarea.trim(),
-      estimacion_horas: this.urgentTask.horas_trabajadas,  // Horas directas del encargado
-      hora_jornal: 0,         // ⭐ SIN cálculos para tareas urgentes
-      horas_kilos: 0,         // Hectáreas por defecto
-      jornales_reales: this.urgentTask.horas_trabajadas,   // ⭐ Mismas horas directas
-      fecha_limite: new Date().toISOString().split('T')[0], // Fecha actual
+      estimacion_horas: this.urgentTask.horas_trabajadas,
+      hora_jornal: horaJornalValue,
+      horas_kilos: 0,
+      jornales_reales: this.urgentTask.horas_trabajadas,
+      fecha_limite: todayIso,
       encargado_id: this.userId,
-      descripcion: this.buildUrgentTaskDescription(), // Descripción con género si es necesario
-      nombre_superior: encargadoNombre, // ⭐ El encargado aparece como creador (CLAVE para detección)
-      desarrollo_actual: this.urgentTask.desarrollo_actual.toString(),
-      dimension_total: this.urgentTask.dimension_total.toString(), // Hectáreas trabajadas en m²
-      proceso: 'Por validar', // Estado especial para validación
+      descripcion: this.buildUrgentTaskDescription(),
+      nombre_superior: encargadoNombre,
+      desarrollo_actual: this.urgentTask.tipo_tarea === 'Manten. Vehículos' ? String(this.urgentTask.matricula) : this.urgentTask.desarrollo_actual.toString(),
+      dimension_total: this.urgentTask.tipo_tarea === 'Manten. Vehículos' ? String(this.urgentTask.matricula) : this.urgentTask.dimension_total.toString(),
       // Datos para registro directo en hoja "Horas"
-      trabajadores_asignados: this.urgentTaskWorkers, // Trabajadores van directos a hoja "Horas"
+      trabajadores_asignados: this.urgentTaskWorkers,
       encargado_nombre: encargadoNombre,
-      es_tarea_urgente: true // Flag para registro directo
+      es_tarea_urgente: true
     };
+
+    if (isSuperior) {
+      // Marcar como terminada y rellenar fechas automáticamente
+      tareaUrgente.proceso = 'Terminada';
+      // Cuando lo valida un superior, las fechas deben coincidir con la fecha límite
+      tareaUrgente.fecha_inicio = tareaUrgente.fecha_limite;
+      tareaUrgente.fecha_fin = tareaUrgente.fecha_limite;
+      tareaUrgente.fecha_actualizacion = tareaUrgente.fecha_limite;
+      // Asegurar jornales_reales mantiene las horas indicadas
+      tareaUrgente.jornales_reales = this.urgentTask.horas_trabajadas;
+    } else {
+      tareaUrgente.proceso = 'Por validar';
+    }
 
     console.log('Creando tarea urgente:', tareaUrgente);
 
@@ -1589,6 +1610,8 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
       hectareas_trabajadas: 0,
       dimension_total: 0,
       desarrollo_actual: 0
+      ,
+      matricula: ''
     };
     this.urgentTaskWorkers = [];
     this.isUrgentTaskWorkersMode = false;

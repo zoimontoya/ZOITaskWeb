@@ -1704,6 +1704,15 @@ app.post('/tasks', verifyJWT, async (req, res) => {
         ''                                           // Q: fecha_actualizacion (vacía al crear, se llenará al actualizar)
       ];
       
+      // Si es tarea urgente creada por un superior (ya validada), rellenar fechas L, M y Q con fecha_limite
+      if (esTareaUrgente && tarea.proceso && String(tarea.proceso).toLowerCase() === 'terminada') {
+        // row indices: L=11, M=12, Q=16 (0-based indices 11,12,16)
+        row[11] = fechaConvertida; // fecha_inicio (L)
+        row[12] = fechaConvertida; // fecha_fin (M)
+        row[16] = fechaConvertida; // fecha_actualizacion (Q)
+        console.log(`🔧 Backend: rellenando fechas inicio/fin/actualizacion para tarea urgente ID ${tarea.id} con ${fechaConvertida}`);
+      }
+      
       console.log(`📋 FILA COMPLETA PREPARADA:`, row);
       newRows.push(row);
     }
