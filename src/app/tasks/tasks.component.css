@@ -867,6 +867,12 @@ header {
   align-items: center;
   width: 100%;
 }
+/* Ensure the filter button for encargados is visually centered under the urgent button */
+.filter-dropdown-encargado .task-action-btn.filter-btn {
+  margin: 0 auto !important;
+  display: inline-flex !important;
+  justify-content: center !important;
+}
 
 /* Make encargado filter dropdown an overlay (same behaviour as superior) */
 .filter-dropdown-encargado {
@@ -876,12 +882,13 @@ header {
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
-  background: #fff;
-  color: #333;
-  border: 1px solid rgba(0,0,0,0.08);
-  box-shadow: 0 8px 20px rgba(0,0,0,0.12);
-  padding: 0.6rem;
-  border-radius: 6px;
+  /* Dark theme to match urgent modal / superior filter */
+  background: #2c542c;
+  color: #d2f7d4;
+  border: 1.5px solid #54b64b;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.18);
+  padding: 1em 1.2em;
+  border-radius: 8px;
   z-index: 1200;
   min-width: 220px;
 }
