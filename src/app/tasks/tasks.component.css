@@ -2478,3 +2478,55 @@ menu button.urgent-task-btn {
     display: block !important;
   }
 }
+
+/* ===== ESTILOS PARA BOTONES CON LOADING ===== */
+
+/* Botones deshabilitados con estado de carga */
+.task-action-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  pointer-events: none;
+  background-color: #b0b0b0 !important;
+  color: #666 !important;
+}
+
+/* Animación de carga para el ícono de reloj */
+.task-action-btn .icon {
+  transition: transform 0.2s;
+}
+
+.task-action-btn:disabled .icon {
+  animation: loading-pulse 1.5s infinite;
+}
+
+@keyframes loading-pulse {
+  0%, 100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+}
+
+/* Estilos específicos para botones de validación durante carga */
+.task-action-btn.validate-btn:disabled {
+  background-color: #7fb069 !important;
+  color: #fff !important;
+  opacity: 0.8;
+}
+
+/* Estilos específicos para botones de rechazo durante carga */
+.task-action-btn.delete-btn:disabled {
+  background-color: #d1545e !important;
+  color: #fff !important;
+  opacity: 0.8;
+}
+
+/* Estilos específicos para botones de aceptar durante carga */
+.task-action-btn.accept-btn:disabled {
+  background-color: #5fb85f !important;
+  color: #fff !important;
+  opacity: 0.8;
+}

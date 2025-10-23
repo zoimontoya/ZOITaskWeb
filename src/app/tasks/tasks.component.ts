@@ -114,6 +114,11 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   showGlobalLoading = false;
   loadingMessage = '';
   
+  // Estados de carga específicos para cada acción
+  isAcceptingTask: { [taskId: string]: boolean } = {};
+  isValidatingTask: { [taskId: string]: boolean } = {};
+  isRejectingTask: { [taskId: string]: boolean } = {};
+  
   // Propiedades para Tareas Urgentes
   isUrgentTaskWorkersMode = false;
   showUrgentTaskModal = false;
@@ -864,11 +869,27 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   }
 
   onDeleteTask(task: Task) {
+    // Evitar double-click
+    if (this.isRejectingTask[task.id]) return;
+    
+    this.isRejectingTask[task.id] = true;
+    this.showLoadingOverlay('Rechazando tarea...');
+    
     this.taskService.deleteTask(task.id).subscribe({
       next: () => {
+        this.isRejectingTask[task.id] = false;
+        this.hideLoadingOverlay();
+        this.showDeleteModal = false;
+        this.taskToDelete = null;
+        this.showNotificationMessage('Tarea rechazada exitosamente', 'success');
         this.loadTasks();
       },
       error: () => {
+        this.isRejectingTask[task.id] = false;
+        this.hideLoadingOverlay();
+        this.showDeleteModal = false;
+        this.taskToDelete = null;
+        this.showNotificationMessage('Error al rechazar la tarea', 'error');
         this.loadTasks();
       }
     });
@@ -1017,13 +1038,24 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
       return;
     }
     
+    // Evitar double-click
+    if (this.isAcceptingTask[task.id]) return;
+    
+    this.isAcceptingTask[task.id] = true;
+    this.showLoadingOverlay('Aceptando tarea...');
+    
     this.taskService.acceptTask(task.id).subscribe({
       next: () => {
         console.log('Tarea aceptada correctamente');
+        this.isAcceptingTask[task.id] = false;
+        this.hideLoadingOverlay();
+        this.showNotificationMessage('Tarea aceptada exitosamente', 'success');
         this.loadTasks(); // Recargar para ver cambios
       },
       error: (err) => {
         console.error('Error al aceptar tarea:', err);
+        this.isAcceptingTask[task.id] = false;
+        this.hideLoadingOverlay();
         this.showNotificationMessage('Error al aceptar la tarea. Inténtalo de nuevo.', 'error');
       }
     });
@@ -2023,6 +2055,10 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   onConfirmValidation(): void {
     if (!this.taskToValidate) return;
     
+    // Evitar double-click
+    if (this.isValidatingTask[this.taskToValidate.id]) return;
+    
+    this.isValidatingTask[this.taskToValidate.id] = true;
     this.showLoadingOverlay('Validando tarea urgente...');
     
     console.log(`🚨 FRONTEND: Validando tarea ${this.taskToValidate.id} usando taskService.completeTask`);
@@ -2047,11 +2083,13 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
           this.showNotificationMessage('Tarea validada exitosamente. Ahora aparece como terminada.', 'success');
         }
         
+        this.isValidatingTask[this.taskToValidate?.id || ''] = false;
         this.hideLoadingOverlay();
         this.loadTasks();
         this.onCancelValidation();
       },
       error: (err) => {
+        this.isValidatingTask[this.taskToValidate?.id || ''] = false;
         this.hideLoadingOverlay();
         console.error('❌ Error al validar tarea:', err);
         this.showNotificationMessage('Error al validar la tarea. Intenta nuevamente.', 'error');
