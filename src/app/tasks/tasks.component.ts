@@ -119,6 +119,32 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   isValidatingTask: { [taskId: string]: boolean } = {};
   isRejectingTask: { [taskId: string]: boolean } = {};
   
+  // Modal de consultas (solo para superiores)
+  showConsultasModal = false;
+  consultaActiva = 'horas-trabajador'; // 'horas-trabajador' | 'segunda-consulta'
+  
+  // Consulta de horas por trabajador
+  trabajadoresDisponibles: any[] = [];
+  mesesDisponibles = [
+    { value: '01', name: 'Enero' },
+    { value: '02', name: 'Febrero' },
+    { value: '03', name: 'Marzo' },
+    { value: '04', name: 'Abril' },
+    { value: '05', name: 'Mayo' },
+    { value: '06', name: 'Junio' },
+    { value: '07', name: 'Julio' },
+    { value: '08', name: 'Agosto' },
+    { value: '09', name: 'Septiembre' },
+    { value: '10', name: 'Octubre' },
+    { value: '11', name: 'Noviembre' },
+    { value: '12', name: 'Diciembre' }
+  ];
+  selectedTrabajador = '';
+  selectedMes = '';
+  selectedAno = new Date().getFullYear().toString();
+  horasConsultaResultado: any = null;
+  isConsultandoHoras = false;
+  
   // Propiedades para Tareas Urgentes
   isUrgentTaskWorkersMode = false;
   showUrgentTaskModal = false;
@@ -2101,6 +2127,97 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   onCancelValidation(): void {
     this.showValidationModal = false;
     this.taskToValidate = null;
+  }
+
+  // ===== MODAL DE CONSULTAS (SOLO SUPERIORES) =====
+  
+  onOpenConsultasModal(): void {
+    if (this.isEncargado) {
+      this.showNotificationMessage('Solo los superiores pueden acceder a las consultas.', 'warning');
+      return;
+    }
+    
+    this.showConsultasModal = true;
+    this.loadTrabajadoresDisponibles();
+  }
+  
+  onCloseConsultasModal(): void {
+    this.showConsultasModal = false;
+    this.resetConsultaForm();
+  }
+  
+  onSelectConsultaTab(tab: string): void {
+    this.consultaActiva = tab;
+    this.resetConsultaForm();
+  }
+  
+  resetConsultaForm(): void {
+    this.selectedTrabajador = '';
+    this.selectedMes = '';
+    this.selectedAno = new Date().getFullYear().toString();
+    this.horasConsultaResultado = null;
+  }
+  
+  loadTrabajadoresDisponibles(): void {
+    // Usar TasksService para cargar trabajadores
+    this.taskService.getTrabajadores().subscribe({
+      next: (trabajadores: string[]) => {
+        this.trabajadoresDisponibles = trabajadores;
+        console.log('Trabajadores cargados:', this.trabajadoresDisponibles);
+      },
+      error: (err: any) => {
+        console.error('Error cargando trabajadores:', err);
+        this.showNotificationMessage('Error al cargar la lista de trabajadores', 'error');
+      }
+    });
+  }
+  
+  onConsultarHorasTrabajador(): void {
+    if (!this.selectedTrabajador || !this.selectedMes || !this.selectedAno) {
+      this.showNotificationMessage('Debe seleccionar trabajador, mes y año', 'warning');
+      return;
+    }
+    
+    this.isConsultandoHoras = true;
+    this.showLoadingOverlay('Consultando horas trabajadas...');
+    
+    const mes = parseInt(this.selectedMes);
+    const año = parseInt(this.selectedAno);
+    
+    // Usar TasksService para la consulta
+    this.taskService.consultarHorasTrabajador(this.selectedTrabajador, mes, año).subscribe({
+      next: (resultado: any) => {
+        this.horasConsultaResultado = resultado;
+        this.isConsultandoHoras = false;
+        this.hideLoadingOverlay();
+        console.log('Resultado consulta horas:', resultado);
+        
+        if (resultado.totalHoras > 0) {
+          this.showNotificationMessage(`Consulta completada: ${resultado.totalHoras} horas en ${resultado.totalDias} días`, 'success');
+        } else {
+          this.showNotificationMessage(resultado.resumen, 'warning');
+        }
+      },
+      error: (err: any) => {
+        this.isConsultandoHoras = false;
+        this.hideLoadingOverlay();
+        console.error('Error en consulta:', err);
+        
+        if (err.status === 403) {
+          this.showNotificationMessage('Acceso denegado: solo superiores pueden realizar consultas', 'error');
+        } else if (err.status === 400) {
+          this.showNotificationMessage('Parámetros inválidos para la consulta', 'error');
+        } else {
+          this.showNotificationMessage('Error al consultar las horas trabajadas', 'error');
+        }
+      }
+    });
+  }
+  
+  // Método auxiliar para obtener nombre del mes
+  getNombreMesSeleccionado(): string {
+    const mes = this.mesesDisponibles.find(m => m.value === this.selectedMes);
+    return mes ? mes.name : '';
   }
 
   // Método para cerrar sesión

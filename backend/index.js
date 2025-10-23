@@ -2519,6 +2519,170 @@ app.get('/generos-confecc', optionalJWT, async (req, res) => {
   }
 });
 
+// =============================================
+// ENDPOINTS DE CONSULTAS (Solo superiores)
+// =============================================
+
+// Endpoint para obtener lista de trabajadores
+app.get('/trabajadores', verifyJWT, async (req, res) => {
+  try {
+    console.log('📊 Obteniendo lista de trabajadores...');
+    
+    // Verificar rol (solo superiores)
+    if (req.user.rol !== 'superior') {
+      return res.status(403).json({ error: 'Acceso denegado: solo superiores pueden consultar trabajadores' });
+    }
+
+    const auth = getGoogleAuth();
+    const sheets = google.sheets({ version: 'v4', auth });
+
+    // Leer todas las horas de la hoja "Horas"
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: 'Horas!A:D'
+    });
+
+    const rows = response.data.values || [];
+    if (rows.length <= 1) {
+      return res.json([]);
+    }
+
+    // Extraer trabajadores únicos de la columna C (índice 2)
+    const trabajadoresSet = new Set();
+    
+    rows.slice(1).forEach(row => {
+      const trabajador = row[2]; // Columna C
+      if (trabajador && trabajador.trim()) {
+        trabajadoresSet.add(trabajador.trim());
+      }
+    });
+
+    const trabajadores = Array.from(trabajadoresSet).sort();
+    
+    console.log(`✅ Encontrados ${trabajadores.length} trabajadores únicos:`, trabajadores);
+    res.json(trabajadores);
+
+  } catch (error) {
+    console.error('❌ Error obteniendo trabajadores:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// Endpoint para consultar horas trabajadas por trabajador
+app.post('/consultas/horas-trabajador', verifyJWT, async (req, res) => {
+  try {
+    const { trabajador, mes, año } = req.body;
+    
+    console.log(`📊 Consultando horas para trabajador: ${trabajador}, mes: ${mes}, año: ${año}`);
+    
+    // Verificar rol (solo superiores)
+    if (req.user.rol !== 'superior') {
+      return res.status(403).json({ error: 'Acceso denegado: solo superiores pueden realizar consultas' });
+    }
+
+    // Validar parámetros
+    if (!trabajador || !mes || !año) {
+      return res.status(400).json({ error: 'Faltan parámetros: trabajador, mes y año son requeridos' });
+    }
+
+    const auth = getGoogleAuth();
+    const sheets = google.sheets({ version: 'v4', auth });
+
+    // Leer todas las horas de la hoja "Horas"
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: 'Horas!A:D'
+    });
+
+    const rows = response.data.values || [];
+    if (rows.length <= 1) {
+      return res.json({
+        trabajador,
+        mes,
+        año,
+        totalHoras: 0,
+        totalDias: 0,
+        detalles: [],
+        resumen: 'No se encontraron datos de horas para este trabajador'
+      });
+    }
+
+    // Filtrar por trabajador y mes
+    const detalles = [];
+    let totalHoras = 0;
+    
+    rows.slice(1).forEach(row => {
+      const fecha = row[0]; // Columna A
+      const horas = parseFloat(row[3]) || 0; // Columna D
+      const trabajadorRow = row[2]; // Columna C
+      
+      if (!fecha || !trabajadorRow || trabajadorRow.trim() !== trabajador) {
+        return;
+      }
+
+      // Parsear fecha (asumiendo formato DD/MM/YYYY o similar)
+      let fechaObj;
+      try {
+        // Intentar varios formatos de fecha
+        if (fecha.includes('/')) {
+          const partes = fecha.split('/');
+          if (partes.length === 3) {
+            // DD/MM/YYYY
+            fechaObj = new Date(parseInt(partes[2]), parseInt(partes[1]) - 1, parseInt(partes[0]));
+          }
+        } else if (fecha.includes('-')) {
+          // YYYY-MM-DD o DD-MM-YYYY
+          fechaObj = new Date(fecha);
+        } else {
+          fechaObj = new Date(fecha);
+        }
+        
+        if (isNaN(fechaObj.getTime())) {
+          return;
+        }
+        
+        // Verificar mes y año
+        if (fechaObj.getMonth() + 1 === parseInt(mes) && fechaObj.getFullYear() === parseInt(año)) {
+          totalHoras += horas;
+          detalles.push({
+            fecha: fecha,
+            horas: horas,
+            tarea: row[1] || 'No especificada' // Columna B si existe
+          });
+        }
+      } catch (error) {
+        console.warn(`⚠️ Error parseando fecha: ${fecha}`, error);
+      }
+    });
+
+    // Ordenar detalles por fecha
+    detalles.sort((a, b) => {
+      const fechaA = new Date(a.fecha.split('/').reverse().join('-'));
+      const fechaB = new Date(b.fecha.split('/').reverse().join('-'));
+      return fechaA - fechaB;
+    });
+
+    const resultado = {
+      trabajador,
+      mes: parseInt(mes),
+      año: parseInt(año),
+      totalHoras: Math.round(totalHoras * 100) / 100, // Redondear a 2 decimales
+      totalDias: detalles.length,
+      detalles,
+      resumen: detalles.length > 0 
+        ? `${trabajador} trabajó ${totalHoras} horas en ${detalles.length} días durante ${mes}/${año}`
+        : `No se encontraron horas registradas para ${trabajador} en ${mes}/${año}`
+    };
+
+    console.log(`✅ Consulta completada: ${resultado.totalHoras} horas en ${resultado.totalDias} días`);
+    res.json(resultado);
+
+  } catch (error) {
+    console.error('❌ Error en consulta de horas:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, '0.0.0.0', () => {

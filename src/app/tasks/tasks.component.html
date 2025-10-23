@@ -479,6 +479,10 @@
                         <span class="icon">⚡</span> Tarea Urgente
                     </button>
 
+                    <button class="task-action-btn consultar-btn" (click)="onOpenConsultasModal()">
+                        <span class="icon">📊</span> Consultar
+                    </button>
+
                     <div *ngIf="!isAddingTask && !editingTask" class="filter-dropdown filter-dropdown-superior" [class.open]="showFilterMenu" tabindex="0">
                         <button class="task-action-btn filter-btn" (click)="toggleFilterMenu()" type="button">
                             <span class="icon">🔽</span> Filtrar/Ordenar
@@ -728,6 +732,128 @@
 </div>
 
 <!-- Overlay de carga global -->
+
+<!-- ===== MODAL DE CONSULTAS (SOLO SUPERIORES) ===== -->
+<div *ngIf="showConsultasModal" class="modal-overlay" (click)="onCloseConsultasModal()">
+    <div class="modal-consultas" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+            <h3>📊 Panel de Consultas</h3>
+            <button class="close-btn" (click)="onCloseConsultasModal()">✕</button>
+        </div>
+        
+        <!-- Pestañas de navegación -->
+        <div class="consultas-tabs">
+            <button class="tab-btn" 
+                    [class.active]="consultaActiva === 'horas-trabajador'"
+                    (click)="onSelectConsultaTab('horas-trabajador')">
+                🕒 Horas por Trabajador
+            </button>
+            <button class="tab-btn" 
+                    [class.active]="consultaActiva === 'segunda-consulta'"
+                    (click)="onSelectConsultaTab('segunda-consulta')">
+                📈 Segunda Consulta
+            </button>
+        </div>
+        
+        <!-- Contenido de la pestaña: Horas por Trabajador -->
+        <div *ngIf="consultaActiva === 'horas-trabajador'" class="consulta-content">
+            <h4>Consultar Horas Trabajadas por Empleado</h4>
+            <p class="consulta-description">
+                Selecciona un trabajador y mes para ver el total de horas trabajadas y el detalle completo.
+            </p>
+            
+            <div class="consulta-form">
+                <!-- Selector de Trabajador -->
+                <div class="form-group">
+                    <label for="trabajador-select">Trabajador:</label>
+                    <select id="trabajador-select" [(ngModel)]="selectedTrabajador" class="form-control">
+                        <option value="">Seleccionar trabajador...</option>
+                        <option *ngFor="let trabajador of trabajadoresDisponibles" [value]="trabajador.nombre">
+                            {{trabajador.nombre}}
+                        </option>
+                    </select>
+                </div>
+                
+                <!-- Selector de Mes -->
+                <div class="form-group">
+                    <label for="mes-select">Mes:</label>
+                    <select id="mes-select" [(ngModel)]="selectedMes" class="form-control">
+                        <option value="">Seleccionar mes...</option>
+                        <option *ngFor="let mes of mesesDisponibles" [value]="mes.value">
+                            {{mes.name}}
+                        </option>
+                    </select>
+                </div>
+                
+                <!-- Selector de Año -->
+                <div class="form-group">
+                    <label for="ano-select">Año:</label>
+                    <select id="ano-select" [(ngModel)]="selectedAno" class="form-control">
+                        <option value="2024">2024</option>
+                        <option value="2025">2025</option>
+                        <option value="2026">2026</option>
+                    </select>
+                </div>
+                
+                <!-- Botón de consulta -->
+                <div class="form-actions">
+                    <button class="task-action-btn consultar-btn" 
+                            [disabled]="!selectedTrabajador || !selectedMes || !selectedAno || isConsultandoHoras"
+                            (click)="onConsultarHorasTrabajador()">
+                        <span class="icon" *ngIf="!isConsultandoHoras">🔍</span>
+                        <span class="icon" *ngIf="isConsultandoHoras">⏳</span>
+                        {{ isConsultandoHoras ? 'Consultando...' : 'Consultar Horas' }}
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Resultados de la consulta -->
+            <div *ngIf="horasConsultaResultado" class="consulta-resultados">
+                <h5>Resultados:</h5>
+                <div class="resultado-resumen">
+                    <div class="resumen-item">
+                        <strong>Trabajador:</strong> <span class="valor-dinamico">{{horasConsultaResultado.trabajador}}</span>
+                    </div>
+                    <div class="resumen-item">
+                        <strong>Período:</strong> <span class="valor-dinamico">{{getNombreMesSeleccionado()}} {{selectedAno}}</span>
+                    </div>
+                    <div class="resumen-item total-horas">
+                        <strong>Total de Horas:</strong> <span class="valor-dinamico">{{horasConsultaResultado.totalHoras}}h</span>
+                    </div>
+                    <div class="resumen-item">
+                        <strong>Días trabajados:</strong> <span class="valor-dinamico">{{horasConsultaResultado.totalDias}}</span>
+                    </div>
+                </div>
+                
+                <!-- Detalle por días -->
+                <div *ngIf="horasConsultaResultado.detalles && horasConsultaResultado.detalles.length > 0" class="detalle-horas">
+                    <h6>Detalle por días:</h6>
+                    <div class="detalle-tabla">
+                        <div class="detalle-header">
+                            <span class="col-fecha">Fecha</span>
+                            <span class="col-horas">Horas</span>
+                                <span class="col-encargado">Encargado</span>
+                        </div>
+                        <div *ngFor="let registro of horasConsultaResultado.detalles" class="detalle-row">
+                            <span class="col-fecha">{{registro.fecha}}</span>
+                            <span class="col-horas">{{registro.horas}}h</span>
+                            <span class="col-encargado">{{registro.tarea}}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Contenido de la pestaña: Segunda Consulta -->
+        <div *ngIf="consultaActiva === 'segunda-consulta'" class="consulta-content">
+            <h4>Segunda Consulta</h4>
+            <p class="consulta-description">
+                Esta funcionalidad estará disponible próximamente.
+            </p>
+        </div>
+    </div>
+</div>
+
 <div *ngIf="showGlobalLoading" class="global-loading-overlay">
     <div class="global-loading-content">
         <div class="loading-spinner"></div>

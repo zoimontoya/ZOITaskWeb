@@ -43,14 +43,14 @@
 }
 /* Variables de color para consistencia */
 :root {
-  --primary-text: #e8f5e8;        /* Verde muy claro para texto principal */
-  --secondary-text: #b3d8b8;      /* Verde medio para texto secundario */
-  --muted-text: #8db48d;          /* Verde más oscuro para texto sutil */
-  --label-text: #d4f0d4;          /* Verde claro para labels */
-  --success-text: #a3e6a3;        /* Verde éxito */
+  --primary-text: #0b3d91;        /* Azul oscuro para texto principal del resumen */
+  --secondary-text: #333333;      /* Texto secundario/negro */
+  --muted-text: #6b7280;          /* Gris para texto sutil */
+  --label-text: #333333;          /* Negro para labels */
+  --success-text: #28a745;        /* Verde éxito (mantener para otros usos) */
   --warning-text: #ffd966;        /* Amarillo para advertencias */
-  --error-text: #ff9999;          /* Rojo suave para errores */
-  --accent-text: #7fcc7f;         /* Verde acentuado */
+  --error-text: #ff6666;          /* Rojo suave para errores */
+  --accent-text: #3182ce;         /* Azul acentuado */
 }
 
 /* Flex para header pegado en encargados */
@@ -2529,4 +2529,318 @@ menu button.urgent-task-btn {
   background-color: #5fb85f !important;
   color: #fff !important;
   opacity: 0.8;
+}
+
+/* ===== MODAL DE CONSULTAS ===== */
+
+.modal-consultas {
+  background: white;
+  border-radius: 12px;
+  max-width: 900px;
+  width: 90vw;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  overflow: hidden;
+}
+
+.modal-consultas .modal-header {
+  background: linear-gradient(135deg, #4a90e2, #357abd);
+  color: white;
+  padding: 1rem 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.modal-consultas .modal-header h3 {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 600;
+}
+
+.modal-consultas .close-btn {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.modal-consultas .close-btn:hover {
+  background: rgba(255,255,255,0.2);
+}
+
+/* Pestañas de navegación */
+.consultas-tabs {
+  display: flex;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 1rem 1.5rem;
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: all 0.3s;
+  color: #666;
+}
+
+.tab-btn:hover {
+  background: #e9ecef;
+  color: #333;
+}
+
+.tab-btn.active {
+  background: white;
+  color: #4a90e2;
+  border-bottom-color: #4a90e2;
+}
+
+/* Contenido de consultas */
+.consulta-content {
+  padding: 1.5rem;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.consulta-content h4 {
+  margin: 0 0 0.5rem 0;
+  color: #333;
+  font-size: 1.2rem;
+}
+
+.consulta-description {
+  color: #666;
+  margin-bottom: 1.5rem;
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+/* Formulario de consulta */
+.consulta-form {
+  background: #f8f9fa;
+  padding: 1.5rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+}
+
+.consulta-form .form-group {
+  margin-bottom: 1rem;
+}
+
+.consulta-form .form-group:last-child {
+  margin-bottom: 0;
+}
+
+.consulta-form label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: #333;
+  font-size: 0.9rem;
+}
+
+.consulta-form .form-control {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.consulta-form .form-control:focus {
+  outline: none;
+  border-color: #4a90e2;
+  box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
+}
+
+.form-actions {
+  margin-top: 1.5rem;
+  text-align: right;
+}
+
+/* Botón específico para consultas */
+.task-action-btn.consultar-btn {
+  background-color: #4a90e2;
+  color: white;
+}
+
+.task-action-btn.consultar-btn:hover {
+  background-color: #357abd;
+}
+
+.task-action-btn.consultar-btn:disabled {
+  background-color: #a8c8ec !important;
+  color: #fff !important;
+  opacity: 0.8;
+}
+
+/* Resultados de consulta */
+.consulta-resultados {
+  background: #f0f7ff;
+  border: 1px solid #b3d9ff;
+  border-radius: 8px;
+  padding: 1.5rem;
+}
+
+.consulta-resultados h5 {
+  margin: 0 0 1rem 0;
+  color: #2c5282;
+  font-size: 1.1rem;
+}
+
+.resultado-resumen {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.resumen-item {
+  background: white;
+  padding: 0.75rem;
+  border-radius: 6px;
+  border-left: 4px solid #4a90e2;
+}
+
+.resumen-item.total-horas {
+  border-left-color: #28a745;
+  background: #f8fff9;
+}
+
+.resumen-item strong {
+  color: #333;
+  display: block;
+  font-size: 0.85rem;
+  margin-bottom: 0.25rem;
+}
+
+/* Tabla de detalles */
+.detalle-horas h6 {
+  margin: 0 0 1rem 0;
+  color: #2c5282;
+  font-size: 1rem;
+}
+
+.detalle-tabla {
+  background: white;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.detalle-header {
+  background: #4a90e2;
+  color: white;
+  display: grid;
+  grid-template-columns: 120px 80px 1fr 100px;
+  gap: 1rem;
+  padding: 0.75rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+/* Sobrescribir colores de cabecera de la tabla de detalle para que sean negros */
+.detalle-header span {
+  color: #000 !important;
+}
+
+.detalle-row {
+  display: grid;
+  grid-template-columns: 120px 80px 1fr 100px;
+  gap: 1rem;
+  padding: 0.75rem;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 0.9rem;
+}
+
+.detalle-row:last-child {
+  border-bottom: none;
+}
+
+.detalle-row:nth-child(even) {
+  background: #f8f9fa;
+}
+
+.col-fecha {
+  font-weight: 500;
+  color: #333;
+}
+
+.col-horas {
+  font-weight: 600;
+  color: #333; /* Cabecera y filas de horas en negro para mejor legibilidad */
+  text-align: center;
+}
+
+/* Nuevo estilo para columna encargado (antes 'tarea') */
+.col-encargado {
+  color: #666;
+}
+
+/* Resumen: forzar color azul/negro en los items de resultado */
+.resultado-resumen {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.resultado-resumen .resumen-item {
+  color: var(--primary-text);
+  font-weight: 600;
+}
+
+/* Específicamente para los valores dinámicos del resumen de consultas */
+.resultado-resumen .valor-dinamico {
+  color: #1e3a8a !important; /* Azul oscuro específico solo para los valores entre {{}} */
+  font-weight: 700;
+}
+
+.col-tarea {
+  color: #666;
+}
+
+.col-empresa {
+  color: #666;
+  text-align: center;
+}
+
+/* Responsive para móviles */
+@media (max-width: 768px) {
+  .modal-consultas {
+    width: 95vw;
+    max-height: 90vh;
+  }
+  
+  .consultas-tabs {
+    flex-direction: column;
+  }
+  
+  .resultado-resumen {
+    grid-template-columns: 1fr;
+  }
+  
+  .detalle-header,
+  .detalle-row {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+  
+  .detalle-header span,
+  .detalle-row span {
+    padding: 0.25rem 0;
+  }
 }

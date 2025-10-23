@@ -183,4 +183,21 @@ export class TasksService {
     // Implementar endpoint DELETE si es necesario
     return this.http.delete<any>(`${this.apiUrl}/tasks/${taskId}`);
   }
+
+  // =============================================
+  // MÉTODOS DE CONSULTAS (Solo superiores)
+  // =============================================
+
+  // Obtener lista de trabajadores disponibles
+  getTrabajadores(): Observable<string[]> {
+    console.log('🌐 TasksService.getTrabajadores() - Haciendo petición a:', `${this.apiUrl}/trabajadores`);
+    return this.http.get<string[]>(`${this.apiUrl}/trabajadores`);
+  }
+
+  // Consultar horas trabajadas por trabajador en un mes específico
+  consultarHorasTrabajador(trabajador: string, mes: number, año: number): Observable<any> {
+    const body = { trabajador, mes, año };
+    console.log('🌐 TasksService.consultarHorasTrabajador() - Enviando consulta:', body);
+    return this.http.post<any>(`${this.apiUrl}/consultas/horas-trabajador`, body);
+  }
 }
