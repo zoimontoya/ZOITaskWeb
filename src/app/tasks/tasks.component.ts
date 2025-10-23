@@ -458,7 +458,8 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
       // Datos para registro directo en hoja "Horas"
       trabajadores_asignados: this.urgentTaskWorkers,
       encargado_nombre: encargadoNombre,
-      es_tarea_urgente: true
+      es_tarea_urgente: true,
+      es_superior: isSuperior // AÑADIDO - para saber si auto-validar horas
     };
 
     if (isSuperior) {
@@ -2024,38 +2025,37 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     
     this.showLoadingOverlay('Validando tarea urgente...');
     
-    // Actualizar la tarea urgente a estado terminado
-    const fechaActual = new Date().toISOString().split('T')[0];
-    const fechaActualizacion = new Date().toLocaleDateString('es-ES'); // DD/MM/YYYY
+    console.log(`🚨 FRONTEND: Validando tarea ${this.taskToValidate.id} usando taskService.completeTask`);
     
-    const tareaValidada = {
-      ...this.taskToValidate,
-      proceso: 'Terminada',
-      fecha_fin: fechaActual,
-      fecha_inicio: fechaActual,
-      fecha_actualizacion: fechaActualizacion,
-      estimacion_horas: this.taskToValidate.estimacion_horas,
-      jornales_reales: this.taskToValidate.estimacion_horas,
-      hora_jornal: 0
-    };
-    
-    this.taskService.updateTask(this.taskToValidate.id, tareaValidada).subscribe({
-      next: () => {
+    // 🔧 CORRECCIÓN: Usar el servicio en lugar de HTTP directo para consistencia
+    this.taskService.completeTask(this.taskToValidate.id).subscribe({
+      next: (response: any) => {
+        console.log('✅ Tarea validada correctamente:', response);
+        
+        // Log de información de validación de horas si está disponible
+        if (response && response.validacionHoras) {
+          console.log('📊 Validación de horas automática:', response.validacionHoras);
+          if (response.validacionHoras.horasValidadas > 0) {
+            this.showNotificationMessage(
+              `Tarea validada correctamente. ${response.validacionHoras.horasValidadas} horas validadas automáticamente.`, 
+              'success'
+            );
+          } else {
+            this.showNotificationMessage('Tarea validada exitosamente. Ahora aparece como terminada.', 'success');
+          }
+        } else {
+          this.showNotificationMessage('Tarea validada exitosamente. Ahora aparece como terminada.', 'success');
+        }
+        
         this.hideLoadingOverlay();
         this.loadTasks();
-        this.showNotificationMessage('Tarea validada exitosamente. Ahora aparece como terminada.', 'success');
         this.onCancelValidation();
       },
       error: (err) => {
         this.hideLoadingOverlay();
-        if (err.status === 200) {
-          this.loadTasks();
-          this.showNotificationMessage('Tarea validada exitosamente. Ahora aparece como terminada.', 'success');
-          this.onCancelValidation();
-        } else {
-          console.error('Error validando tarea:', err);
-          this.showNotificationMessage('Error al validar la tarea. Intenta nuevamente.', 'error');
-        }
+        console.error('❌ Error al validar tarea:', err);
+        this.showNotificationMessage('Error al validar la tarea. Intenta nuevamente.', 'error');
+        this.onCancelValidation();
       }
     });
   }

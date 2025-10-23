@@ -8,6 +8,48 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Servicio de cache simple (para compatibilidad)
+const cacheService = {
+  cache: new Map(),
+  
+  get(key) {
+    const item = this.cache.get(key);
+    if (!item) return null;
+    
+    // Verificar si expiró
+    if (Date.now() > item.expiry) {
+      this.cache.delete(key);
+      return null;
+    }
+    
+    return item.value;
+  },
+  
+  set(key, value, ttlSeconds = 300) { // 5 minutos por defecto
+    const expiry = Date.now() + (ttlSeconds * 1000);
+    this.cache.set(key, { value, expiry });
+  },
+  
+  delete(key) {
+    this.cache.delete(key);
+  },
+  
+  invalidatePattern(pattern) {
+    // Invalidar todas las claves que contengan el patrón
+    for (const key of this.cache.keys()) {
+      if (key.includes(pattern)) {
+        this.cache.delete(key);
+      }
+    }
+    console.log(`🗑️ Cache invalidado para patrón: ${pattern}`);
+  },
+  
+  clear() {
+    this.cache.clear();
+    console.log('🗑️ Cache completamente limpiado');
+  }
+};
+
 // Clave secreta para JWT (en producción debería estar en variable de entorno)
 const JWT_SECRET = 'zoi-task-web-secret-key-2025';
 
@@ -401,8 +443,107 @@ async function getMaxIdFromBothSheets(sheets) {
   }
 }
 
-// Función auxiliar para registrar horas trabajadas en la hoja "Horas"
-async function registrarHorasTrabajadas(authClient, trabajadoresAsignados, encargadoNombre, fechaActualizacion, tareaId, esTareaUrgente = false) {
+// Función auxiliar para validar horas trabajadas automáticamente
+async function validarHorasAutomaticamente(authClient, taskId, tipoValidacion = 'completar') {
+  try {
+    console.log(`🔍 === VALIDANDO HORAS AUTOMÁTICAMENTE (${tipoValidacion.toUpperCase()}) ===`);
+    console.log(`📋 Tarea ID: ${taskId}`);
+
+    const sheets = google.sheets({ version: 'v4', auth: authClient });
+    
+    // Buscar la hoja "Horas_PorValidar"
+    const spreadsheetMeta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
+    const horasSheet = spreadsheetMeta.data.sheets.find(s =>
+      s.properties && (s.properties.title === 'Horas_PorValidar' || s.properties.title === 'horas_porvalidar')
+    );
+    
+    if (!horasSheet) {
+      console.log('⚠️ No se encontró la hoja "Horas_PorValidar" - saltando validación de horas');
+      return { success: true, message: 'Sin horas que validar' };
+    }
+    
+    // Obtener todas las filas de horas
+    const horasResult = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${horasSheet.properties.title}!A:G`
+    });
+    
+    const horasRows = horasResult.data.values || [];
+    
+    // Encontrar filas de la tarea específica que estén "No validada"
+    const filasAActualizar = [];
+    
+    console.log(`🔍 DEBUG: Analizando ${horasRows.length} filas en Horas_PorValidar`);
+    console.log(`🔍 DEBUG: Headers:`, horasRows[0]);
+    
+    horasRows.slice(1).forEach((row, index) => {
+      const rowTaskId = row[4]?.toString().trim(); // Columna E - "Ranking" (Task ID) - CORREGIDO
+      const estadoValidacion = row[6]?.toString().trim(); // Columna G - Estado validación
+      
+      // Debug: Log todas las filas de la tarea específica
+      if (rowTaskId === taskId) {
+        console.log(`🔍 DEBUG: Fila ${index + 2} de tarea ${taskId}:`, {
+          taskId: rowTaskId,
+          trabajador: row[1]?.toString().trim(), // Columna B
+          fecha: row[2]?.toString().trim(), // Columna C
+          estadoValidacion: estadoValidacion,
+          filaCompleta: row
+        });
+      }
+      
+      if (rowTaskId === taskId && estadoValidacion === 'No validada') {
+        filasAActualizar.push({
+          rowIndex: index + 2, // +2 porque slice(1) y las filas son 1-indexed
+          trabajador: row[1]?.toString().trim(),
+          fecha: row[2]?.toString().trim(),
+          horas: parseFloat(row[5]) || 0 // Columna F - horas totales
+        });
+      }
+    });
+    
+    console.log(`📊 Encontradas ${filasAActualizar.length} filas de horas pendientes para tarea ${taskId}`);
+    
+    if (filasAActualizar.length > 0) {
+      // Actualizar todas las horas a "Validada"
+      const updates = filasAActualizar.map(fila => ({
+        range: `${horasSheet.properties.title}!G${fila.rowIndex}`,
+        values: [['Validada']]
+      }));
+      
+      await sheets.spreadsheets.values.batchUpdate({
+        spreadsheetId: SPREADSHEET_ID,
+        resource: {
+          valueInputOption: 'RAW',
+          data: updates
+        }
+      });
+      
+      console.log(`✅ ${filasAActualizar.length} horas validadas automáticamente para tarea ${taskId}`);
+      
+      // Calcular estadísticas
+      const totalHoras = filasAActualizar.reduce((sum, fila) => sum + fila.horas, 0);
+      const trabajadoresUnicos = new Set(filasAActualizar.map(f => f.trabajador)).size;
+      
+      return {
+        success: true,
+        message: `${filasAActualizar.length} horas validadas automáticamente`,
+        horasValidadas: filasAActualizar.length,
+        totalHoras: totalHoras,
+        trabajadores: trabajadoresUnicos
+      };
+    } else {
+      console.log(`ℹ️ No hay horas pendientes de validación para tarea ${taskId}`);
+      return { success: true, message: 'Sin horas pendientes que validar' };
+    }
+    
+  } catch (error) {
+    console.error('❌ Error validando horas automáticamente:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+// Función auxiliar para registrar horas trabajadas en la hoja "Horas_PorValidar"
+async function registrarHorasTrabajadas(authClient, trabajadoresAsignados, encargadoNombre, fechaActualizacion, tareaId, esTareaUrgente = false, esSuperior = false) {
   try {
     console.log('🔍 === REGISTRANDO HORAS TRABAJADAS ===');
     console.log('TareaId recibido:', tareaId);
@@ -413,14 +554,14 @@ async function registrarHorasTrabajadas(authClient, trabajadoresAsignados, encar
     
     const sheets = google.sheets({ version: 'v4', auth: authClient });
     
-    // Buscar la hoja "Horas"
+    // Buscar la hoja "Horas_PorValidar"
     const spreadsheetMeta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
     const horasSheet = spreadsheetMeta.data.sheets.find(s =>
-      s.properties && (s.properties.title === 'Horas' || s.properties.title === 'horas')
+      s.properties && (s.properties.title === 'Horas_PorValidar' || s.properties.title === 'horas_porvalidar')
     );
     
     if (!horasSheet) {
-      console.log('⚠️ No se encontró la hoja "Horas"');
+      console.log('⚠️ No se encontró la hoja "Horas_PorValidar"');
       return;
     }
     
@@ -465,13 +606,31 @@ async function registrarHorasTrabajadas(authClient, trabajadoresAsignados, encar
         console.log(`📊 TAREA NORMAL - Horas a registrar: ${horasARegistrar}`);
       }
       
+      // Determinar el estado de validación (columna G)
+      let estadoValidacion;
+      if (esTareaUrgente) {
+        // Si es tarea urgente de un superior, ya está validada
+        // Si es tarea urgente de un encargado, no está validada aún
+        if (esSuperior) {
+          estadoValidacion = "Validada"; // Tareas urgentes de superiores auto-validadas
+          console.log(`✅ TAREA URGENTE DE SUPERIOR - Horas auto-validadas`);
+        } else {
+          estadoValidacion = "No validada"; // Tareas urgentes de encargados requieren validación
+          console.log(`⏳ TAREA URGENTE DE ENCARGADO - Horas pendientes de validación`);
+        }
+      } else {
+        // Tareas normales se consideran validadas automáticamente
+        estadoValidacion = "Validada";
+      }
+      
       const filaAInsertar = [
-        fechaActualizacion,                    // Fecha
-        encargadoNombre,                      // Grupo (nombre del encargado)
-        trabajadorAsignado.trabajador.nombre, // Nombre del empleado
-        horasARegistrar,                      // Tiempo (horas - directas si es urgente)
-        rankingValue,                         // Ranking (ID de la tarea)
-        trabajadorData.empresa || trabajadorAsignado.trabajador.empresa || '' // Empresa
+        fechaActualizacion,                    // A: Fecha
+        encargadoNombre,                      // B: Grupo (nombre del encargado)
+        trabajadorAsignado.trabajador.nombre, // C: Nombre del empleado
+        horasARegistrar,                      // D: Tiempo (horas - directas si es urgente)
+        rankingValue,                         // E: Ranking (ID de la tarea)
+        trabajadorData.empresa || trabajadorAsignado.trabajador.empresa || '', // F: Empresa
+        estadoValidacion                      // G: Estado de validación
       ];
       
       console.log('Fila a insertar:', filaAInsertar);
@@ -483,7 +642,7 @@ async function registrarHorasTrabajadas(authClient, trabajadoresAsignados, encar
       return;
     }
     
-    // Insertar las filas en la hoja "Horas"
+    // Insertar las filas en la hoja "Horas_PorValidar"
     console.log('📝 Enviando a Google Sheets:');
     console.log('- Hoja:', horasSheet.properties.title);
     console.log('- Rango:', `${horasSheet.properties.title}!A:F`);
@@ -499,7 +658,7 @@ async function registrarHorasTrabajadas(authClient, trabajadoresAsignados, encar
       }
     });
     
-    console.log(`✅ Registradas ${filasAInsertar.length} filas de horas trabajadas en la hoja "Horas"`);
+    console.log(`✅ Registradas ${filasAInsertar.length} filas de horas trabajadas en la hoja "Horas_PorValidar"`);
     
   } catch (err) {
     console.error('❌ Error registrando horas trabajadas:', err);
@@ -1535,9 +1694,9 @@ app.post('/tasks', verifyJWT, async (req, res) => {
         return res.status(404).json({ error: 'Tarea no encontrada' });
       }
 
-      // 2. Buscar y eliminar filas relacionadas en la hoja "Horas"
+      // 2. Buscar y eliminar filas relacionadas en la hoja "Horas_PorValidar"
       const horasSheet = spreadsheetMeta.data.sheets.find(s =>
-        s.properties && (s.properties.title === 'Horas' || s.properties.title === 'horas')
+        s.properties && (s.properties.title === 'Horas_PorValidar' || s.properties.title === 'horas_porvalidar')
       );
       
       let batchRequests = [
@@ -1779,7 +1938,8 @@ app.post('/tasks', verifyJWT, async (req, res) => {
           encargadoNombre, 
           fechaActual, 
           tareaId, 
-          true // es tarea urgente
+          true, // es tarea urgente
+          tarea.es_superior || false // es superior - AÑADIDO
         );
         
         console.log(`✅ Trabajadores registrados para tarea urgente ${tareaId}`);
@@ -1828,7 +1988,7 @@ app.post('/tasks/:id/accept', verifyJWT, async (req, res) => {
     }
     
     const currentRow = rows[rowIndex];
-    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    const estadoAnterior = currentRow[15] || ''; // proceso (columna P)
     
     // Asegurar que el array tenga suficientes elementos para la nueva estructura de 17 columnas
     while (currentRow.length < 17) {
@@ -1836,7 +1996,6 @@ app.post('/tasks/:id/accept', verifyJWT, async (req, res) => {
     }
     
     // Actualizar fecha_inicio (columna L = índice 11) y proceso (columna P = índice 15)
-    // NO actualizamos fecha_actualizacion aquí porque "aceptar" no es lo mismo que "actualizar progreso"
     currentRow[11] = getCurrentEuropeanDate(); // fecha_inicio (columna L) en formato DD/MM/YYYY
     currentRow[15] = 'Iniciada'; // proceso (columna P)
     
@@ -1847,8 +2006,41 @@ app.post('/tasks/:id/accept', verifyJWT, async (req, res) => {
       resource: { values: [currentRow] }
     });
     
-    console.log('Tarea aceptada:', taskId);
-    res.json({ result: 'success', accepted: taskId });
+    // 🔄 FUSIÓN: Si la tarea estaba "Por validar", validar automáticamente las horas
+    let resultadoValidacionHoras = null;
+    console.log(`🔍 DEBUG: Verificando validación de horas para tarea ${taskId} (estado anterior: "${estadoAnterior}")`);
+    
+    if (estadoAnterior === 'Por validar') {
+      console.log(`🚨 Tarea ${taskId} cambió de "Por validar" a "Iniciada" - validando horas automáticamente`);
+      resultadoValidacionHoras = await validarHorasAutomaticamente(auth, taskId, 'aceptar');
+    } else {
+      console.log(`ℹ️ Tarea ${taskId} no tenía estado "Por validar" (era: "${estadoAnterior}") - validando horas de todos modos`);
+      // Validar horas automáticamente sin importar el estado anterior para tareas urgentes
+      resultadoValidacionHoras = await validarHorasAutomaticamente(auth, taskId, 'aceptar-sin-condicion');
+    }
+    
+    // Invalidar caché relacionado
+    if (cacheService) {
+      cacheService.invalidatePattern('tasks');
+      cacheService.invalidatePattern(`trabajadores-tarea:${taskId}`);
+      console.log('🔄 Cache invalidado después de aceptar tarea');
+    }
+    
+    console.log('Tarea aceptada:', taskId, 'estado anterior:', estadoAnterior);
+    
+    const respuesta = { 
+      result: 'success', 
+      accepted: taskId,
+      estadoAnterior: estadoAnterior,
+      estadoNuevo: 'Iniciada'
+    };
+    
+    // Añadir información de validación de horas si ocurrió
+    if (resultadoValidacionHoras) {
+      respuesta.validacionHoras = resultadoValidacionHoras;
+    }
+    
+    res.json(respuesta);
   } catch (err) {
     console.error('Error aceptando tarea:', err);
     res.status(500).json({ error: err.message });
@@ -1963,8 +2155,31 @@ app.post('/tasks/:id/complete-direct', verifyJWT, async (req, res) => {
       await registrarHorasTrabajadas(auth, req.body.trabajadores_asignados, encargadoNombre, fechaActual, taskId, false);
     }
     
+    // 🔄 FUSIÓN: Validar automáticamente las horas al completar directamente
+    console.log(`🚨 Tarea ${taskId} completada directamente - validando horas automáticamente`);
+    const resultadoValidacionHoras = await validarHorasAutomaticamente(auth, taskId, 'completar-directo');
+    
+    // Invalidar caché relacionado
+    if (cacheService) {
+      cacheService.invalidatePattern('tasks');
+      cacheService.invalidatePattern(`trabajadores-tarea:${taskId}`);
+      console.log('🔄 Cache invalidado después de completar tarea directamente');
+    }
+    
     console.log('Tarea completada directamente:', taskId, 'fecha_fin:', today, 'fecha_actualizacion:', fechaActual);
-    res.json({ result: 'success', completed: taskId, fecha_actualizacion: fechaActual });
+    
+    const respuesta = { 
+      result: 'success', 
+      completed: taskId, 
+      fecha_actualizacion: fechaActual 
+    };
+    
+    // Añadir información de validación de horas
+    if (resultadoValidacionHoras) {
+      respuesta.validacionHoras = resultadoValidacionHoras;
+    }
+    
+    res.json(respuesta);
     
   } catch (err) {
     console.error('Error completando tarea directamente:', err);
@@ -2016,7 +2231,8 @@ app.post('/tasks/:id/complete', verifyJWT, async (req, res) => {
     
     const fechaActual = getCurrentEuropeanDate(); // Formato DD/MM/YYYY consistente
 
-    // Actualizar fecha_fin (columna M = índice 12), proceso (columna P = índice 15) y fecha_actualizacion (columna Q = índice 16)
+    // Actualizar fecha_inicio (columna L), fecha_fin (columna M), proceso (columna P) y fecha_actualizacion (columna Q)
+    currentRow[11] = getCurrentEuropeanDate(); // fecha_inicio (columna L) en formato DD/MM/YYYY - AÑADIDO
     currentRow[12] = getCurrentEuropeanDate(); // fecha_fin (columna M) en formato DD/MM/YYYY
     currentRow[15] = 'Terminada'; // proceso (columna P)
     currentRow[16] = fechaActual; // fecha_actualizacion (columna Q) - DD/MM/YYYY - para tracking
@@ -2034,8 +2250,31 @@ app.post('/tasks/:id/complete', verifyJWT, async (req, res) => {
       await registrarHorasTrabajadas(auth, req.body.trabajadores_asignados, encargadoNombre, fechaActual, taskId, false);
     }
     
+    // 🔄 FUSIÓN: Validar automáticamente las horas al completar la tarea
+    console.log(`🚨 Tarea ${taskId} completada - validando horas automáticamente`);
+    const resultadoValidacionHoras = await validarHorasAutomaticamente(auth, taskId, 'completar');
+    
+    // Invalidar caché relacionado
+    if (cacheService) {
+      cacheService.invalidatePattern('tasks');
+      cacheService.invalidatePattern(`trabajadores-tarea:${taskId}`);
+      console.log('🔄 Cache invalidado después de completar tarea');
+    }
+    
     console.log('Tarea completada:', taskId, 'fecha_fin:', today, 'fecha_actualizacion:', fechaActual);
-    res.json({ result: 'success', completed: taskId, fecha_actualizacion: fechaActual });
+    
+    const respuesta = { 
+      result: 'success', 
+      completed: taskId, 
+      fecha_actualizacion: fechaActual 
+    };
+    
+    // Añadir información de validación de horas
+    if (resultadoValidacionHoras) {
+      respuesta.validacionHoras = resultadoValidacionHoras;
+    }
+    
+    res.json(respuesta);
   } catch (err) {
     console.error('Error completando tarea:', err);
     res.status(500).json({ error: err.message });
@@ -2088,7 +2327,7 @@ app.get('/trabajadores', async (req, res) => {
   }
 });
 
-// � Endpoint para obtener trabajadores de una tarea específica desde la hoja "Horas"
+// 📋 Endpoint para obtener trabajadores de una tarea específica desde la hoja "Horas_PorValidar"
 app.get('/trabajadores-tarea/:taskId', optionalJWT, async (req, res) => {
   const { taskId } = req.params;
   console.log('📋 GET /trabajadores-tarea/:taskId - Obteniendo trabajadores de tarea:', taskId);
@@ -2101,14 +2340,14 @@ app.get('/trabajadores-tarea/:taskId', optionalJWT, async (req, res) => {
     const auth = getGoogleAuth();
     const sheets = google.sheets({ version: 'v4', auth });
     
-    // Buscar la hoja "Horas" dinámicamente
+    // Buscar la hoja "Horas_PorValidar" dinámicamente
     const spreadsheetMeta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
     const horasSheet = spreadsheetMeta.data.sheets.find(s =>
-      s.properties && (s.properties.title === 'Horas' || s.properties.title === 'horas')
+      s.properties && (s.properties.title === 'Horas_PorValidar' || s.properties.title === 'horas_porvalidar')
     );
     
     if (!horasSheet) {
-      return res.status(404).json({ error: 'No se encontró la hoja de Horas' });
+      return res.status(404).json({ error: 'No se encontró la hoja de Horas_PorValidar' });
     }
     
     // Obtener datos de la hoja de horas
@@ -2284,9 +2523,9 @@ const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Backend server running on 0.0.0.0:${PORT}`);
-  console.log(`� JWT Authentication: ENABLED (24h tokens)`);
+  console.log(`🛡️ JWT Authentication: ENABLED (24h tokens)`);
   console.log(`🛡️  Protected endpoints: /tasks (POST), /tasks/:id/* (POST)`);
-  console.log(`�🔍 Health check disponible en:`);
+  console.log(`🔍 Health check disponible en:`);
   console.log(`   - Localmente: http://localhost:${PORT}/health`);
   console.log(`   - Desde la red: http://192.168.0.101:${PORT}/health`);
   console.log(`📡 Endpoints principales:`);
@@ -2294,6 +2533,21 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`   - POST /verify-token - Verificar token válido`);
   console.log(`   - GET /tasks - Obtener tareas (opcional JWT)`);
   console.log(`   - POST /tasks - Crear/actualizar tareas (requiere JWT)`);
+  console.log(`   - POST /tasks/:id/accept - Aceptar tarea + validar horas automáticamente`);
+  console.log(`   - POST /tasks/:id/complete - Completar tarea + validar horas automáticamente`);
+  console.log(`   - POST /tasks/:id/complete-direct - Completar directo + validar horas automáticamente`);
+  console.log(`📊 FUNCIONALIDAD FUSIONADA: Validación automática de horas integrada`);
+  console.log(`   - Hoja "Horas" renombrada a "Horas_PorValidar" con columna G para estado de validación`);
+  console.log(`   - Al aceptar/completar tareas se validan automáticamente las horas relacionadas`);
+  console.log(`   - Workflow unificado: Validación de tareas + validación de horas en una sola operación`);
+  
+  // DEBUG: Verificar que el servidor realmente está respondiendo
+  console.log(`🔧 DEBUG: Servidor iniciado exitosamente en puerto ${PORT}`);
+  
+  // Test inmediato del endpoint health
+  setTimeout(() => {
+    console.log(`🔧 DEBUG: Test interno del servidor después de 2 segundos...`);
+  }, 2000);
 });
 
 

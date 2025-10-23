@@ -73,4 +73,15 @@ export class TaskService {
   completeTask(taskId: number | string): Observable<any> {
     return this.http.post(`${this.backendUrl}/tasks/${taskId}/complete`, {});
   }
+
+  completeTaskDirect(taskId: number | string, progressValue: number | string, desarrolloValue: number, jornalesReales: number, trabajadoresAsignados: any[], encargadoNombre: string): Observable<any> {
+    const payload = {
+      progreso: progressValue,
+      desarrollo_actual: desarrolloValue,
+      jornales_reales: jornalesReales,
+      trabajadores_asignados: trabajadoresAsignados,
+      encargado_nombre: encargadoNombre
+    };
+    return this.http.post(`${this.backendUrl}/tasks/${taskId}/complete-direct`, payload);
+  }
 }
