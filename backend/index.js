@@ -2683,6 +2683,235 @@ app.post('/consultas/horas-trabajador', verifyJWT, async (req, res) => {
   }
 });
 
+// Endpoint para consultar horas por tarea e invernadero
+app.post('/consultas/horas-tarea', verifyJWT, async (req, res) => {
+  try {
+    const { tipoTarea, invernadero, mes, año } = req.body;
+    
+    console.log(`📊 Consultando horas para tarea: ${tipoTarea}, invernadero: ${invernadero}, mes: ${mes}, año: ${año}`);
+    
+    // Verificar rol (solo superiores)
+    if (req.user.rol !== 'superior') {
+      return res.status(403).json({ error: 'Acceso denegado: solo superiores pueden realizar consultas' });
+    }
+
+    // Validar parámetros
+    if (!tipoTarea || !invernadero || !mes || !año) {
+      return res.status(400).json({ error: 'Faltan parámetros: tipoTarea, invernadero, mes y año son requeridos' });
+    }
+
+    const auth = getGoogleAuth();
+    const sheets = google.sheets({ version: 'v4', auth });
+
+    // Leer todas las tareas de la hoja "Trabajos"
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: 'Trabajos!A:Z' // Leer todas las columnas necesarias
+    });
+
+    const rows = response.data.values || [];
+    if (rows.length <= 1) {
+      return res.json({
+        tipoTarea,
+        invernadero,
+        mes,
+        año,
+        totalHoras: 0,
+        totalTareas: 0,
+        detalles: [],
+        resumen: 'No se encontraron datos de trabajos para esta consulta'
+      });
+    }
+
+    // Obtener headers para identificar columnas
+    const headers = rows[0] || [];
+    console.log('📋 Headers encontrados en hoja Trabajos:', headers);
+    
+    // Usar índices fijos según la estructura de la hoja Trabajos
+    // Columna B = índice 1 (Fecha)
+    // Columna D = índice 3 (Invernadero) 
+    // Columna E = índice 4 (Actividad/TipoTarea)
+    // Columna H = índice 7 (Horas)
+    const fechaCol = 1;           // Columna B
+    const invernaderoCol = 3;     // Columna D  
+    const tipoTareaCol = 4;       // Columna E
+    const horasCol = 7;           // Columna H
+    const trabajadorCol = headers.findIndex(h => h && h.toLowerCase().includes('trabajador')) || 2; // Columna C por defecto
+    const descripcionCol = headers.findIndex(h => h && h.toLowerCase().includes('descripcion')) || 5; // Columna F por defecto
+
+    console.log(`📋 Columnas fijas - Fecha: ${fechaCol}(B), TipoTarea: ${tipoTareaCol}(E), Invernadero: ${invernaderoCol}(D), Horas: ${horasCol}(H)`);
+    console.log(`📋 Headers en posiciones:
+    - B(${fechaCol}): ${headers[fechaCol] || 'vacío'}
+    - D(${invernaderoCol}): ${headers[invernaderoCol] || 'vacío'}  
+    - E(${tipoTareaCol}): ${headers[tipoTareaCol] || 'vacío'}
+    - H(${horasCol}): ${headers[horasCol] || 'vacío'}`);
+
+    // Verificar que hay suficientes columnas
+    if (headers.length < 8) {
+      console.log('❌ Error: La hoja Trabajos no tiene suficientes columnas (mínimo 8 esperadas)');
+      console.log('📋 Headers disponibles:', headers);
+      return res.status(500).json({ error: 'La hoja Trabajos no tiene la estructura esperada (faltan columnas)' });
+    }
+
+    // Filtrar por tipo de tarea, invernadero y mes
+    const detalles = [];
+    let totalHoras = 0;
+    let totalTareas = 0;
+    
+    rows.slice(1).forEach((row, index) => {
+      const fecha = row[fechaCol] || '';
+      const horas = parseFloat(row[horasCol]) || 0;
+      const tipoTareaRow = (row[tipoTareaCol] || '').trim();
+      const invernaderoRow = (row[invernaderoCol] || '').trim();
+      const trabajador = row[trabajadorCol] || '';
+      const descripcion = row[descripcionCol] || '';
+      
+      if (!fecha || !tipoTareaRow || !invernaderoRow) {
+        return;
+      }
+
+      // Verificar si coincide el tipo de tarea (búsqueda flexible)
+      const coincideTipoTarea = tipoTareaRow.toLowerCase().includes(tipoTarea.toLowerCase()) || 
+                                tipoTarea.toLowerCase().includes(tipoTareaRow.toLowerCase());
+
+      // Verificar invernadero (puede ser específico, varios o "todos")
+      let coincideInvernadero = false;
+      if (invernadero === 'todos' || invernadero === 'TODOS') {
+        coincideInvernadero = true;
+      } else if (invernadero.includes(',')) {
+        // Múltiples invernaderos separados por coma
+        const invernaderosList = invernadero.split(',').map(i => i.trim().toLowerCase());
+        coincideInvernadero = invernaderosList.some(inv => 
+          invernaderoRow.toLowerCase().includes(inv) || inv.includes(invernaderoRow.toLowerCase())
+        );
+      } else {
+        // Invernadero específico
+        coincideInvernadero = invernaderoRow.toLowerCase().includes(invernadero.toLowerCase()) ||
+                             invernadero.toLowerCase().includes(invernaderoRow.toLowerCase());
+      }
+
+      if (!coincideTipoTarea || !coincideInvernadero) {
+        return;
+      }
+
+      // Parsear fecha
+      let fechaObj;
+      try {
+        if (fecha.includes('/')) {
+          const partes = fecha.split('/');
+          if (partes.length === 3) {
+            // DD/MM/YYYY
+            fechaObj = new Date(parseInt(partes[2]), parseInt(partes[1]) - 1, parseInt(partes[0]));
+          }
+        } else if (fecha.includes('-')) {
+          fechaObj = new Date(fecha);
+        } else {
+          fechaObj = new Date(fecha);
+        }
+        
+        if (isNaN(fechaObj.getTime())) {
+          return;
+        }
+        
+        // Verificar mes y año
+        if (fechaObj.getMonth() + 1 === parseInt(mes) && fechaObj.getFullYear() === parseInt(año)) {
+          totalHoras += horas;
+          totalTareas++;
+          detalles.push({
+            fecha: fecha,
+            horas: horas,
+            tipoTarea: tipoTareaRow,
+            invernadero: invernaderoRow,
+            trabajador: trabajador,
+            descripcion: descripcion,
+            fila: index + 2 // +2 porque empezamos desde slice(1) y las filas están 1-indexed
+          });
+        }
+      } catch (error) {
+        console.warn(`⚠️ Error parseando fecha en fila ${index + 2}: ${fecha}`, error);
+      }
+    });
+
+    // Ordenar detalles por fecha
+    detalles.sort((a, b) => {
+      const fechaA = new Date(a.fecha.split('/').reverse().join('-'));
+      const fechaB = new Date(b.fecha.split('/').reverse().join('-'));
+      return fechaA - fechaB;
+    });
+
+    const resultado = {
+      tipoTarea,
+      invernadero,
+      mes: parseInt(mes),
+      ano: parseInt(año),
+      totalHoras: Math.round(totalHoras * 100) / 100,
+      totalTareas,
+      detalles,
+      resumen: detalles.length > 0 
+        ? `Se encontraron ${totalTareas} tareas de "${tipoTarea}" en "${invernadero}" con un total de ${totalHoras} horas durante ${mes}/${año}`
+        : `No se encontraron tareas de "${tipoTarea}" en "${invernadero}" durante ${mes}/${año}`
+    };
+
+    console.log(`✅ Consulta de horas por tarea completada: ${resultado.totalHoras} horas en ${resultado.totalTareas} tareas`);
+    res.json(resultado);
+
+  } catch (error) {
+    console.error('❌ Error en consulta de horas por tarea:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// Endpoint para obtener tipos de tarea disponibles
+app.get('/tipos-tarea', verifyJWT, async (req, res) => {
+  try {
+    console.log(`📋 Obteniendo tipos de tarea disponibles`);
+    
+    // Verificar rol (solo superiores)
+    if (req.user.rol !== 'superior') {
+      return res.status(403).json({ error: 'Acceso denegado: solo superiores pueden acceder a esta información' });
+    }
+
+    const auth = getGoogleAuth();
+    const sheets = google.sheets({ version: 'v4', auth });
+
+    // Leer la hoja "Trabajos" para obtener tipos únicos
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: 'Trabajos!A:Z'
+    });
+
+    const rows = response.data.values || [];
+    if (rows.length <= 1) {
+      return res.json([]);
+    }
+
+    // Obtener headers para identificar columna de tipo de tarea
+    const headers = rows[0] || [];
+    const tipoTareaCol = headers.findIndex(h => h && (h.toLowerCase().includes('tipo') || h.toLowerCase().includes('tarea')));
+
+    if (tipoTareaCol === -1) {
+      return res.status(500).json({ error: 'No se pudo identificar la columna de tipo de tarea' });
+    }
+
+    // Extraer tipos únicos
+    const tiposSet = new Set();
+    rows.slice(1).forEach(row => {
+      const tipo = (row[tipoTareaCol] || '').trim();
+      if (tipo && tipo !== '') {
+        tiposSet.add(tipo);
+      }
+    });
+
+    const tipos = Array.from(tiposSet).sort();
+    console.log(`✅ Encontrados ${tipos.length} tipos de tarea únicos`);
+    res.json(tipos);
+
+  } catch (error) {
+    console.error('❌ Error obteniendo tipos de tarea:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, '0.0.0.0', () => {

@@ -749,9 +749,9 @@
                 🕒 Horas por Trabajador
             </button>
             <button class="tab-btn" 
-                    [class.active]="consultaActiva === 'segunda-consulta'"
-                    (click)="onSelectConsultaTab('segunda-consulta')">
-                📈 Segunda Consulta
+                    [class.active]="consultaActiva === 'horas-tarea'"
+                    (click)="onSelectConsultaTab('horas-tarea')">
+                � Horas por Tarea
             </button>
         </div>
         
@@ -844,12 +844,149 @@
             </div>
         </div>
         
-        <!-- Contenido de la pestaña: Segunda Consulta -->
-        <div *ngIf="consultaActiva === 'segunda-consulta'" class="consulta-content">
-            <h4>Segunda Consulta</h4>
+        <!-- Contenido de la pestaña: Horas por Tarea -->
+        <div *ngIf="consultaActiva === 'horas-tarea'" class="consulta-content">
+            <h4>Consultar Horas por Tipo de Tarea e Invernadero</h4>
             <p class="consulta-description">
-                Esta funcionalidad estará disponible próximamente.
+                Consulte las horas trabajadas para un tipo de tarea específico en uno o varios invernaderos durante un mes determinado.
             </p>
+            
+            <div class="consulta-form">
+                <!-- Selector de Tipo de Tarea Jerárquico -->
+                <div class="form-group">
+                    <label for="tipoTareaConsulta">Tipo de Tarea *</label>
+                    <div class="searchable-dropdown" [class.open]="isTaskDropdownOpen">
+                        <!-- Input de búsqueda -->
+                        <div class="dropdown-input-container">
+                            <input 
+                                type="text" 
+                                class="dropdown-input"
+                                [(ngModel)]="taskSearchTerm"
+                                (input)="onTaskSearchChange()"
+                                (focus)="openTaskDropdown()"
+                                (blur)="closeTaskDropdownDelayed()"
+                                [placeholder]="tareaSeleccionadaLabel || 'Buscar tarea...'"
+                                autocomplete="off">
+                            <span class="dropdown-arrow" [class.rotated]="isTaskDropdownOpen">▼</span>
+                        </div>
+                        
+                        <!-- Lista de opciones -->
+                        <div class="dropdown-options" *ngIf="isTaskDropdownOpen">
+                            <div class="dropdown-scroll">
+                                <!-- Mensaje si no hay resultados -->
+                                <div *ngIf="filteredTaskOptions.length === 0" class="no-results">
+                                    No se encontraron tareas
+                                </div>
+                                
+                                <!-- Opciones filtradas -->
+                                <ng-container *ngFor="let option of filteredTaskOptions">
+                                    <!-- Tipo header -->
+                                    <div *ngIf="option.isTipo" class="dropdown-group-header">
+                                        {{ option.label }}
+                                    </div>
+                                    
+                                    <!-- Tarea seleccionable -->
+                                    <div 
+                                        *ngIf="option.isTarea" 
+                                        class="dropdown-option"
+                                        [class.with-header]="option.hasHeader"
+                                        [class.standalone]="!option.hasHeader"
+                                        (mousedown)="selectTaskOption(option.value, option.label)">
+                                        {{ option.label }}
+                                    </div>
+                                </ng-container>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Selector de Invernadero -->
+                <div class="form-group">
+                    <label for="invernaderoConsulta">Invernadero *</label>
+                    <app-invernadero-selector
+                        [initialValue]="selectedInvernaderoConsulta"
+                        [cabezalFilter]="loggedUser?.cabezal || ''"
+                        (selectionChange)="onInvernaderoConsultaChange($event)">
+                    </app-invernadero-selector>
+                </div>
+
+                <!-- Selector de Mes -->
+                <div class="form-group">
+                    <label for="mesConsulta">Mes *</label>
+                    <select id="mesConsulta" 
+                            [(ngModel)]="selectedMes" 
+                            class="form-control">
+                        <option value="">Seleccione un mes</option>
+                        <option *ngFor="let mes of mesesDisponibles" [value]="mes.value">
+                            {{mes.name}}
+                        </option>
+                    </select>
+                </div>
+
+                <!-- Selector de Año -->
+                <div class="form-group">
+                    <label for="anoTareaConsulta">Año *</label>
+                    <select id="anoTareaConsulta" 
+                            [(ngModel)]="selectedAno" 
+                            class="form-control">
+                        <option value="2023">2023</option>
+                        <option value="2024">2024</option>
+                        <option value="2025">2025</option>
+                        <option value="2026">2026</option>
+                    </select>
+                </div>
+
+                <!-- Botón de Consulta -->
+                <div class="consulta-actions">
+                    <button type="button" 
+                            class="btn-consultar"
+                            [disabled]="isConsultandoHorasTarea || !selectedTipoTareaConsulta || !selectedInvernaderoConsulta || !selectedMes || !selectedAno"
+                            (click)="onConsultarHorasTarea()">
+                        <span *ngIf="!isConsultandoHorasTarea">🔍 Consultar</span>
+                        <span *ngIf="isConsultandoHorasTarea">⏳ Consultando...</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Resultado de la consulta de horas por tarea -->
+            <div *ngIf="horasTareaResultado" class="resultado-resumen">
+                <h5>📊 Resultado de la Consulta</h5>
+                <div class="resumen-item">
+                    <strong>Tipo de Tarea:</strong> 
+                    <span class="valor-dinamico">{{horasTareaResultado.tipoTarea}}</span>
+                </div>
+                <div class="resumen-item">
+                    <strong>Invernadero(s):</strong> 
+                    <span class="valor-dinamico">{{horasTareaResultado.invernadero}}</span>
+                </div>
+                <div class="resumen-item">
+                    <strong>Período:</strong> 
+                    <span class="valor-dinamico">{{getNombreMesSeleccionado()}} {{horasTareaResultado.ano}}</span>
+                </div>
+                <div class="resumen-item">
+                    <strong>Total de Horas:</strong> 
+                    <span class="valor-dinamico">{{horasTareaResultado.totalHoras}}</span>
+                </div>
+                <div class="resumen-item">
+                    <strong>Total de Tareas:</strong> 
+                    <span class="valor-dinamico">{{horasTareaResultado.totalTareas}}</span>
+                </div>
+
+                <!-- Detalles de tareas -->
+                <div *ngIf="horasTareaResultado.detalles && horasTareaResultado.detalles.length > 0" class="detalles-seccion">
+                    <h6>📋 Detalle de Tareas</h6>
+                    <div class="detalles-lista">
+                        <div *ngFor="let detalle of horasTareaResultado.detalles" class="detalle-item">
+                            <div class="detalle-fecha">{{detalle.fecha}}</div>
+                            <div class="detalle-info">
+                                <span class="detalle-trabajador">{{detalle.trabajador}}</span>
+                                <span class="detalle-horas">{{detalle.horas}}h</span>
+                            </div>
+                            <div *ngIf="detalle.descripcion" class="detalle-descripcion">{{detalle.descripcion}}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>

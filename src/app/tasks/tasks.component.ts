@@ -18,6 +18,7 @@ import { newTaskComponent } from './newTask/newTask.component';
 import { AsignarTrabajadoresComponent } from '../trabajadores/asignar-trabajadores/asignar-trabajadores.component';
 import { ModalMessageComponent } from '../shared/modal-message.component';
 import { ConfirmExitModalComponent } from '../shared/confirm-exit-modal.component';
+import { InvernaderoSelectorComponent, InvernaderoSelection } from '../shared/invernadero-selector/invernadero-selector.component';
 
 interface TipoTarea {
   grupo_trabajo: string;
@@ -31,7 +32,7 @@ interface TipoTarea {
 @Component({
   selector: 'app-tasks',
   standalone: true,
-  imports: [CommonModule, FormsModule, newTaskComponent, AsignarTrabajadoresComponent, ModalMessageComponent, ConfirmExitModalComponent],
+  imports: [CommonModule, FormsModule, newTaskComponent, AsignarTrabajadoresComponent, ModalMessageComponent, ConfirmExitModalComponent, InvernaderoSelectorComponent],
   templateUrl: './tasks.component.html',
   styleUrls: ['./tasks.component.css']
 })
@@ -121,7 +122,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   
   // Modal de consultas (solo para superiores)
   showConsultasModal = false;
-  consultaActiva = 'horas-trabajador'; // 'horas-trabajador' | 'segunda-consulta'
+  consultaActiva = 'horas-trabajador'; // 'horas-trabajador' | 'horas-tarea'
   
   // Consulta de horas por trabajador
   trabajadoresDisponibles: any[] = [];
@@ -144,6 +145,22 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   selectedAno = new Date().getFullYear().toString();
   horasConsultaResultado: any = null;
   isConsultandoHoras = false;
+  
+  // Propiedades para consulta de horas por tarea
+  tiposTareaConsulta: string[] = [];
+  tareasJerarquicasConsulta: any[] = []; // Estructura jerárquica para el desplegable
+  selectedTipoTareaConsulta = '';
+  selectedInvernaderoConsulta = '';
+  invernaderoSelectionConsulta: InvernaderoSelection | null = null;
+  horasTareaResultado: any = null;
+  isConsultandoHorasTarea = false;
+  
+  // Dropdown búsqueable para tareas
+  isTaskDropdownOpen = false;
+  taskSearchTerm = '';
+  filteredTaskOptions: any[] = [];
+  tareaSeleccionadaLabel = '';
+  private taskDropdownTimeout: any;
   
   // Propiedades para Tareas Urgentes
   isUrgentTaskWorkersMode = false;
@@ -2139,6 +2156,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     
     this.showConsultasModal = true;
     this.loadTrabajadoresDisponibles();
+    this.loadTiposTareaDisponibles();
   }
   
   onCloseConsultasModal(): void {
@@ -2148,14 +2166,33 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   
   onSelectConsultaTab(tab: string): void {
     this.consultaActiva = tab;
-    this.resetConsultaForm();
+    // No resetear los resultados al cambiar de pestaña
+    this.resetConsultaFormFields();
   }
   
   resetConsultaForm(): void {
+    this.resetConsultaFormFields();
+    // Limpiar también los resultados
+    this.horasConsultaResultado = null;
+    this.horasTareaResultado = null;
+  }
+  
+  resetConsultaFormFields(): void {
     this.selectedTrabajador = '';
     this.selectedMes = '';
     this.selectedAno = new Date().getFullYear().toString();
-    this.horasConsultaResultado = null;
+    
+    // Reset para consulta de horas por tarea
+    this.selectedTipoTareaConsulta = '';
+    this.selectedInvernaderoConsulta = '';
+    
+    // Reset para dropdown búsqueable de tareas
+    this.taskSearchTerm = '';
+    this.tareaSeleccionadaLabel = '';
+    this.isTaskDropdownOpen = false;
+    if (this.taskDropdownTimeout) {
+      clearTimeout(this.taskDropdownTimeout);
+    }
   }
   
   loadTrabajadoresDisponibles(): void {
@@ -2170,6 +2207,81 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
         this.showNotificationMessage('Error al cargar la lista de trabajadores', 'error');
       }
     });
+  }
+  
+  loadTiposTareaDisponibles(): void {
+    // Usar el mismo enfoque que hierarchical-task-selector
+    if (!this.loggedUser?.grupo_trabajo) {
+      console.log('Grupo de trabajo no disponible, reintentando...');
+      setTimeout(() => {
+        this.loadTiposTareaDisponibles();
+      }, 500);
+      return;
+    }
+
+    // Usar el endpoint correcto con grupo de trabajo
+    this.http.get<any[]>(`${environment.apiBaseUrl}/tipos-tarea/${this.loggedUser.grupo_trabajo}`).subscribe({
+      next: (tiposTarea) => {
+        console.log('Tipos de tarea recibidos del backend:', tiposTarea);
+        
+        // Organizar jerárquicamente: Tipo → Subtipo → Tarea
+        this.organizarTareasJerarquicamente(tiposTarea);
+      },
+      error: (err: any) => {
+        console.error('Error cargando tipos de tarea desde backend:', err);
+        
+        // Fallback: usar los datos ya cargados si están disponibles
+        if (this.allTiposTareaObjects && this.allTiposTareaObjects.length > 0) {
+          this.organizarTareasJerarquicamente(this.allTiposTareaObjects);
+          console.log('Usando tipos de tarea del fallback');
+        } else {
+          this.showNotificationMessage('Error al cargar los tipos de tarea', 'error');
+        }
+      }
+    });
+  }
+
+  organizarTareasJerarquicamente(tiposTarea: any[]): void {
+    // Crear estructura jerárquica agrupada
+    const jerarquia: any = {};
+    
+    tiposTarea.forEach(tarea => {
+      if (!tarea.tipo || !tarea.tarea_nombre) return;
+      
+      const tipo = tarea.tipo;
+      const subtipo = tarea.subtipo || 'Sin subtipo';
+      const tareaNombre = tarea.tarea_nombre;
+      
+      // Crear estructura: jerarquia[tipo][subtipo][tarea]
+      if (!jerarquia[tipo]) {
+        jerarquia[tipo] = {};
+      }
+      if (!jerarquia[tipo][subtipo]) {
+        jerarquia[tipo][subtipo] = [];
+      }
+      
+      // Evitar duplicados
+      if (!jerarquia[tipo][subtipo].find((t: any) => t.nombre === tareaNombre)) {
+        jerarquia[tipo][subtipo].push({
+          nombre: tareaNombre,
+          valor: tareaNombre // El valor que se enviará al seleccionar
+        });
+      }
+    });
+    
+    // Convertir a array para el template
+    this.tareasJerarquicasConsulta = Object.keys(jerarquia).sort().map(tipo => ({
+      tipo: tipo,
+      subtipos: Object.keys(jerarquia[tipo]).sort().map(subtipo => ({
+        subtipo: subtipo,
+        tareas: jerarquia[tipo][subtipo].sort((a: any, b: any) => a.nombre.localeCompare(b.nombre))
+      }))
+    }));
+    
+    console.log('Tareas organizadas jerárquicamente:', this.tareasJerarquicasConsulta);
+    
+    // Actualizar opciones filtradas para el dropdown
+    this.updateFilteredTaskOptions();
   }
   
   onConsultarHorasTrabajador(): void {
@@ -2214,14 +2326,174 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     });
   }
   
+  onConsultarHorasTarea(): void {
+    if (!this.selectedTipoTareaConsulta || !this.selectedInvernaderoConsulta || !this.selectedMes || !this.selectedAno) {
+      this.showNotificationMessage('Debe seleccionar tipo de tarea, invernadero, mes y año', 'warning');
+      return;
+    }
+    
+    this.isConsultandoHorasTarea = true;
+    this.showLoadingOverlay('Consultando horas por tarea...');
+    
+    const mes = parseInt(this.selectedMes);
+    const año = parseInt(this.selectedAno);
+    
+    // Usar TasksService para la consulta
+    this.taskService.consultarHorasTarea(this.selectedTipoTareaConsulta, this.selectedInvernaderoConsulta, mes, año).subscribe({
+      next: (resultado: any) => {
+        this.horasTareaResultado = resultado;
+        this.isConsultandoHorasTarea = false;
+        this.hideLoadingOverlay();
+        
+        if (resultado.totalHoras > 0) {
+          this.showNotificationMessage(`Consulta completada: ${resultado.totalHoras} horas en ${resultado.totalTareas} tareas`, 'success');
+        } else {
+          this.showNotificationMessage(resultado.resumen, 'warning');
+        }
+      },
+      error: (err: any) => {
+        console.error('❌ Error en consulta de horas por tarea:', err);
+        this.isConsultandoHorasTarea = false;
+        this.hideLoadingOverlay();
+        console.error('Error en consulta de horas por tarea:', err);
+        
+        if (err.status === 403) {
+          this.showNotificationMessage('Acceso denegado: solo superiores pueden realizar consultas', 'error');
+        } else if (err.status === 400) {
+          this.showNotificationMessage('Parámetros inválidos para la consulta', 'error');
+        } else {
+          this.showNotificationMessage('Error al consultar las horas por tarea', 'error');
+        }
+      }
+    });
+  }
+  
   // Método auxiliar para obtener nombre del mes
   getNombreMesSeleccionado(): string {
     const mes = this.mesesDisponibles.find(m => m.value === this.selectedMes);
     return mes ? mes.name : '';
   }
 
+  // Método para manejar cambio de invernadero en consultas
+  onInvernaderoConsultaChange(selection: InvernaderoSelection): void {
+    // Almacenar la selección completa
+    this.invernaderoSelectionConsulta = selection;
+    
+    // Para la consulta, convertimos la selección a una cadena representativa
+    if (selection && (selection.invernaderos.length > 0 || selection.cabezales.length > 0)) {
+      const seleccionados = [];
+      
+      // Agregar cabezales completos
+      if (selection.cabezales.length > 0) {
+        seleccionados.push(...selection.cabezales.map((c: string) => `CABEZAL-${c}`));
+      }
+      
+      // Agregar invernaderos individuales
+      if (selection.invernaderos.length > 0) {
+        seleccionados.push(...selection.invernaderos);
+      }
+      
+      // Si hay múltiples selecciones, separarlas por coma
+      this.selectedInvernaderoConsulta = seleccionados.length > 0 ? seleccionados.join(',') : '';
+    } else {
+      this.selectedInvernaderoConsulta = '';
+    }
+  }
+
   // Método para cerrar sesión
   onLogout(): void {
     this.authService.logout();
+  }
+
+  // Métodos para el dropdown búsqueable de tareas
+  openTaskDropdown(): void {
+    this.isTaskDropdownOpen = true;
+    this.updateFilteredTaskOptions();
+  }
+
+  closeTaskDropdownDelayed(): void {
+    this.taskDropdownTimeout = setTimeout(() => {
+      this.isTaskDropdownOpen = false;
+    }, 200);
+  }
+
+  onTaskSearchChange(): void {
+    this.updateFilteredTaskOptions();
+  }
+
+  selectTaskOption(value: string, label: string): void {
+    this.selectedTipoTareaConsulta = value;
+    this.tareaSeleccionadaLabel = label;
+    this.isTaskDropdownOpen = false;
+    this.taskSearchTerm = '';
+    
+    if (this.taskDropdownTimeout) {
+      clearTimeout(this.taskDropdownTimeout);
+    }
+  }
+
+  private updateFilteredTaskOptions(): void {
+    const searchTerm = this.taskSearchTerm.toLowerCase();
+    this.filteredTaskOptions = [];
+
+    // Primero, recopilar todas las tareas que coinciden con la búsqueda
+    const matchingTasks: any[] = [];
+    const tasksByTipo: { [tipo: string]: any[] } = {};
+
+    this.tareasJerarquicasConsulta.forEach(tipoGroup => {
+      tipoGroup.subtipos.forEach((subtipoGroup: any) => {
+        subtipoGroup.tareas.forEach((tarea: any) => {
+          const tareaMatches = tarea.nombre.toLowerCase().includes(searchTerm);
+          const tipoMatches = tipoGroup.tipo.toLowerCase().includes(searchTerm);
+
+          if (tareaMatches || tipoMatches || searchTerm === '') {
+            const taskItem = {
+              tipo: tipoGroup.tipo,
+              tarea: tarea
+            };
+            matchingTasks.push(taskItem);
+            
+            if (!tasksByTipo[tipoGroup.tipo]) {
+              tasksByTipo[tipoGroup.tipo] = [];
+            }
+            tasksByTipo[tipoGroup.tipo].push(taskItem);
+          }
+        });
+      });
+    });
+
+    // Ahora construir las opciones filtradas
+    Object.keys(tasksByTipo).sort().forEach(tipo => {
+      const tareasDelTipo = tasksByTipo[tipo];
+      
+      // Solo mostrar header si hay más de una tarea en este tipo
+      if (tareasDelTipo.length > 1) {
+        this.filteredTaskOptions.push({
+          isTipo: true,
+          label: tipo,
+          value: null
+        });
+        
+        // Agregar todas las tareas de este tipo
+        tareasDelTipo.forEach(taskItem => {
+          this.filteredTaskOptions.push({
+            isTarea: true,
+            label: taskItem.tarea.nombre,
+            value: taskItem.tarea.valor,
+            hasHeader: true
+          });
+        });
+      } else {
+        // Si solo hay una tarea, mostrarla directamente sin header
+        tareasDelTipo.forEach(taskItem => {
+          this.filteredTaskOptions.push({
+            isTarea: true,
+            label: taskItem.tarea.nombre,
+            value: taskItem.tarea.valor,
+            hasHeader: false
+          });
+        });
+      }
+    });
   }
 }

@@ -136,7 +136,7 @@ export interface InvernaderoSelection {
     
     .dropdown-text {
       font-weight: 500;
-      color: #48703cff;
+      color: #333;
     }
     
     .main-dropdown-icon {
@@ -241,6 +241,7 @@ export interface InvernaderoSelection {
     .checkbox-label {
       font-size: 14px;
       user-select: none;
+      color: #333 !important;
     }
     
     .selection-summary {
@@ -277,6 +278,7 @@ export interface InvernaderoSelection {
       display: block;
       margin-bottom: 0.5rem;
       font-weight: 500;
+      color: #333;
     }
     
     input[type="checkbox"] {
@@ -288,6 +290,19 @@ export interface InvernaderoSelection {
     input[type="checkbox"]:indeterminate {
       background-color: #007bff;
       border-color: #007bff;
+    }
+    
+    /* Asegurar que todos los textos sean negros */
+    .invernadero-selector * {
+      color: #333 !important;
+    }
+    
+    .invernadero-selector .cabezal-name {
+      color: #333 !important;
+    }
+    
+    .invernadero-selector .checkbox-label {
+      color: #333 !important;
     }
   `]
 })

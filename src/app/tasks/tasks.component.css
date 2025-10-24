@@ -2809,6 +2809,215 @@ menu button.urgent-task-btn {
   font-weight: 700;
 }
 
+/* Estilos para detalles de tareas */
+.detalles-seccion {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.detalles-seccion h6 {
+  margin: 0 0 1rem 0;
+  color: #495057;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.detalles-lista {
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  background: white;
+}
+
+.detalle-item {
+  padding: 0.75rem;
+  border-bottom: 1px solid #f1f3f4;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.75rem;
+  align-items: start;
+}
+
+.detalle-item:last-child {
+  border-bottom: none;
+}
+
+.detalle-fecha {
+  font-size: 0.85rem;
+  color: #6c757d;
+  font-weight: 500;
+  white-space: nowrap;
+  min-width: 80px;
+}
+
+.detalle-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.detalle-trabajador {
+  font-weight: 600;
+  color: #495057;
+  flex: 1;
+}
+
+.detalle-horas {
+  font-size: 0.9rem;
+  background: #e3f2fd;
+  color: #1565c0;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.detalle-descripcion {
+  grid-column: 1 / -1;
+  font-size: 0.85rem;
+  color: #6c757d;
+  font-style: italic;
+  margin-top: 0.25rem;
+  padding-left: 0.5rem;
+  border-left: 3px solid #dee2e6;
+}
+
+/* Estilos para select jerárquico de tareas */
+.searchable-dropdown {
+  position: relative;
+}
+
+.dropdown-input-container {
+  position: relative;
+}
+
+.dropdown-input {
+  width: 100%;
+  padding: 8px 35px 8px 12px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 14px;
+  background: white;
+  color: #495057;
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.dropdown-input:focus {
+  border-color: #007bff;
+  outline: 0;
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.dropdown-arrow {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #6c757d;
+  pointer-events: none;
+  transition: transform 0.2s ease;
+}
+
+.dropdown-arrow.rotated {
+  transform: translateY(-50%) rotate(180deg);
+}
+
+.dropdown-options {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #ced4da;
+  border-top: none;
+  border-radius: 0 0 4px 4px;
+  max-height: 200px;
+  overflow: hidden;
+  z-index: 1000;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.dropdown-scroll {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.dropdown-option {
+  padding: 8px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid #f8f9fa;
+  transition: background-color 0.15s ease;
+  color: #495057;
+  font-size: 14px;
+}
+
+.dropdown-option.with-header {
+  padding-left: 20px;
+}
+
+.dropdown-option.standalone {
+  padding-left: 12px;
+  font-weight: 500;
+}
+
+.dropdown-option:hover,
+.dropdown-option.highlighted {
+  background-color: #e3f2fd;
+  color: #1565c0;
+}
+
+.dropdown-group-header {
+  padding: 6px 12px;
+  background-color: #e9ecef;
+  font-weight: 600;
+  color: #495057;
+  font-size: 13px;
+  border-bottom: 1px solid #dee2e6;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.no-results {
+  padding: 12px;
+  text-align: center;
+  color: #6c757d;
+  font-style: italic;
+}
+
+.tarea-jerarquica-select {
+  font-family: 'Courier New', monospace;
+}
+
+.tarea-jerarquica-select .tipo-header {
+  font-weight: bold;
+  color: #2c3e50 !important;
+  background-color: #ecf0f1 !important;
+  font-size: 14px;
+}
+
+.tarea-jerarquica-select .subtipo-header {
+  font-weight: 600;
+  color: #34495e !important;
+  background-color: #f8f9fa !important;
+  font-size: 13px;
+}
+
+.tarea-jerarquica-select .tarea-option {
+  color: #495057 !important;
+  padding-left: 20px;
+  font-size: 12px;
+}
+
+.tarea-jerarquica-select .tarea-option:hover {
+  background-color: #e3f2fd !important;
+  color: #1565c0 !important;
+}
+
 .col-tarea {
   color: #666;
 }
@@ -2827,6 +3036,15 @@ menu button.urgent-task-btn {
   
   .consultas-tabs {
     flex-direction: column;
+  }
+  
+  .detalle-item {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+  
+  .detalle-fecha {
+    min-width: auto;
   }
   
   .resultado-resumen {

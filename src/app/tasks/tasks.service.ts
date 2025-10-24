@@ -200,4 +200,17 @@ export class TasksService {
     console.log('🌐 TasksService.consultarHorasTrabajador() - Enviando consulta:', body);
     return this.http.post<any>(`${this.apiUrl}/consultas/horas-trabajador`, body);
   }
+
+  // Obtener tipos de tarea disponibles
+  getTiposTarea(): Observable<string[]> {
+    console.log('🌐 TasksService.getTiposTarea() - Haciendo petición a:', `${this.apiUrl}/tipos-tarea`);
+    return this.http.get<string[]>(`${this.apiUrl}/tipos-tarea`);
+  }
+
+  // Consultar horas por tarea e invernadero en un mes específico
+  consultarHorasTarea(tipoTarea: string, invernadero: string, mes: number, año: number): Observable<any> {
+    const body = { tipoTarea, invernadero, mes, año };
+    console.log('🌐 TasksService.consultarHorasTarea() - Enviando consulta:', body);
+    return this.http.post<any>(`${this.apiUrl}/consultas/horas-tarea`, body);
+  }
 }
