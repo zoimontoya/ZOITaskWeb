@@ -2705,11 +2705,17 @@ menu button.urgent-task-btn {
   color: #333 !important;
 }
 
+.resultado-consulta-wrapper {
+  margin-bottom: 1.5rem;
+}
+
 .resultado-resumen {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(3, auto);
+  grid-template-rows: auto auto;
   gap: 1rem;
-  margin-bottom: 1.5rem;
+  justify-content: start;
+  max-width: fit-content;
 }
 
 .resumen-item {
@@ -2717,6 +2723,36 @@ menu button.urgent-task-btn {
   padding: 0.75rem;
   border-radius: 6px;
   border-left: 4px solid #4a90e2;
+  min-width: 200px;
+  width: fit-content;
+}
+
+/* Posicionamiento específico en el grid */
+.resumen-invernadero {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.resumen-tipo-tarea {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.resumen-periodo {
+  grid-column: 3;
+  grid-row: 1;
+}
+
+.resumen-total-horas {
+  grid-column: 1;
+  grid-row: 2;
+  justify-self: start;
+}
+
+.resumen-total-tareas {
+  grid-column: 2;
+  grid-row: 2;
+  justify-self: start;
 }
 
 .resumen-item.total-horas {
@@ -3111,6 +3147,20 @@ menu button.urgent-task-btn {
   
   .resultado-resumen {
     grid-template-columns: 1fr;
+    grid-template-rows: repeat(5, auto);
+    max-width: none;
+  }
+  
+  /* Resetear posicionamiento en móviles para que se apilen verticalmente */
+  .resumen-invernadero,
+  .resumen-tipo-tarea,
+  .resumen-periodo,
+  .resumen-total-horas,
+  .resumen-total-tareas {
+    grid-column: 1;
+    grid-row: auto;
+    justify-self: stretch;
+    max-width: none;
   }
   
   .detalle-header,

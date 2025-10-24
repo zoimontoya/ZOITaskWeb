@@ -961,27 +961,32 @@
             </div>
 
             <!-- Resultado de la consulta de horas por tarea -->
-            <div *ngIf="horasTareaResultado" class="resultado-resumen">
+            <div *ngIf="horasTareaResultado" class="resultado-consulta-wrapper">
                 <h5 class="titulo-resultado-negro">📊 Resultado de la Consulta</h5>
-                <div class="resumen-item">
-                    <strong>Tipo de Tarea:</strong> 
-                    <span class="valor-dinamico">{{horasTareaResultado.tipoTarea}}</span>
-                </div>
-                <div class="resumen-item">
-                    <strong>Invernadero(s):</strong> 
-                    <span class="valor-dinamico">{{horasTareaResultado.invernadero}}</span>
-                </div>
-                <div class="resumen-item">
-                    <strong>Período:</strong> 
-                    <span class="valor-dinamico">{{getNombreMesSeleccionado()}} {{horasTareaResultado.ano}}</span>
-                </div>
-                <div class="resumen-item">
-                    <strong>Total de Horas:</strong> 
-                    <span class="valor-dinamico">{{horasTareaResultado.totalHoras}}</span>
-                </div>
-                <div class="resumen-item">
-                    <strong>Total de Tareas:</strong> 
-                    <span class="valor-dinamico">{{horasTareaResultado.totalTareas}}</span>
+                <div class="resultado-resumen">
+                    <!-- Primera fila: Invernadero, Tipo de Tarea, Período -->
+                    <div class="resumen-item resumen-invernadero">
+                        <strong>Invernadero(s):</strong> 
+                        <span class="valor-dinamico">{{horasTareaResultado.invernadero}}</span>
+                    </div>
+                    <div class="resumen-item resumen-tipo-tarea">
+                        <strong>Tipo de Tarea:</strong> 
+                        <span class="valor-dinamico">{{horasTareaResultado.tipoTarea}}</span>
+                    </div>
+                    <div class="resumen-item resumen-periodo">
+                        <strong>Período:</strong> 
+                        <span class="valor-dinamico">{{getNombreMesSeleccionado()}} {{horasTareaResultado.ano}}</span>
+                    </div>
+                    
+                    <!-- Segunda fila: Total de Horas, Total de Tareas (centrados) -->
+                    <div class="resumen-item resumen-total-horas">
+                        <strong>Total de Horas:</strong> 
+                        <span class="valor-dinamico">{{horasTareaResultado.totalHoras}}</span>
+                    </div>
+                    <div class="resumen-item resumen-total-tareas">
+                        <strong>Total de Tareas:</strong> 
+                        <span class="valor-dinamico">{{horasTareaResultado.totalTareas}}</span>
+                    </div>
                 </div>
 
                 <!-- Detalles de tareas agrupados por invernadero -->
