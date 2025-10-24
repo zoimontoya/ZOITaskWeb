@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, OnInit } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnInit, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { InvernaderoService, Cabezal, Invernadero, InvernaderosResponse } from '../../invernadero.service';
@@ -306,7 +306,7 @@ export interface InvernaderoSelection {
     }
   `]
 })
-export class InvernaderoSelectorComponent implements OnInit {
+export class InvernaderoSelectorComponent implements OnInit, OnChanges {
   @Input() initialValue: string = '';
   @Input() cabezalFilter: string = '';  // Nuevo input para filtrar por cabezal específico
   @Output() selectionChange = new EventEmitter<InvernaderoSelection>();
@@ -328,6 +328,27 @@ export class InvernaderoSelectorComponent implements OnInit {
   
   ngOnInit() {
     this.loadInvernaderos();
+  }
+  
+  ngOnChanges(changes: SimpleChanges) {
+    console.log('🔧 InvernaderoSelector: ngOnChanges');
+    console.log('📋 Changes:', changes);
+    console.log('📋 Current initialValue:', this.initialValue);
+    console.log('📊 Cabezales loaded:', this.cabezales.length);
+    
+    // Si cambia el initialValue y ya tenemos los cabezales cargados
+    if (changes['initialValue'] && this.cabezales.length > 0) {
+      console.log('✅ Limpiando selecciones previas y configurando nuevo valor inicial');
+      // Limpiar selecciones previas
+      this.selectedInvernaderos.clear();
+      this.selectedCabezales.clear();
+      this.expandedCabezales.clear();
+      
+      // Seleccionar el nuevo valor inicial
+      if (this.initialValue) {
+        this.selectInitialValue();
+      }
+    }
   }
   
   loadInvernaderos() {
@@ -356,18 +377,28 @@ export class InvernaderoSelectorComponent implements OnInit {
   }
   
   selectInitialValue() {
+    console.log('🔧 InvernaderoSelector: selectInitialValue');
+    console.log('📋 Buscando invernadero:', this.initialValue);
+    console.log('📊 Cabezales disponibles:', this.cabezales.map(c => c.nombre));
+    
     // Buscar el invernadero en los cabezales y seleccionarlo
     for (const cabezal of this.cabezales) {
       const invernadero = cabezal.invernaderos.find(inv => inv.nombre === this.initialValue);
       if (invernadero) {
+        console.log('✅ Invernadero encontrado en cabezal:', cabezal.nombre);
         // Seleccionar el invernadero
         this.selectedInvernaderos.add(this.initialValue);
         // Expandir el cabezal correspondiente
         this.expandedCabezales.add(cabezal.nombre);
         // Emitir la selección
         this.emitSelection();
+        console.log('✅ Selección configurada y emitida');
         break;
       }
+    }
+    
+    if (!this.selectedInvernaderos.has(this.initialValue)) {
+      console.log('❌ No se encontró el invernadero inicial');
     }
   }
   

@@ -166,9 +166,16 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
   ngOnChanges(changes: SimpleChanges): void {
   // (eliminado duplicado)
     if (changes['task']) {
+      console.log('🔧 === NEWTASK: ngOnChanges detectó cambio en task ===');
+      console.log('📋 Datos del task recibido:', this.task);
+      console.log('📊 Cantidad de invernaderos cargados:', this.greenhouses.length);
+      
       // Solo inicializar si los invernaderos ya están cargados
       if (this.greenhouses.length > 0) {
+        console.log('✅ Invernaderos ya cargados, llamando initFormFromTask...');
         this.initFormFromTask();
+      } else {
+        console.log('⏳ Invernaderos aún no cargados, esperando...');
       }
       // Si no están cargados, ngOnInit se encargará de llamar initFormFromTask
     }
@@ -184,7 +191,22 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
   ) {}
 
   initFormFromTask() {
+    console.log('🔧 === EJECUTANDO initFormFromTask ===');
+    console.log('📋 Estado de this.task:', this.task);
+    console.log('📊 Invernaderos disponibles:', this.greenhouses.length);
+    
     if (this.task) {
+      console.log('✅ Modo EDICIÓN detectado');
+      console.log('📋 Datos específicos de la tarea:');
+      console.log('  - invernadero:', this.task.invernadero);
+      console.log('  - tipo_tarea:', this.task.tipo_tarea);
+      console.log('  - estimacion_horas:', this.task.estimacion_horas);
+      console.log('  - fecha_limite:', this.task.fecha_limite);
+      console.log('  - encargado_id:', this.task.encargado_id);
+      console.log('  - descripcion:', this.task.descripcion);
+      console.log('  - dimension_total:', this.task.dimension_total);
+      console.log('  - hora_jornal:', this.task.hora_jornal);
+      console.log('  - horas_kilos:', this.task.horas_kilos);
       // Para la edición, el invernadero-selector se encargará de la selección inicial
       // solo configuramos el área de trabajo actual
       if (this.task.invernadero) {
@@ -192,22 +214,30 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
         
         // SOLUCIÓN: Usar el mismo método que funciona en updateProgress
         // Manejar tanto comas como puntos decimales
-        const dimensionString = this.task.dimension_total || '0';
+        const dimensionString = String(this.task.dimension_total) || '0';
         const normalizedString = dimensionString.replace(',', '.');
         const currentArea = parseFloat(normalizedString) || 0;
         
         this.workingAreas[this.task.invernadero] = currentArea;
       }
       
+      // 🔧 INICIALIZAR TIPO DE TAREA JERÁRQUICA
+      this.selectedTareaJerarquica = this.task.tipo_tarea || '';
       this.selectedTaskType = this.task.tipo_tarea || '';
       
       // 🔧 CONFIGURAR TOGGLE BASÁNDOSE EN VALOR ALMACENADO
       const horaJornalValue = Number(this.task.hora_jornal) || 0;
       this.useEightHourJornal = (horaJornalValue === 1);
       
-      console.log(`� === EDITANDO TAREA - CONFIGURACIÓN INICIAL ===`);
+      // 🔧 CONFIGURAR TOGGLE DE MEDICIÓN (Hectáreas vs Kilos)
+      const horasKilosValue = Number(this.task.horas_kilos) || 0;
+      this.useKilosMode = (horasKilosValue === 1);
+      
+      console.log(`🔧 === EDITANDO TAREA - CONFIGURACIÓN INICIAL ===`);
       console.log(`📋 hora_jornal desde BD: "${this.task.hora_jornal}" → ${horaJornalValue}`);
       console.log(`🎚️ Toggle configurado a: ${this.useEightHourJornal} (${this.useEightHourJornal ? '8h' : '6h'} por jornal)`);
+      console.log(`📏 horas_kilos desde BD: "${this.task.horas_kilos}" → ${horasKilosValue}`);
+      console.log(`📊 Medición configurada a: ${this.useKilosMode ? 'Kilos' : 'Hectáreas'}`);
       
       // La estimación ya viene convertida a jornales por loadTasks()
       this.estimation = (Number(this.task.estimacion_horas) || 0).toString();
@@ -217,12 +247,20 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
       this.dueDates = {};
       this.estimations = {};
       this.selectedEncargados = {};
+      this.expectedKilos = {}; // 🔧 IMPORTANTE: Inicializar kilos esperados para edición
       
       if (this.task.invernadero) {
         // Configurar valores individuales del invernadero
         this.dueDates[this.task.invernadero] = this.task.fecha_limite || '';
         this.estimations[this.task.invernadero] = Number(this.task.estimacion_horas) || 0;
         this.selectedEncargados[this.task.invernadero] = this.task.encargado_id || '';
+        
+        // 🔧 IMPORTANTE: Si es tarea de kilos, configurar kilos esperados
+        if (this.useKilosMode && this.task.dimension_total) {
+          const kilosActuales = parseFloat(String(this.task.dimension_total).replace(',', '.')) || 0;
+          this.expectedKilos[this.task.invernadero] = kilosActuales;
+          console.log(`🔧 Kilos esperados configurados para ${this.task.invernadero}: ${kilosActuales}`);
+        }
       }
       
       // Configurar valores únicos para compatibilidad
@@ -230,12 +268,33 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
       this.description = this.task.descripcion || '';
       this.singleDate = this.task.fecha_limite || '';
       
+      console.log(`🔧 === CONFIGURANDO VALORES GLOBALES ===`);
+      console.log(`📋 selectedEncargado: "${this.selectedEncargado}"`);
+      console.log(`📋 description: "${this.description}"`);
+      console.log(`📋 singleDate: "${this.singleDate}"`);
+      console.log(`📋 estimation (global): "${this.estimation}"`);
+      
+      console.log(`🔧 === CONFIGURANDO VALORES INDIVIDUALES ===`);
+      console.log(`📋 dueDates:`, this.dueDates);
+      console.log(`📋 estimations:`, this.estimations);
+      console.log(`📋 selectedEncargados:`, this.selectedEncargados);
+      
       // Al editar, por defecto usar valores globales (más simple)
       this.useIndividualDates = false;
       this.useIndividualEncargados = false;
+      
+      // 🔧 DEBUGGING: Verificar estado final después de configuración
+      setTimeout(() => {
+        this.debugFormState();
+        // 🔧 QUICK FIX: Forzar sincronización de valores para edición
+        this.forceSyncForEdit();
+        // 🔧 NUEVO: Restaurar valores que puedan haberse perdido
+        this.restoreEditValues();
+      }, 100);
     } else {
       // Limpiar todo para nueva tarea
       this.invernaderoSelection = null;
+      this.selectedTareaJerarquica = '';
       this.selectedTaskType = '';
       this.estimation = '';
       this.dueDates = {};
@@ -247,21 +306,63 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
       this.useIndividualEncargados = false;
       this.singleDate = '';
       this.workingAreas = {};
+      this.expectedKilos = {}; // 🔧 Limpiar kilos esperados para nueva tarea
       // NO tocamos useEightHourJornal aquí, debe mantener su valor por defecto (false)
     }
   }
 
   onInvernaderoSelectionChange(selection: InvernaderoSelection) {
+    console.log('🔧 === onInvernaderoSelectionChange EJECUTÁNDOSE ===');
+    console.log('📋 Modo edición detectado:', !!this.task);
+    console.log('📋 Selección recibida:', selection);
+    
     this.invernaderoSelection = selection;
     
-    // Detectar si estamos en modo ALMACÉN
-    this.detectAlmacenMode();
-    
-    // Limpiar fechas anteriores y crear nuevas entradas según el modo
-    this.updateDateFields();
-    
-    // Sincronizar fechas y encargados si están en modo único
-    this.syncSingleValues();
+    // 🔧 IMPORTANTE: En modo edición, no limpiar valores existentes
+    if (!this.task) {
+      // Solo ejecutar limpiezas y reseteos en modo CREACIÓN (nueva tarea)
+      console.log('✅ Modo creación: ejecutando limpieza y configuración');
+      
+      // Detectar si estamos en modo ALMACÉN
+      this.detectAlmacenMode();
+      
+      // Limpiar fechas anteriores y crear nuevas entradas según el modo
+      this.updateDateFields();
+      
+      // Sincronizar fechas y encargados si están en modo único
+      this.syncSingleValues();
+    } else {
+      // En modo edición, solo detectar modo almacén, NO limpiar datos
+      console.log('⚠️ Modo edición: omitiendo limpieza de datos');
+      this.detectAlmacenMode();
+      
+      // En modo edición, solo sincronizar si es necesario sin perder datos
+      this.syncSingleValues();
+      
+      // 🔧 CRUCIAL: Restaurar todos los valores de edición después de cualquier procesamiento
+      setTimeout(() => {
+        this.restoreEditValues();
+      }, 50);
+      
+      // 🔧 SUPER AGRESIVO: Restaurar valores periódicamente hasta que estén correctos
+      const restoreInterval = setInterval(() => {
+        if (this.task) {
+          this.restoreEditValues();
+          // Si todos los valores están correctos, detener el intervalo
+          if (this.areAllEditValuesCorrect()) {
+            clearInterval(restoreInterval);
+            console.log('✅ Todos los valores están correctos, deteniendo restauración');
+          }
+        } else {
+          clearInterval(restoreInterval);
+        }
+      }, 200);
+      
+      // Detener después de 5 segundos máximo
+      setTimeout(() => {
+        clearInterval(restoreInterval);
+      }, 5000);
+    }
   }
   
   private detectAlmacenMode() {
@@ -384,6 +485,7 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
   }
   
   private updateDateFields() {
+    console.log('🔧 updateDateFields ejecutándose...');
     
     if (this.invernaderoSelection && this.invernaderoSelection.invernaderos.length > 0) {
       if (this.useIndividualDates) {
@@ -391,47 +493,66 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
         this.invernaderoSelection.invernaderos.forEach((inv: string) => {
           if (!this.dueDates[inv]) {
             this.dueDates[inv] = '';
+            console.log(`📋 Inicializando dueDates[${inv}] como vacío`);
+          } else {
+            console.log(`📋 Manteniendo dueDates[${inv}] = "${this.dueDates[inv]}"`);
           }
         });
       } else {
-        // Modo fecha global: asegurar que existe singleDate
+        // Modo fecha global: asegurar que existe singleDate, pero NO sobrescribir si ya tiene valor
         if (!this.singleDate) {
           this.singleDate = '';
+          console.log(`📋 Inicializando singleDate como vacío`);
+        } else {
+          console.log(`📋 Manteniendo singleDate = "${this.singleDate}"`);
         }
       }
       
-      // Inicializar áreas de trabajo para cada invernadero seleccionado
+      // Inicializar áreas de trabajo para cada invernadero seleccionado (solo si no existen o es modo creación)
       this.invernaderoSelection.invernaderos.forEach((inv: string) => {
-        if (!this.workingAreas[inv]) {
+        if (!this.workingAreas[inv] || this.workingAreas[inv] === 0) {
           // Obtener el área máxima del invernadero desde los datos
           const greenhouse = this.greenhouses.find(gh => gh.nombre === inv);
           const maxArea = parseFloat(greenhouse?.dimensiones || '0') || 0;
           // Por defecto, usar toda el área disponible SIN redondear
           this.workingAreas[inv] = maxArea;
+          console.log(`📋 Inicializando área para ${inv}: ${maxArea} Ha`);
+        } else {
+          console.log(`📋 Manteniendo área existente para ${inv}: ${this.workingAreas[inv]} Ha`);
         }
       });
       
-      // Actualizar estimaciones automáticamente para los nuevos invernaderos
-      this.updateEstimationsBasedOnJornalUnidad();
+      // Actualizar estimaciones automáticamente para los nuevos invernaderos (solo en modo creación)
+      if (!this.task) {
+        this.updateEstimationsBasedOnJornalUnidad();
+      }
       
-      // Limpiar áreas de invernaderos que ya no están seleccionados
-      Object.keys(this.workingAreas).forEach(inv => {
-        if (!this.invernaderoSelection?.invernaderos.includes(inv)) {
-          delete this.workingAreas[inv];
-        }
-      });
+      // Limpiar áreas de invernaderos que ya no están seleccionados (solo en modo creación)
+      if (!this.task) {
+        Object.keys(this.workingAreas).forEach(inv => {
+          if (!this.invernaderoSelection?.invernaderos.includes(inv)) {
+            delete this.workingAreas[inv];
+          }
+        });
+      }
       
-      // Inicializar estimaciones por invernadero
+      // Inicializar estimaciones por invernadero (solo si no existen, y preservar en modo edición)
       this.invernaderoSelection.invernaderos.forEach((inv: string) => {
         if (!this.estimations[inv]) {
           this.estimations[inv] = 0;
+          console.log(`📋 Inicializando estimations[${inv}] = 0`);
+        } else {
+          console.log(`📋 Manteniendo estimations[${inv}] = ${this.estimations[inv]}`);
         }
       });
       
-      // Inicializar encargados por invernadero
+      // Inicializar encargados por invernadero (solo si no existen, y preservar en modo edición)
       this.invernaderoSelection.invernaderos.forEach((inv: string) => {
         if (!this.selectedEncargados[inv]) {
           this.selectedEncargados[inv] = '';
+          console.log(`📋 Inicializando selectedEncargados[${inv}] como vacío`);
+        } else {
+          console.log(`📋 Manteniendo selectedEncargados[${inv}] = "${this.selectedEncargados[inv]}"`);
         }
       });
     } else {
@@ -770,6 +891,135 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
       this.getSelectedInvernaderos().forEach((inv: string) => {
         this.selectedEncargados[inv] = encargadoId;
       });
+    }
+  }
+
+  debugFormState() {
+    console.log(`🔧 === DEBUG ESTADO FINAL DEL FORMULARIO ===`);
+    console.log(`📋 getSelectedInvernaderos():`, this.getSelectedInvernaderos());
+    console.log(`📋 activeInvernaderoIndex:`, this.activeInvernaderoIndex);
+    
+    const currentInv = this.getSelectedInvernaderos()[this.activeInvernaderoIndex];
+    console.log(`📋 Invernadero actual (activeIndex):`, currentInv);
+    
+    if (currentInv) {
+      console.log(`📋 estimations[${currentInv}]:`, this.estimations[currentInv]);
+      console.log(`📋 selectedEncargados[${currentInv}]:`, this.selectedEncargados[currentInv]);
+      console.log(`📋 dueDates[${currentInv}]:`, this.dueDates[currentInv]);
+    }
+    
+    console.log(`📋 singleDate:`, this.singleDate);
+    console.log(`📋 selectedEncargado:`, this.selectedEncargado);
+    console.log(`📋 estimation:`, this.estimation);
+    console.log(`📋 useIndividualDates:`, this.useIndividualDates);
+    console.log(`📋 useIndividualEncargados:`, this.useIndividualEncargados);
+  }
+
+  restoreEditValues() {
+    if (!this.task) return; // Solo en modo edición
+    
+    console.log('🔧 === RESTAURANDO VALORES DE EDICIÓN ===');
+    
+    const inv = this.task.invernadero;
+    
+    // 1. Restaurar área de trabajo específica de la tarea
+    if (this.task.dimension_total) {
+      const dimensionString = String(this.task.dimension_total) || '0';
+      const normalizedString = dimensionString.replace(',', '.');
+      const currentArea = parseFloat(normalizedString) || 0;
+      this.workingAreas[inv] = currentArea;
+      console.log(`✅ Área restaurada para ${inv}: ${currentArea}`);
+    }
+    
+    // 2. Restaurar fecha límite
+    if (this.task.fecha_limite) {
+      this.singleDate = this.task.fecha_limite;
+      this.dueDates[inv] = this.task.fecha_limite;
+      console.log(`✅ Fecha límite restaurada: ${this.task.fecha_limite}`);
+    }
+    
+    // 3. Restaurar encargado
+    if (this.task.encargado_id) {
+      this.selectedEncargado = this.task.encargado_id;
+      this.selectedEncargados[inv] = this.task.encargado_id;
+      console.log(`✅ Encargado restaurado: ${this.task.encargado_id}`);
+    }
+    
+    // 4. Restaurar estimación de jornales
+    if (this.task.estimacion_horas) {
+      const estimacionJornales = Number(this.task.estimacion_horas) || 0;
+      this.estimation = estimacionJornales.toString();
+      this.estimations[inv] = estimacionJornales;
+      console.log(`✅ Estimación restaurada: ${estimacionJornales} jornales`);
+    }
+    
+    // 5. Restaurar descripción
+    if (this.task.descripcion) {
+      this.description = this.task.descripcion;
+      console.log(`✅ Descripción restaurada: ${this.task.descripcion}`);
+    }
+    
+    // 6. Restaurar kilos esperados si es tarea de kilos
+    if (this.useKilosMode && this.task.dimension_total) {
+      const kilosActuales = parseFloat(String(this.task.dimension_total).replace(',', '.')) || 0;
+      this.expectedKilos[inv] = kilosActuales;
+      console.log(`✅ Kilos esperados restaurados: ${kilosActuales}`);
+    }
+    
+    console.log('🔧 === RESTAURACIÓN COMPLETADA ===');
+  }
+
+  areAllEditValuesCorrect(): boolean {
+    if (!this.task) return true;
+    
+    const inv = this.task.invernadero;
+    
+    // Verificar que todos los valores críticos estén configurados correctamente
+    const fechaCorrecta = this.singleDate === this.task.fecha_limite;
+    const encargadoCorrecta = this.selectedEncargado === this.task.encargado_id;
+    const estimacionCorrecta = this.estimation === (Number(this.task.estimacion_horas) || 0).toString();
+    const descripcionCorrecta = this.description === (this.task.descripcion || '');
+    
+    const areaCorrecta = !!(this.workingAreas[inv] && this.workingAreas[inv] > 0);
+    
+    const todoCorrecto = fechaCorrecta && encargadoCorrecta && estimacionCorrecta && descripcionCorrecta && areaCorrecta;
+    
+    if (!todoCorrecto) {
+      console.log('🔧 Valores aún no están correctos:', {
+        fechaCorrecta,
+        encargadoCorrecta,
+        estimacionCorrecta,
+        descripcionCorrecta,
+        areaCorrecta
+      });
+    }
+    
+    return todoCorrecto;
+  }
+
+  forceSyncForEdit() {
+    // 🔧 En modo edición, forzar que los valores globales se copien a las estructuras individuales
+    if (this.task && this.task.invernadero) {
+      const inv = this.task.invernadero;
+      
+      // Asegurar que los valores individuales tengan los datos correctos
+      if (this.singleDate) {
+        this.dueDates[inv] = this.singleDate;
+      }
+      
+      if (this.selectedEncargado) {
+        this.selectedEncargados[inv] = this.selectedEncargado;
+      }
+      
+      if (this.estimation) {
+        this.estimations[inv] = Number(this.estimation) || 0;
+      }
+      
+      console.log(`🔧 === FORZANDO SINCRONIZACIÓN PARA EDICIÓN ===`);
+      console.log(`📋 Valores forzados para ${inv}:`);
+      console.log(`  - dueDates[${inv}]: ${this.dueDates[inv]}`);
+      console.log(`  - selectedEncargados[${inv}]: ${this.selectedEncargados[inv]}`);
+      console.log(`  - estimations[${inv}]: ${this.estimations[inv]}`);
     }
   }
 }

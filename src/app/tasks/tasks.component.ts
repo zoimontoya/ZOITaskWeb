@@ -968,7 +968,10 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
       this.showNotificationMessage('No se puede editar una tarea terminada.', 'warning');
       return;
     }
+    console.log('🔧 === INICIANDO EDICIÓN DE TAREA ===');
+    console.log('📋 Datos de la tarea original:', task);
     this.editingTask = { ...task };
+    console.log('📋 Datos de editingTask después de copia:', this.editingTask);
   }
 
   onCancelEditTask() {
@@ -991,7 +994,11 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
       ...tarea,
       nombre_superior: superiorId,
       // Usar el dimension_total que viene del formulario de edición
-      dimension_total: tarea.dimension_total || this.editingTask.dimension_total || '0'
+      dimension_total: tarea.dimension_total || this.editingTask.dimension_total || '0',
+      // CRÍTICO: Preservar el estado/progreso actual para evitar reseteo a "No iniciado"
+      proceso: this.editingTask.proceso,
+      desarrollo_actual: this.editingTask.desarrollo_actual,
+      fecha_actualizacion: this.editingTask.fecha_actualizacion
     };
     
     this.showLoadingOverlay('Actualizando tarea...');

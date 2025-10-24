@@ -1486,6 +1486,35 @@ app.post('/tasks', verifyJWT, async (req, res) => {
       console.log(`⏰ estimacion_horas: "${req.body.estimacion_horas}" → ${estimacionHoras} horas totales`);
       console.log(`💾 Se actualizará columna E: ${horaJornal}, columna F: ${horasKilos}, columna D: ${estimacionHoras}`);
       
+      // Determinar jornales_reales a preservar
+      const jornalesRealesOriginales = Number(rows[rowIndex][6]) || 0;
+      const jornalesRealesRequest = req.body.jornales_reales !== undefined ? Number(req.body.jornales_reales) || 0 : null;
+      const jornalesRealesFinales = esTareaUrgente ? jornalesRealesOriginales : (jornalesRealesRequest !== null ? jornalesRealesRequest : jornalesRealesOriginales);
+      
+      console.log(`🔧 === PRESERVANDO JORNALES REALES ===`);
+      console.log(`📋 jornales_reales originales (BD): ${jornalesRealesOriginales}`);
+      console.log(`📋 jornales_reales desde request: ${jornalesRealesRequest}`);
+      console.log(`📋 jornales_reales finales: ${jornalesRealesFinales}`);
+      console.log(`📋 Es tarea urgente: ${esTareaUrgente}`);
+      
+      // Preservar fecha_inicio existente si no se envía nueva
+      const fechaInicioOriginal = rows[rowIndex][11] || ''; // Columna L (índice 11)
+      const fechaInicioFinal = req.body.fecha_inicio ? formatDateToEuropean(req.body.fecha_inicio) : fechaInicioOriginal;
+      
+      console.log(`🔧 === PRESERVANDO FECHA_INICIO ===`);
+      console.log(`📋 fecha_inicio original (BD): "${fechaInicioOriginal}"`);
+      console.log(`📋 fecha_inicio desde request: "${req.body.fecha_inicio}"`);
+      console.log(`📋 fecha_inicio final: "${fechaInicioFinal}"`);
+      
+      // Preservar fecha_actualizacion existente si no se envía nueva
+      const fechaActualizacionOriginal = rows[rowIndex][16] || '';
+      const fechaActualizacionFinal = req.body.fecha_actualizacion || fechaActualizacionOriginal;
+      
+      console.log(`🔧 === PRESERVANDO FECHA_ACTUALIZACION ===`);
+      console.log(`📋 fecha_actualizacion original (BD): "${fechaActualizacionOriginal}"`);
+      console.log(`📋 fecha_actualizacion desde request: "${req.body.fecha_actualizacion}"`);
+      console.log(`📋 fecha_actualizacion final: "${fechaActualizacionFinal}"`);
+      
       const updatedRow = [
         idToUpdate,                                    // A: id
         req.body.invernadero,                          // B: invernadero
@@ -1493,17 +1522,17 @@ app.post('/tasks', verifyJWT, async (req, res) => {
         estimacionHoras,                               // D: estimacion_horas (ya calculado en frontend)
         horaJornal,                                    // E: hora_jornal (0=6hrs, 1=8hrs)
         horasKilos,                                    // F: horas_kilos (0=Hectáreas, 1=Kilos)
-        esTareaUrgente ? Number(rows[rowIndex][6]) || 0 : Number(req.body.jornales_reales) || 0,  // G: preservar jornales_reales originales para urgentes
+        jornalesRealesFinales,                         // G: jornales_reales (preservado en edición)
         formatDateToEuropean(req.body.fecha_limite),   // H: fecha_limite en formato DD/MM/YYYY
         req.body.encargado_id,                         // I: encargado_id
         req.body.descripcion,                          // J: descripcion
         req.body.nombre_superior || '',                // K: nombre_superior
-        formatDateToEuropean(req.body.fecha_inicio),   // L: fecha_inicio en formato DD/MM/YYYY
+        fechaInicioFinal,                              // L: fecha_inicio (preservar existente si no se envía)
         formatDateToEuropean(req.body.fecha_fin),      // M: fecha_fin en formato DD/MM/YYYY
-        parseFloat((parseFloat(req.body.desarrollo_actual) || 0).toFixed(3)),      // N: desarrollo_actual (máximo 3 decimales)
+        req.body.desarrollo_actual !== undefined ? parseFloat((parseFloat(req.body.desarrollo_actual) || 0).toFixed(3)) : (parseFloat(rows[rowIndex][13]) || 0),      // N: desarrollo_actual (preservar si no se envía)
         parseFloat((parseFloat(req.body.dimension_total) || 0).toFixed(3)),     // O: dimension_total (máximo 3 decimales)
-        req.body.proceso || 'No iniciado',             // P: proceso (ÚNICO campo de estado)
-        req.body.fecha_actualizacion || ''             // Q: fecha_actualizacion (se mantiene el valor existente al editar)
+        req.body.proceso || rows[rowIndex][15] || 'No iniciado',             // P: proceso (preservar el estado existente si no se envía)
+        fechaActualizacionFinal                        // Q: fecha_actualizacion (preservar el valor existente al editar)
       ];
       
       console.log('🔄 Actualizando tarea con proceso:', req.body.proceso);

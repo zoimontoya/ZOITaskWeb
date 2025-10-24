@@ -59,6 +59,11 @@ export class HierarchicalTaskSelectorComponent implements OnInit, OnChanges {
       this.loadTiposTarea();
       this.resetSelections();
     }
+    
+    // Manejar cambios en selectedTarea (para modo edición)
+    if (changes['selectedTarea'] && this.selectedTarea && this.tiposTarea.length > 0) {
+      this.setInitialSelection();
+    }
   }
 
   loadTiposTarea(): void {
@@ -80,11 +85,53 @@ export class HierarchicalTaskSelectorComponent implements OnInit, OnChanges {
         
         // Inicializar las opciones filtradas
         this.updateFilteredOptions();
+        
+        // Si hay una tarea seleccionada inicialmente, configurarla
+        if (this.selectedTarea) {
+          this.setInitialSelection();
+        }
       },
       error: (error) => {
         console.error('Error cargando tipos de tarea:', error);
       }
     });
+  }
+
+  setInitialSelection(): void {
+    // Buscar la tarea en los datos cargados - intentar por tarea_nombre Y por tipo
+    let tareaEncontrada = this.tiposTarea.find(t => t.tarea_nombre === this.selectedTarea);
+    
+    // Si no se encontró por tarea_nombre, buscar por tipo
+    if (!tareaEncontrada) {
+      tareaEncontrada = this.tiposTarea.find(t => t.tipo === this.selectedTarea);
+    }
+    
+    console.log('🔧 HierarchicalTaskSelector: setInitialSelection');
+    console.log('📋 Buscando tarea:', this.selectedTarea);
+    console.log('📊 Tarea encontrada:', tareaEncontrada);
+    console.log('📋 Datos disponibles:', this.tiposTarea.map(t => ({tipo: t.tipo, tarea_nombre: t.tarea_nombre})));
+    
+    if (tareaEncontrada) {
+      // Si tiene subtipo, usar el formato combinado
+      if (tareaEncontrada.subtipo) {
+        this.selectedTipo = `${tareaEncontrada.tipo}|${tareaEncontrada.subtipo}`;
+        this.selectedSubtipo = tareaEncontrada.subtipo;
+      } else {
+        this.selectedTipo = tareaEncontrada.tipo;
+        this.selectedSubtipo = '';
+      }
+      
+      this.selectedTaskLabel = tareaEncontrada.tarea_nombre || tareaEncontrada.tipo;
+      
+      console.log('✅ Configurando selección inicial:');
+      console.log('  - selectedTipo:', this.selectedTipo);
+      console.log('  - selectedTaskLabel:', this.selectedTaskLabel);
+      
+      // Emitir la selección inicial
+      this.emitSelection();
+    } else {
+      console.log('❌ No se encontró la tarea inicial');
+    }
   }
 
 

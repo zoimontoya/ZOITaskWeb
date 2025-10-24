@@ -13,7 +13,7 @@
     <!-- Selector jerárquico de tareas -->
     <app-hierarchical-task-selector
       [grupoTrabajo]="grupoTrabajo"
-      [selectedTarea]="selectedTareaJerarquica"
+      [selectedTarea]="task?.tipo_tarea || selectedTareaJerarquica"
       (tareaSelected)="onTareaJerarquicaSelected($event)">
     </app-hierarchical-task-selector>
     
