@@ -854,8 +854,8 @@
             <div class="consulta-form">
                 <!-- Selector de Tipo de Tarea Jerárquico -->
                 <div class="form-group">
-                    <label for="tipoTareaConsulta">Tipo de Tarea *</label>
-                    <div class="searchable-dropdown" [class.open]="isTaskDropdownOpen">
+                    <label for="tipoTareaConsulta">Tipo de Tarea * (múltiple selección)</label>
+                    <div class="searchable-dropdown multi-select" [class.open]="isTaskDropdownOpen">
                         <!-- Input de búsqueda -->
                         <div class="dropdown-input-container">
                             <input 
@@ -865,9 +865,17 @@
                                 (input)="onTaskSearchChange()"
                                 (focus)="openTaskDropdown()"
                                 (blur)="closeTaskDropdownDelayed()"
-                                [placeholder]="tareaSeleccionadaLabel || 'Buscar tarea...'"
+                                [placeholder]="getSelectedTasksLabel() || 'Buscar tareas...'"
                                 autocomplete="off">
                             <span class="dropdown-arrow" [class.rotated]="isTaskDropdownOpen">▼</span>
+                        </div>
+                        
+                        <!-- Chips de tareas seleccionadas -->
+                        <div class="selected-tasks-chips" *ngIf="selectedTareasConsulta.length > 0">
+                            <span *ngFor="let tarea of selectedTareasConsulta" class="task-chip">
+                                {{tarea.label}}
+                                <span class="remove-chip" (click)="removeSelectedTask(tarea)">×</span>
+                            </span>
                         </div>
                         
                         <!-- Lista de opciones -->
@@ -888,10 +896,14 @@
                                     <!-- Tarea seleccionable -->
                                     <div 
                                         *ngIf="option.isTarea" 
-                                        class="dropdown-option"
+                                        class="dropdown-option multi-option"
+                                        [class.selected]="isTaskSelected(option.value)"
                                         [class.with-header]="option.hasHeader"
                                         [class.standalone]="!option.hasHeader"
-                                        (mousedown)="selectTaskOption(option.value, option.label)">
+                                        (mousedown)="toggleTaskSelection(option.value, option.label)">
+                                        <span class="selection-indicator">
+                                            {{isTaskSelected(option.value) ? '☑' : '☐'}}
+                                        </span>
                                         {{ option.label }}
                                     </div>
                                 </ng-container>
@@ -937,20 +949,20 @@
                 </div>
 
                 <!-- Botón de Consulta -->
-                <div class="consulta-actions">
-                    <button type="button" 
-                            class="btn-consultar"
+                <div class="form-actions">
+                    <button class="task-action-btn consultar-btn" 
                             [disabled]="isConsultandoHorasTarea || !selectedTipoTareaConsulta || !selectedInvernaderoConsulta || !selectedMes || !selectedAno"
                             (click)="onConsultarHorasTarea()">
-                        <span *ngIf="!isConsultandoHorasTarea">🔍 Consultar</span>
-                        <span *ngIf="isConsultandoHorasTarea">⏳ Consultando...</span>
+                        <span class="icon" *ngIf="!isConsultandoHorasTarea">🔍</span>
+                        <span class="icon" *ngIf="isConsultandoHorasTarea">⏳</span>
+                        {{ isConsultandoHorasTarea ? 'Consultando...' : 'Consultar Horas' }}
                     </button>
                 </div>
             </div>
 
             <!-- Resultado de la consulta de horas por tarea -->
             <div *ngIf="horasTareaResultado" class="resultado-resumen">
-                <h5>📊 Resultado de la Consulta</h5>
+                <h5 class="titulo-resultado-negro">📊 Resultado de la Consulta</h5>
                 <div class="resumen-item">
                     <strong>Tipo de Tarea:</strong> 
                     <span class="valor-dinamico">{{horasTareaResultado.tipoTarea}}</span>
@@ -972,17 +984,27 @@
                     <span class="valor-dinamico">{{horasTareaResultado.totalTareas}}</span>
                 </div>
 
-                <!-- Detalles de tareas -->
+                <!-- Detalles de tareas agrupados por invernadero -->
                 <div *ngIf="horasTareaResultado.detalles && horasTareaResultado.detalles.length > 0" class="detalles-seccion">
-                    <h6>📋 Detalle de Tareas</h6>
-                    <div class="detalles-lista">
-                        <div *ngFor="let detalle of horasTareaResultado.detalles" class="detalle-item">
-                            <div class="detalle-fecha">{{detalle.fecha}}</div>
-                            <div class="detalle-info">
-                                <span class="detalle-trabajador">{{detalle.trabajador}}</span>
-                                <span class="detalle-horas">{{detalle.horas}}h</span>
+                    <h6>📋 Detalle de Tareas por Invernadero</h6>
+                    
+                    <div *ngFor="let grupo of getDetallesAgrupadosPorInvernadero()" class="grupo-invernadero">
+                        <div class="titulo-invernadero">🏠 {{grupo.invernadero}} - Total: {{grupo.totalHoras}}h ({{grupo.tareas.length}} tareas)</div>
+                        
+                        <div class="tabla-detalles">
+                            <div class="cabecera-tabla">
+                                <div class="col-fecha">Fecha</div>
+                                <div class="col-trabajador">Trabajador</div>
+                                <div class="col-horas">Horas</div>
+                                <div class="col-descripcion">Descripción</div>
                             </div>
-                            <div *ngIf="detalle.descripcion" class="detalle-descripcion">{{detalle.descripcion}}</div>
+                            
+                            <div *ngFor="let detalle of grupo.tareas" class="fila-detalle">
+                                <div class="col-fecha">{{detalle.fecha}}</div>
+                                <div class="col-trabajador">{{detalle.trabajador}}</div>
+                                <div class="col-horas">{{detalle.horas}}h</div>
+                                <div class="col-descripcion">{{detalle.descripcion || '-'}}</div>
+                            </div>
                         </div>
                     </div>
                 </div>

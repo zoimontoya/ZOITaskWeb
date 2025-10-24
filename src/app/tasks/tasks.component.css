@@ -2701,6 +2701,10 @@ menu button.urgent-task-btn {
   font-size: 1.1rem;
 }
 
+.titulo-resultado-negro {
+  color: #333 !important;
+}
+
 .resultado-resumen {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -2982,6 +2986,64 @@ menu button.urgent-task-btn {
   letter-spacing: 0.5px;
 }
 
+/* Estilos para selección múltiple */
+.multi-select .dropdown-input {
+  padding-bottom: 8px;
+}
+
+.selected-tasks-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 12px 4px 12px;
+  border-top: 1px solid #e0e0e0;
+  background: #f8f9fa;
+}
+
+.task-chip {
+  background: #007bff;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.remove-chip {
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 14px;
+  opacity: 0.8;
+}
+
+.remove-chip:hover {
+  opacity: 1;
+  background: rgba(255,255,255,0.2);
+  border-radius: 50%;
+}
+
+.dropdown-option.multi-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dropdown-option.multi-option.selected {
+  background-color: #e3f2fd;
+  color: #1565c0;
+}
+
+.selection-indicator {
+  font-size: 14px;
+  min-width: 16px;
+}
+
+.dropdown-option.multi-option:hover {
+  background-color: #f0f8ff;
+}
+
 .no-results {
   padding: 12px;
   text-align: center;
@@ -3060,5 +3122,93 @@ menu button.urgent-task-btn {
   .detalle-header span,
   .detalle-row span {
     padding: 0.25rem 0;
+  }
+}
+
+/* Estilos para agrupación por invernadero */
+.grupo-invernadero {
+  margin-bottom: 2rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.titulo-invernadero {
+  background: #f5f5f5;
+  padding: 12px 16px;
+  margin: 0;
+  font-weight: 600;
+  color: #333;
+  border-bottom: 1px solid #e0e0e0;
+  display: block;
+  font-size: 14px;
+}
+
+.tabla-detalles {
+  background: white;
+}
+
+.cabecera-tabla {
+  display: grid;
+  grid-template-columns: 100px 200px 80px 1fr;
+  gap: 1rem;
+  padding: 12px 16px;
+  background: #fafafa;
+  font-weight: 600;
+  color: #333;
+  border-bottom: 1px solid #e0e0e0;
+  font-size: 13px;
+}
+
+.fila-detalle {
+  display: grid;
+  grid-template-columns: 100px 200px 80px 1fr;
+  gap: 1rem;
+  padding: 10px 16px;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 13px;
+  color: #555;
+}
+
+.fila-detalle:last-child {
+  border-bottom: none;
+}
+
+.fila-detalle:hover {
+  background: #f9f9f9;
+}
+
+.col-fecha {
+  font-weight: 500;
+}
+
+.col-horas {
+  font-weight: 600;
+  color: #2c5282;
+  text-align: center;
+}
+
+.col-trabajador {
+  color: #666;
+}
+
+.col-descripcion {
+  color: #777;
+  font-size: 12px;
+}
+
+/* Responsive para tabla agrupada */
+@media (max-width: 768px) {
+  .cabecera-tabla,
+  .fila-detalle {
+    grid-template-columns: 80px 150px 60px 1fr;
+    gap: 0.5rem;
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+  
+  .titulo-invernadero {
+    padding: 10px 12px;
+    font-size: 13px;
   }
 }

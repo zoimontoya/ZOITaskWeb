@@ -2729,21 +2729,25 @@ app.post('/consultas/horas-tarea', verifyJWT, async (req, res) => {
     
     // Usar índices fijos según la estructura de la hoja Trabajos
     // Columna B = índice 1 (Fecha)
+    // Columna C = índice 2 (Trabajador)
     // Columna D = índice 3 (Invernadero) 
     // Columna E = índice 4 (Actividad/TipoTarea)
+    // Columna F = índice 5 (Descripción)
     // Columna H = índice 7 (Horas)
     const fechaCol = 1;           // Columna B
+    const trabajadorCol = 2;      // Columna C
     const invernaderoCol = 3;     // Columna D  
     const tipoTareaCol = 4;       // Columna E
+    const descripcionCol = 5;     // Columna F
     const horasCol = 7;           // Columna H
-    const trabajadorCol = headers.findIndex(h => h && h.toLowerCase().includes('trabajador')) || 2; // Columna C por defecto
-    const descripcionCol = headers.findIndex(h => h && h.toLowerCase().includes('descripcion')) || 5; // Columna F por defecto
 
-    console.log(`📋 Columnas fijas - Fecha: ${fechaCol}(B), TipoTarea: ${tipoTareaCol}(E), Invernadero: ${invernaderoCol}(D), Horas: ${horasCol}(H)`);
+    console.log(`📋 Columnas fijas - Fecha: ${fechaCol}(B), Trabajador: ${trabajadorCol}(C), Invernadero: ${invernaderoCol}(D), TipoTarea: ${tipoTareaCol}(E), Descripción: ${descripcionCol}(F), Horas: ${horasCol}(H)`);
     console.log(`📋 Headers en posiciones:
     - B(${fechaCol}): ${headers[fechaCol] || 'vacío'}
+    - C(${trabajadorCol}): ${headers[trabajadorCol] || 'vacío'}
     - D(${invernaderoCol}): ${headers[invernaderoCol] || 'vacío'}  
     - E(${tipoTareaCol}): ${headers[tipoTareaCol] || 'vacío'}
+    - F(${descripcionCol}): ${headers[descripcionCol] || 'vacío'}
     - H(${horasCol}): ${headers[horasCol] || 'vacío'}`);
 
     // Verificar que hay suficientes columnas
@@ -2770,9 +2774,20 @@ app.post('/consultas/horas-tarea', verifyJWT, async (req, res) => {
         return;
       }
 
-      // Verificar si coincide el tipo de tarea (búsqueda flexible)
-      const coincideTipoTarea = tipoTareaRow.toLowerCase().includes(tipoTarea.toLowerCase()) || 
-                                tipoTarea.toLowerCase().includes(tipoTareaRow.toLowerCase());
+      // Verificar si coincide el tipo de tarea (búsqueda flexible con múltiples tareas)
+      let coincideTipoTarea = false;
+      
+      if (tipoTarea.includes(',')) {
+        // Múltiples tareas separadas por coma
+        const tareasList = tipoTarea.split(',').map(t => t.trim().toLowerCase());
+        coincideTipoTarea = tareasList.some(tarea => 
+          tipoTareaRow.toLowerCase().includes(tarea) || tarea.includes(tipoTareaRow.toLowerCase())
+        );
+      } else {
+        // Una sola tarea
+        coincideTipoTarea = tipoTareaRow.toLowerCase().includes(tipoTarea.toLowerCase()) || 
+                           tipoTarea.toLowerCase().includes(tipoTareaRow.toLowerCase());
+      }
 
       // Verificar invernadero (puede ser específico, varios o "todos")
       let coincideInvernadero = false;

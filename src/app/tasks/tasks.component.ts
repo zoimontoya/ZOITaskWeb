@@ -159,6 +159,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   isTaskDropdownOpen = false;
   taskSearchTerm = '';
   filteredTaskOptions: any[] = [];
+  selectedTareasConsulta: any[] = []; // Array para múltiples tareas
   tareaSeleccionadaLabel = '';
   private taskDropdownTimeout: any;
   
@@ -2185,6 +2186,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     // Reset para consulta de horas por tarea
     this.selectedTipoTareaConsulta = '';
     this.selectedInvernaderoConsulta = '';
+    this.selectedTareasConsulta = []; // Limpiar array de tareas múltiples
     
     // Reset para dropdown búsqueable de tareas
     this.taskSearchTerm = '';
@@ -2421,15 +2423,50 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     this.updateFilteredTaskOptions();
   }
 
-  selectTaskOption(value: string, label: string): void {
-    this.selectedTipoTareaConsulta = value;
-    this.tareaSeleccionadaLabel = label;
-    this.isTaskDropdownOpen = false;
-    this.taskSearchTerm = '';
+  // Método para selección múltiple
+  toggleTaskSelection(value: string, label: string): void {
+    const existingIndex = this.selectedTareasConsulta.findIndex(t => t.value === value);
+    
+    if (existingIndex >= 0) {
+      // Ya está seleccionada, removerla
+      this.selectedTareasConsulta.splice(existingIndex, 1);
+    } else {
+      // No está seleccionada, agregarla
+      this.selectedTareasConsulta.push({ value, label });
+    }
+    
+    // Actualizar la variable para compatibilidad con backend
+    this.selectedTipoTareaConsulta = this.selectedTareasConsulta.map(t => t.value).join(',');
     
     if (this.taskDropdownTimeout) {
       clearTimeout(this.taskDropdownTimeout);
     }
+  }
+
+  // Verificar si una tarea está seleccionada
+  isTaskSelected(value: string): boolean {
+    return this.selectedTareasConsulta.some(t => t.value === value);
+  }
+
+  // Remover una tarea seleccionada
+  removeSelectedTask(tarea: any): void {
+    const index = this.selectedTareasConsulta.findIndex(t => t.value === tarea.value);
+    if (index >= 0) {
+      this.selectedTareasConsulta.splice(index, 1);
+      this.selectedTipoTareaConsulta = this.selectedTareasConsulta.map(t => t.value).join(',');
+    }
+  }
+
+  // Obtener label de tareas seleccionadas
+  getSelectedTasksLabel(): string {
+    if (this.selectedTareasConsulta.length === 0) return '';
+    if (this.selectedTareasConsulta.length === 1) return this.selectedTareasConsulta[0].label;
+    return `${this.selectedTareasConsulta.length} tareas seleccionadas`;
+  }
+
+  // Método para compatibilidad (mantener por si acaso)
+  selectTaskOption(value: string, label: string): void {
+    this.toggleTaskSelection(value, label);
   }
 
   private updateFilteredTaskOptions(): void {
@@ -2495,5 +2532,35 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
         });
       }
     });
+  }
+  
+  // Método para agrupar detalles por invernadero
+  getDetallesAgrupadosPorInvernadero(): any[] {
+    if (!this.horasTareaResultado || !this.horasTareaResultado.detalles) {
+      return [];
+    }
+    
+    const agrupados: { [invernadero: string]: any } = {};
+    
+    this.horasTareaResultado.detalles.forEach((detalle: any) => {
+      const invernadero = detalle.invernadero || 'Sin especificar';
+      
+      if (!agrupados[invernadero]) {
+        agrupados[invernadero] = {
+          invernadero: invernadero,
+          totalHoras: 0,
+          tareas: []
+        };
+      }
+      
+      agrupados[invernadero].totalHoras += parseFloat(detalle.horas) || 0;
+      agrupados[invernadero].totalHoras = Math.round(agrupados[invernadero].totalHoras * 100) / 100;
+      agrupados[invernadero].tareas.push(detalle);
+    });
+    
+    // Convertir a array y ordenar por invernadero
+    return Object.values(agrupados).sort((a: any, b: any) => 
+      a.invernadero.localeCompare(b.invernadero)
+    );
   }
 }
