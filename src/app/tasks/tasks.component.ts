@@ -2556,13 +2556,45 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
         agrupados[invernadero] = {
           invernadero: invernadero,
           totalHoras: 0,
+          totalJornalesReales: 0,
           tareas: []
         };
       }
       
       agrupados[invernadero].totalHoras += parseFloat(detalle.horas) || 0;
       agrupados[invernadero].totalHoras = Math.round(agrupados[invernadero].totalHoras * 100) / 100;
+      agrupados[invernadero].totalJornalesReales += parseFloat(detalle.jornalesReales) || 0;
+      agrupados[invernadero].totalJornalesReales = Math.round(agrupados[invernadero].totalJornalesReales * 100) / 100;
       agrupados[invernadero].tareas.push(detalle);
+    });
+    
+    // Ahora agrupar las tareas por tareaId dentro de cada invernadero
+    Object.values(agrupados).forEach((grupo: any) => {
+      const tareasPorId: { [tareaId: string]: any } = {};
+      
+      grupo.tareas.forEach((tarea: any) => {
+        const tareaId = tarea.tareaId || 'Sin ID';
+        
+        if (!tareasPorId[tareaId]) {
+          tareasPorId[tareaId] = {
+            tareaId: tareaId,
+            totalHoras: 0,
+            totalJornalesReales: 0,
+            registros: []
+          };
+        }
+        
+        tareasPorId[tareaId].totalHoras += parseFloat(tarea.horas) || 0;
+        tareasPorId[tareaId].totalHoras = Math.round(tareasPorId[tareaId].totalHoras * 100) / 100;
+        tareasPorId[tareaId].totalJornalesReales += parseFloat(tarea.jornalesReales) || 0;
+        tareasPorId[tareaId].totalJornalesReales = Math.round(tareasPorId[tareaId].totalJornalesReales * 100) / 100;
+        tareasPorId[tareaId].registros.push(tarea);
+      });
+      
+      // Reemplazar las tareas con la versión agrupada
+      grupo.tareasAgrupadas = Object.values(tareasPorId).sort((a: any, b: any) => 
+        (a.tareaId || '').localeCompare(b.tareaId || '')
+      );
     });
     
     // Convertir a array y ordenar por invernadero

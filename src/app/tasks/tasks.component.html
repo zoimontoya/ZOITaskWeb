@@ -989,21 +989,28 @@
                     <h6>📋 Detalle de Tareas por Invernadero</h6>
                     
                     <div *ngFor="let grupo of getDetallesAgrupadosPorInvernadero()" class="grupo-invernadero">
-                        <div class="titulo-invernadero">🏠 {{grupo.invernadero}} - Total: {{grupo.totalHoras}}h ({{grupo.tareas.length}} tareas)</div>
+                        <div class="titulo-invernadero">🏠 {{grupo.invernadero}} - Total: {{grupo.totalHoras}}h ({{grupo.tareas.length}} registros)</div>
                         
-                        <div class="tabla-detalles">
-                            <div class="cabecera-tabla">
-                                <div class="col-fecha">Fecha</div>
-                                <div class="col-trabajador">Trabajador</div>
-                                <div class="col-horas">Horas</div>
-                                <div class="col-descripcion">Descripción</div>
-                            </div>
+                        <!-- Mostrar tareas agrupadas por ID -->
+                        <div *ngFor="let tareaAgrupada of grupo.tareasAgrupadas" class="grupo-tarea">
+                            <div class="titulo-tarea">📋 ID: {{tareaAgrupada.tareaId}} - Total: {{tareaAgrupada.totalHoras}}h ({{tareaAgrupada.registros.length}} registros)</div>
                             
-                            <div *ngFor="let detalle of grupo.tareas" class="fila-detalle">
-                                <div class="col-fecha">{{detalle.fecha}}</div>
-                                <div class="col-trabajador">{{detalle.trabajador}}</div>
-                                <div class="col-horas">{{detalle.horas}}h</div>
-                                <div class="col-descripcion">{{detalle.descripcion || '-'}}</div>
+                            <div class="tabla-detalles">
+                                <div class="cabecera-tabla">
+                                    <div class="col-fecha">Fecha</div>
+                                    <div class="col-trabajador">Trabajador</div>
+                                    <div class="col-horas">Horas</div>
+                                    <div class="col-progreso">Progreso</div>
+                                    <div class="col-descripcion">Descripción</div>
+                                </div>
+                                
+                                <div *ngFor="let registro of tareaAgrupada.registros" class="fila-detalle">
+                                    <div class="col-fecha">{{registro.fecha}}</div>
+                                    <div class="col-trabajador">{{registro.trabajador}}</div>
+                                    <div class="col-horas">{{registro.horas}}h</div>
+                                    <div class="col-progreso">{{registro.progreso || '-'}}</div>
+                                    <div class="col-descripcion">{{registro.descripcion || '-'}}</div>
+                                </div>
                             </div>
                         </div>
                     </div>

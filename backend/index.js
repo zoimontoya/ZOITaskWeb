@@ -2757,29 +2757,33 @@ app.post('/consultas/horas-tarea', verifyJWT, async (req, res) => {
     console.log('📋 Headers encontrados en hoja Trabajos:', headers);
     
     // Usar índices fijos según la estructura de la hoja Trabajos
+    // Columna A = índice 0 (ID Tarea) - NUEVO
     // Columna B = índice 1 (Fecha)
     // Columna C = índice 2 (Trabajador)
     // Columna D = índice 3 (Invernadero) 
     // Columna E = índice 4 (Actividad/TipoTarea)
     // Columna F = índice 5 (Descripción)
+    // Columna G = índice 6 (Progreso/Estado) - NUEVO
     // Columna H = índice 7 (Horas)
+    const tareaIdCol = 0;         // Columna A - NUEVO
     const fechaCol = 1;           // Columna B
     const trabajadorCol = 2;      // Columna C
     const invernaderoCol = 3;     // Columna D  
     const tipoTareaCol = 4;       // Columna E
     const descripcionCol = 5;     // Columna F
+    const progresoCol = 6;        // Columna G - NUEVO (Progreso/Estado)
     const horasCol = 7;           // Columna H
 
-    console.log(`📋 Columnas fijas - Fecha: ${fechaCol}(B), Trabajador: ${trabajadorCol}(C), Invernadero: ${invernaderoCol}(D), TipoTarea: ${tipoTareaCol}(E), Descripción: ${descripcionCol}(F), Horas: ${horasCol}(H)`);
+    console.log(`📋 Columnas fijas - TareaID: ${tareaIdCol}(A), Fecha: ${fechaCol}(B), Trabajador: ${trabajadorCol}(C), Invernadero: ${invernaderoCol}(D), TipoTarea: ${tipoTareaCol}(E), Descripción: ${descripcionCol}(F), Progreso: ${progresoCol}(G), Horas: ${horasCol}(H)`);
     console.log(`📋 Headers en posiciones:
+    - A(${tareaIdCol}): ${headers[tareaIdCol] || 'vacío'}
     - B(${fechaCol}): ${headers[fechaCol] || 'vacío'}
     - C(${trabajadorCol}): ${headers[trabajadorCol] || 'vacío'}
     - D(${invernaderoCol}): ${headers[invernaderoCol] || 'vacío'}  
     - E(${tipoTareaCol}): ${headers[tipoTareaCol] || 'vacío'}
     - F(${descripcionCol}): ${headers[descripcionCol] || 'vacío'}
-    - H(${horasCol}): ${headers[horasCol] || 'vacío'}`);
-
-    // Verificar que hay suficientes columnas
+    - G(${progresoCol}): ${headers[progresoCol] || 'vacío'}
+    - H(${horasCol}): ${headers[horasCol] || 'vacío'}`);      // Verificar que hay suficientes columnas
     if (headers.length < 8) {
       console.log('❌ Error: La hoja Trabajos no tiene suficientes columnas (mínimo 8 esperadas)');
       console.log('📋 Headers disponibles:', headers);
@@ -2792,12 +2796,14 @@ app.post('/consultas/horas-tarea', verifyJWT, async (req, res) => {
     let totalTareas = 0;
     
     rows.slice(1).forEach((row, index) => {
+      const tareaId = row[tareaIdCol] || '';
       const fecha = row[fechaCol] || '';
       const horas = parseFloat(row[horasCol]) || 0;
       const tipoTareaRow = (row[tipoTareaCol] || '').trim();
       const invernaderoRow = (row[invernaderoCol] || '').trim();
       const trabajador = row[trabajadorCol] || '';
       const descripcion = row[descripcionCol] || '';
+      const progreso = row[progresoCol] || '';
       
       if (!fecha || !tipoTareaRow || !invernaderoRow) {
         return;
@@ -2862,12 +2868,14 @@ app.post('/consultas/horas-tarea', verifyJWT, async (req, res) => {
           totalHoras += horas;
           totalTareas++;
           detalles.push({
+            tareaId: tareaId,
             fecha: fecha,
             horas: horas,
             tipoTarea: tipoTareaRow,
             invernadero: invernaderoRow,
             trabajador: trabajador,
             descripcion: descripcion,
+            progreso: progreso,
             fila: index + 2 // +2 porque empezamos desde slice(1) y las filas están 1-indexed
           });
         }
