@@ -630,7 +630,7 @@
                         <span class="icon" *ngIf="isAcceptingTask[task.id]">⏳</span>
                         {{ isAcceptingTask[task.id] ? 'Aceptando...' : 'Aceptar tarea' }}
                     </button>
-                    <button *ngIf="getTaskState(task) === 'Iniciada' || (isNumber(getTaskState(task)) && toNumber(getTaskState(task)) >= 0)" 
+                    <button *ngIf="getTaskState(task) === 'Iniciada' || getTaskState(task) === 'Recolectando' || (isNumber(getTaskState(task)) && toNumber(getTaskState(task)) >= 0)" 
                                     class="task-action-btn progress-btn" 
                                     [class.disabled]="isTaskUpdatedToday(task)"
                                     [disabled]="isTaskUpdatedToday(task)"
@@ -638,11 +638,11 @@
                         <span class="icon">📊</span> 
                         Actualizar progreso
                     </button>
-                    <small *ngIf="task.fecha_actualizacion && (getTaskState(task) === 'Iniciada' || (isNumber(getTaskState(task)) && toNumber(getTaskState(task)) >= 0))" 
+                    <small *ngIf="task.fecha_actualizacion && (getTaskState(task) === 'Iniciada' || getTaskState(task) === 'Recolectando' || (isNumber(getTaskState(task)) && toNumber(getTaskState(task)) >= 0))" 
                            class="last-update-info">
                         {{getLastUpdateInfo(task)}}
                     </small>
-                    <small *ngIf="isTaskUpdatedToday(task) && (getTaskState(task) === 'Iniciada' || (isNumber(getTaskState(task)) && toNumber(getTaskState(task)) >= 0))" 
+                    <small *ngIf="isTaskUpdatedToday(task) && (getTaskState(task) === 'Iniciada' || getTaskState(task) === 'Recolectando' || (isNumber(getTaskState(task)) && toNumber(getTaskState(task)) >= 0))" 
                            class="update-blocked-info">
                         🚫 Ya actualizada hoy. Disponible mañana.
                     </small>

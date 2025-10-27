@@ -689,12 +689,13 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
         });
         break;
       case 'en-progreso':
-        // Mostrar tareas que estén iniciadas O que tengan progreso numérico
+        // Mostrar tareas que estén iniciadas, recolectando O que tengan progreso numérico
         filtered = filtered.filter(t => {
           const estado = this.getTaskState(t);
           const esIniciada = estado === 'Iniciada';
+          const esRecolectando = estado === 'Recolectando';
           const tieneProgreso = estado && !isNaN(Number(estado)) && Number(estado) > 0;
-          return esIniciada || tieneProgreso;
+          return esIniciada || esRecolectando || tieneProgreso;
         });
         break;
       case 'terminadas':
@@ -2033,8 +2034,9 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
         case 'en-progreso':
           const estadoTask = this.getTaskState(task);
           const esIniciada = estadoTask === 'Iniciada';
+          const esRecolectando = estadoTask === 'Recolectando';
           const tieneProgreso = estadoTask && !isNaN(Number(estadoTask)) && Number(estadoTask) > 0;
-          return esIniciada || tieneProgreso;
+          return esIniciada || esRecolectando || tieneProgreso;
         case 'terminadas':
           return this.getTaskState(task) === 'Terminada';
         case 'por-validar':
