@@ -61,12 +61,12 @@
                 </div>
             </div>
             
-            <!-- Control de Hectáreas Trabajadas (solo si hay invernadero seleccionado) -->
+            <!-- Control de Hectáreas Trabajadas o Kg Recolectados (solo si hay invernadero seleccionado) -->
             <div class="form-group" *ngIf="urgentTask.invernadero">
-                <label class="form-label">Hectáreas trabajadas</label>
+                <label class="form-label">{{ urgentTask.tipo_tarea === 'Recolectar' ? 'Kg recolectados' : 'Hectáreas trabajadas' }}</label>
                 <div class="urgent-hectareas-controls">
-                    <!-- Barra deslizante -->
-                    <div class="urgent-area-slider-container" style="position: relative; width: 100%;">
+                    <!-- Barra deslizante (solo para hectáreas, no para kilos) -->
+                    <div class="urgent-area-slider-container" style="position: relative; width: 100%;" *ngIf="urgentTask.tipo_tarea !== 'Recolectar'">
                         <!-- Barra de fondo (track) -->
                         <div class="urgent-slider-track-bg" style="width: 90%; left: 5%; position: absolute; top: 50%; transform: translateY(-50%); z-index: 1;" *ngIf="getSelectedInvernaderoMaxArea() > 0"></div>
                         <div class="urgent-slider-track-fill" 
@@ -90,19 +90,20 @@
                         <input 
                             type="number" 
                             class="urgent-area-input"
-                            min="0.001"
-                            [max]="getSelectedInvernaderoMaxArea()"
-                            step="0.001"
-                            [value]="getUrgentHectareasFormattedValue()"
-                            (input)="onUrgentHectareasInputChange($event)"
-                            placeholder="0.000">
-                        <span class="urgent-area-unit">Ha</span>
-                        <span class="urgent-area-percentage">({{ getUrgentHectareasPercentage().toFixed(1) }}%)</span>
+                            [min]="urgentTask.tipo_tarea === 'Recolectar' ? '0.1' : '0.001'"
+                            [max]="urgentTask.tipo_tarea === 'Recolectar' ? '99999' : getSelectedInvernaderoMaxArea()"
+                            [step]="urgentTask.tipo_tarea === 'Recolectar' ? '0.1' : '0.001'"
+                            [(ngModel)]="urgentTask.hectareas_trabajadas"
+                            (ngModelChange)="onUrgentValueChange()"
+                            [placeholder]="urgentTask.tipo_tarea === 'Recolectar' ? '0.0' : '0.000'">
+                        <span class="urgent-area-unit">{{ urgentTask.tipo_tarea === 'Recolectar' ? 'kg' : 'Ha' }}</span>
+                        <span class="urgent-area-percentage" *ngIf="urgentTask.tipo_tarea !== 'Recolectar'">({{ getUrgentHectareasPercentage().toFixed(1) }}%)</span>
                     </div>
                     
                     <!-- Información del progreso -->
                     <div class="urgent-area-info">
-                        <small>{{ urgentTask.hectareas_trabajadas.toFixed(3) }} / {{ getSelectedInvernaderoMaxArea().toFixed(3) }} Ha ({{ getUrgentHectareasPercentage().toFixed(1) }}%)</small>
+                        <small *ngIf="urgentTask.tipo_tarea === 'Recolectar'">{{ (urgentTask.hectareas_trabajadas || 0) }} kg recolectados</small>
+                        <small *ngIf="urgentTask.tipo_tarea !== 'Recolectar'">{{ urgentTask.hectareas_trabajadas.toFixed(3) }} / {{ getSelectedInvernaderoMaxArea().toFixed(3) }} Ha ({{ getUrgentHectareasPercentage().toFixed(1) }}%)</small>
                     </div>
                 </div>
             </div>
@@ -585,11 +586,13 @@
                     <span *ngIf="!isEncargado && task.encargado_nombre">Encargado: <b>{{task.encargado_nombre}}</b></span>
                     <span *ngIf="getTaskState(task)">
                         Estado: <b>
-                            <!-- Tareas de kilos: Lógica especial -->
+                            <!-- Tareas de kilos: Mostrar estado real -->
                             <ng-container *ngIf="isKilosMode(task)">
                                 <span *ngIf="getTaskState(task) === 'No iniciado'">No iniciado</span>
                                 <span *ngIf="getTaskState(task) === 'Terminada'">Terminada</span>
-                                <span *ngIf="getTaskState(task) !== 'No iniciado' && getTaskState(task) !== 'Terminada'">Iniciada</span>
+                                <span *ngIf="getTaskState(task) === 'Por validar'">Por validar</span>
+                                <span *ngIf="getTaskState(task) === 'Recolectando'">Recolectando</span>
+                                <span *ngIf="getTaskState(task) === 'Iniciada'">Iniciada</span>
                             </ng-container>
                             <!-- Tareas normales (hectáreas): Mostrar progreso normal -->
                             <ng-container *ngIf="!isKilosMode(task)">
@@ -832,12 +835,14 @@
                         <div class="detalle-header">
                             <span class="col-fecha">Fecha</span>
                             <span class="col-horas">Horas</span>
-                                <span class="col-encargado">Encargado</span>
+                            <span class="col-tarea">Tarea</span>
+                            <span class="col-invernadero">Invernadero</span>
                         </div>
                         <div *ngFor="let registro of horasConsultaResultado.detalles" class="detalle-row">
                             <span class="col-fecha">{{registro.fecha}}</span>
                             <span class="col-horas">{{registro.horas}}h</span>
-                            <span class="col-encargado">{{registro.tarea}}</span>
+                            <span class="col-tarea">{{registro.tarea}}</span>
+                            <span class="col-invernadero">{{registro.invernadero || 'N/A'}}</span>
                         </div>
                     </div>
                 </div>
@@ -1004,6 +1009,7 @@
                                 <div class="cabecera-tabla">
                                     <div class="col-fecha">Fecha</div>
                                     <div class="col-trabajador">Trabajador</div>
+                                    <div class="col-tipo-tarea">Tipo de Tarea</div>
                                     <div class="col-horas">Horas</div>
                                     <div class="col-progreso">Progreso</div>
                                     <div class="col-descripcion">Descripción</div>
@@ -1012,6 +1018,7 @@
                                 <div *ngFor="let registro of tareaAgrupada.registros" class="fila-detalle">
                                     <div class="col-fecha">{{registro.fecha}}</div>
                                     <div class="col-trabajador">{{registro.trabajador}}</div>
+                                    <div class="col-tipo-tarea">{{registro.tipoTarea || '-'}}</div>
                                     <div class="col-horas">{{registro.horas}}h</div>
                                     <div class="col-progreso">{{registro.progreso || '-'}}</div>
                                     <div class="col-descripcion">{{registro.descripcion || '-'}}</div>

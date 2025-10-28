@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, OnInit, OnChanges, SimpleChanges } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnInit, OnChanges, SimpleChanges, HostListener, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { InvernaderoService, Cabezal, Invernadero, InvernaderosResponse } from '../../invernadero.service';
@@ -34,7 +34,7 @@ export interface InvernaderoSelection {
           </div>
           
           <!-- Contenido del desplegable (cabezales) -->
-          <div class="main-dropdown-content" *ngIf="isMainDropdownOpen">
+          <div class="main-dropdown-content" *ngIf="isMainDropdownOpen" (click)="$event.stopPropagation()">
             <div class="cabezales-list">
               <div *ngFor="let cabezal of cabezales" class="cabezal-item">
                 
@@ -54,7 +54,8 @@ export interface InvernaderoSelection {
                       type="checkbox" 
                       [checked]="isCabezalFullySelected(cabezal.nombre)"
                       [indeterminate]="isCabezalPartiallySelected(cabezal.nombre)"
-                      (change)="toggleCabezalSelection(cabezal.nombre, $event)">
+                      (change)="toggleCabezalSelection(cabezal.nombre, $event)"
+                      (click)="$event.stopPropagation()">
                     <span class="checkbox-label">Todo el cabezal</span>
                   </label>
                 </div>
@@ -62,16 +63,15 @@ export interface InvernaderoSelection {
                 <!-- Lista de invernaderos (colapsable) -->
                 <div class="invernaderos-list" *ngIf="expandedCabezales.has(cabezal.nombre)">
                   <div *ngFor="let invernadero of cabezal.invernaderos" class="invernadero-item">
-                    <label class="invernadero-checkbox">
+                    <label class="invernadero-checkbox" (click)="$event.stopPropagation()">
                       <input 
                         type="checkbox" 
                         [value]="invernadero.nombre"
                         [checked]="selectedInvernaderos.has(invernadero.nombre)"
-                        (change)="toggleInvernaderoSelection(invernadero.nombre, cabezal.nombre, $event)">
+                        (change)="toggleInvernaderoSelection(invernadero.nombre, cabezal.nombre, $event)"
+                        (click)="$event.stopPropagation()">
                       <span class="checkbox-label">
-                                              <span class="checkbox-label">
                         {{ invernadero.nombre }} ({{ invernadero.dimensiones.toString().replace('.', ',') }}ha)
-                      </span>
                       </span>
                     </label>
                   </div>
@@ -324,8 +324,16 @@ export class InvernaderoSelectorComponent implements OnInit, OnChanges {
   selectedInvernaderos = new Set<string>(); // Invernaderos individuales seleccionados
   selectedCabezales = new Set<string>(); // Cabezales completos seleccionados
   
-  constructor(private invernaderoService: InvernaderoService) {}
-  
+  constructor(private invernaderoService: InvernaderoService, private elementRef: ElementRef) {}
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: Event) {
+    // Cerrar dropdown solo si el click fue fuera del componente
+    if (!this.elementRef.nativeElement.contains(event.target as Node)) {
+      this.isMainDropdownOpen = false;
+    }
+  }
+
   ngOnInit() {
     this.loadInvernaderos();
   }
@@ -337,12 +345,10 @@ export class InvernaderoSelectorComponent implements OnInit, OnChanges {
     console.log('📊 Cabezales loaded:', this.cabezales.length);
     
     // Si cambia el initialValue y ya tenemos los cabezales cargados
-    if (changes['initialValue'] && this.cabezales.length > 0) {
-      console.log('✅ Limpiando selecciones previas y configurando nuevo valor inicial');
-      // Limpiar selecciones previas
-      this.selectedInvernaderos.clear();
-      this.selectedCabezales.clear();
-      this.expandedCabezales.clear();
+    // PERO solo si es la primera vez (no hay selecciones activas del usuario)
+    if (changes['initialValue'] && this.cabezales.length > 0 && 
+        this.selectedInvernaderos.size === 0 && this.selectedCabezales.size === 0) {
+      console.log('✅ Configurando valor inicial (primera vez)');
       
       // Seleccionar el nuevo valor inicial
       if (this.initialValue) {
@@ -378,28 +384,39 @@ export class InvernaderoSelectorComponent implements OnInit, OnChanges {
   
   selectInitialValue() {
     console.log('🔧 InvernaderoSelector: selectInitialValue');
-    console.log('📋 Buscando invernadero:', this.initialValue);
-    console.log('📊 Cabezales disponibles:', this.cabezales.map(c => c.nombre));
+    console.log('📋 Valor inicial a procesar:', this.initialValue);
     
-    // Buscar el invernadero en los cabezales y seleccionarlo
-    for (const cabezal of this.cabezales) {
-      const invernadero = cabezal.invernaderos.find(inv => inv.nombre === this.initialValue);
-      if (invernadero) {
-        console.log('✅ Invernadero encontrado en cabezal:', cabezal.nombre);
-        // Seleccionar el invernadero
-        this.selectedInvernaderos.add(this.initialValue);
-        // Expandir el cabezal correspondiente
-        this.expandedCabezales.add(cabezal.nombre);
-        // Emitir la selección
-        this.emitSelection();
-        console.log('✅ Selección configurada y emitida');
-        break;
+    if (!this.initialValue) return;
+    
+    // Separar múltiples valores por coma
+    const valores = this.initialValue.split(',').map(v => v.trim()).filter(v => v);
+    console.log('� Valores a seleccionar:', valores);
+    
+    for (const valor of valores) {
+      if (valor.startsWith('CABEZAL-')) {
+        // Es un cabezal completo
+        const cabezalNombre = valor.replace('CABEZAL-', '');
+        console.log('🏢 Seleccionando cabezal completo:', cabezalNombre);
+        this.selectedCabezales.add(cabezalNombre);
+        this.expandedCabezales.add(cabezalNombre);
+      } else {
+        // Es un invernadero individual
+        console.log('🏠 Buscando invernadero:', valor);
+        for (const cabezal of this.cabezales) {
+          const invernadero = cabezal.invernaderos.find(inv => inv.nombre === valor);
+          if (invernadero) {
+            console.log('✅ Invernadero encontrado en cabezal:', cabezal.nombre);
+            this.selectedInvernaderos.add(valor);
+            this.expandedCabezales.add(cabezal.nombre);
+            break;
+          }
+        }
       }
     }
     
-    if (!this.selectedInvernaderos.has(this.initialValue)) {
-      console.log('❌ No se encontró el invernadero inicial');
-    }
+    // Emitir la selección final
+    this.emitSelection();
+    console.log('✅ Selección inicial configurada y emitida');
   }
   
   toggleMainDropdown() {

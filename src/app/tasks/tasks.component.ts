@@ -318,9 +318,9 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
 
   getUrgentHectareasFormattedValue(): string {
     const value = this.urgentTask.hectareas_trabajadas || 0;
-    // Asegurar que siempre sea un número válido con máximo 3 decimales
-    const roundedValue = Math.round(value * 1000) / 1000;
-    return roundedValue.toFixed(3);
+    
+    // Devolver el valor tal como está para evitar conflictos mientras se escribe
+    return value.toString();
   }
   
   onUrgentHectareasSliderChange(event: Event) {
@@ -345,26 +345,51 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   
   onUrgentHectareasInputChange(event: Event) {
     const target = event.target as HTMLInputElement;
-    const newValue = parseFloat(target.value.replace(',', '.')) || 0;
-    const maxArea = this.getSelectedInvernaderoMaxArea();
+    const inputValue = target.value.replace(',', '.');
     
-    // Limitar al rango permitido y redondear a 3 decimales
-    const clampedValue = Math.min(Math.max(newValue, 0), maxArea);
-    const finalValue = Math.round(clampedValue * 1000) / 1000;
-    this.urgentTask.hectareas_trabajadas = finalValue;
+    // Solo actualizar si el valor es válido, sin formatear mientras se escribe
+    if (inputValue === '' || inputValue === '.' || inputValue.endsWith('.')) {
+      // Permitir valores temporales mientras se escribe
+      this.urgentTask.hectareas_trabajadas = 0;
+      return;
+    }
     
-    // Actualizar el input con el valor final redondeado
-    target.value = finalValue.toString();
+    const newValue = parseFloat(inputValue);
     
+    if (isNaN(newValue)) {
+      return;
+    }
+    
+    if (this.urgentTask.tipo_tarea === 'Recolectar') {
+      // Para kilos: permitir decimales, sin límite de hectáreas
+      this.urgentTask.hectareas_trabajadas = Math.max(newValue, 0);
+    } else {
+      // Para hectáreas: limitar al área máxima
+      const maxArea = this.getSelectedInvernaderoMaxArea();
+      this.urgentTask.hectareas_trabajadas = Math.min(Math.max(newValue, 0), maxArea);
+    }
+    
+    this.syncUrgentDimensionValues();
+  }
+
+  onUrgentValueChange() {
+    // Sincronizar los valores cuando cambia el input
     this.syncUrgentDimensionValues();
   }
   
   private syncUrgentDimensionValues() {
     // Para tareas urgentes, tanto dimension_total como desarrollo_actual 
-    // deben tener las hectáreas seleccionadas en el slider (máximo 3 decimales)
-    const roundedValue = Math.round(this.urgentTask.hectareas_trabajadas * 1000) / 1000;
-    this.urgentTask.desarrollo_actual = roundedValue;
-    this.urgentTask.dimension_total = roundedValue;
+    // deben tener el valor trabajado (hectáreas o kilos según el tipo de tarea)
+    if (this.urgentTask.tipo_tarea === 'Recolectar') {
+      // Para kilos: usar el valor directamente
+      this.urgentTask.desarrollo_actual = this.urgentTask.hectareas_trabajadas || 0;
+      this.urgentTask.dimension_total = this.urgentTask.hectareas_trabajadas || 0;
+    } else {
+      // Para hectáreas: redondear a 3 decimales
+      const roundedValue = Math.round(this.urgentTask.hectareas_trabajadas * 1000) / 1000;
+      this.urgentTask.desarrollo_actual = roundedValue;
+      this.urgentTask.dimension_total = roundedValue;
+    }
   }
   
   private loadAllUrgentInvernaderosFallback() {
@@ -490,13 +515,15 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     const fechaActualizacion = new Date().toLocaleDateString('es-ES');
     // Hora jornal especial para "Manten. Vehículos"
     const horaJornalValue = this.urgentTask.tipo_tarea === 'Manten. Vehículos' ? 1 : 0;
+    // Horas_kilos especial para "Recolectar" (para usar modo kilos en lugar de hectáreas)
+    const horasKilosValue = this.urgentTask.tipo_tarea === 'Recolectar' ? 1 : 0;
 
     const tareaUrgente: any = {
       invernadero: this.urgentTask.invernadero.trim(),
       tipo_tarea: this.urgentTask.tipo_tarea.trim(),
       estimacion_horas: this.urgentTask.horas_trabajadas,
       hora_jornal: horaJornalValue,
-      horas_kilos: 0,
+      horas_kilos: horasKilosValue,
       jornales_reales: this.urgentTask.horas_trabajadas,
       fecha_limite: todayIso,
       encargado_id: this.userId,
@@ -1595,6 +1622,20 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
 
   // Guardar el nombre real de la tarea
   this.urgentTask.tipo_tarea = this.selectedTipoTarea?.tarea_nombre || tipo;
+
+  // Resetear hectáreas/kilos cuando cambia el tipo de tarea
+  if (this.urgentTask.tipo_tarea === 'Recolectar') {
+    // Para recolectar: empezar desde 0 kilos
+    this.urgentTask.hectareas_trabajadas = 0;
+    this.urgentTask.desarrollo_actual = 0;
+    this.urgentTask.dimension_total = 0;
+  } else {
+    // Para otras tareas: empezar con el 100% del invernadero
+    const maxArea = this.getSelectedInvernaderoMaxArea();
+    this.urgentTask.hectareas_trabajadas = maxArea;
+    this.urgentTask.desarrollo_actual = maxArea;
+    this.urgentTask.dimension_total = maxArea;
+  }
 
   if (this.shouldShowGeneroSelector()) {
     this.loadGenerosConfecc();

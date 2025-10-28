@@ -2326,12 +2326,14 @@ ul {
 .urgent-area-input-container {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
   margin-bottom: 0.5rem;
 }
 
 .urgent-area-input {
-  max-width: 100px;
+  max-width: 120px;
+  min-width: 80px;
   padding: 0.4rem 0.6rem;
   border: 1px solid #9dc09a;
   border-radius: 4px;
@@ -2825,9 +2827,14 @@ menu button.urgent-task-btn {
   text-align: center;
 }
 
-/* Nuevo estilo para columna encargado (antes 'tarea') */
-.col-encargado {
+/* Estilos para columnas de tarea e invernadero */
+.col-tarea {
   color: #666;
+}
+
+.col-invernadero {
+  color: #666;
+  font-size: 0.85rem;
 }
 
 /* Resumen: forzar color azul/negro en los items de resultado */
@@ -3217,7 +3224,7 @@ menu button.urgent-task-btn {
 
 .cabecera-tabla {
   display: grid;
-  grid-template-columns: 100px 180px 80px 100px 1fr;
+  grid-template-columns: 100px 180px 150px 80px 100px 1fr;
   gap: 1rem;
   padding: 12px 16px;
   background: #fafafa;
@@ -3229,7 +3236,7 @@ menu button.urgent-task-btn {
 
 .fila-detalle {
   display: grid;
-  grid-template-columns: 100px 180px 80px 100px 1fr;
+  grid-template-columns: 100px 180px 150px 80px 100px 1fr;
   gap: 1rem;
   padding: 10px 16px;
   border-bottom: 1px solid #f0f0f0;
@@ -3265,6 +3272,12 @@ menu button.urgent-task-btn {
   color: #666;
 }
 
+.col-tipo-tarea {
+  color: #4a5568;
+  font-weight: 500;
+  font-size: 12px;
+}
+
 .col-descripcion {
   color: #777;
   font-size: 12px;
@@ -3274,7 +3287,7 @@ menu button.urgent-task-btn {
 @media (max-width: 768px) {
   .cabecera-tabla,
   .fila-detalle {
-    grid-template-columns: 80px 120px 60px 100px 1fr;
+    grid-template-columns: 80px 120px 100px 60px 80px 1fr;
     gap: 0.5rem;
     padding: 8px 12px;
     font-size: 12px;

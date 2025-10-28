@@ -2617,10 +2617,39 @@ app.post('/consultas/horas-trabajador', verifyJWT, async (req, res) => {
     const auth = getGoogleAuth();
     const sheets = google.sheets({ version: 'v4', auth });
 
-    // Leer todas las horas de la hoja "Horas"
+    // Leer todas las tareas de la hoja "Trabajos" para obtener invernaderos
+    const trabajosResponse = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: 'Trabajos!A:Z'
+    });
+
+    const trabajosRows = trabajosResponse.data.values || [];
+    console.log(`📋 Encontradas ${trabajosRows.length} filas en hoja Trabajos`);
+
+    // Crear mapa de ID tarea -> invernadero usando la columna "Código" (columna A)
+    const tareaInvernaderoMap = new Map();
+    if (trabajosRows.length > 1) {
+      // Índices fijos según estructura de hoja Trabajos
+      const tareaIdCol = 0;         // Columna A (Código/ID Tarea)
+      const invernaderoCol = 3;     // Columna D
+
+      trabajosRows.slice(1).forEach(row => {
+        const tareaId = row[tareaIdCol] || '';
+        const invernadero = row[invernaderoCol] || '';
+
+        if (tareaId && invernadero) {
+          // Usar ID de tarea como clave para el mapa
+          tareaInvernaderoMap.set(tareaId.toString(), invernadero);
+        }
+      });
+    }
+
+    console.log(`📋 Creado mapa de ID-tarea -> invernadero con ${tareaInvernaderoMap.size} entradas`);
+
+    // Leer todas las horas de la hoja "Horas" incluyendo la columna Ranking (ID)
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: 'Horas!A:D'
+      range: 'Horas!A:F' // A=Fecha, B=Grupo, C=Nombre, D=Tiempo, E=Ranking(ID), F=Empresa
     });
 
     const rows = response.data.values || [];
@@ -2642,10 +2671,13 @@ app.post('/consultas/horas-trabajador', verifyJWT, async (req, res) => {
     
     rows.slice(1).forEach(row => {
       const fecha = row[0]; // Columna A
-      const horas = parseFloat(row[3]) || 0; // Columna D
+      const grupo = row[1]; // Columna B
       const trabajadorRow = row[2]; // Columna C
+      const horas = parseFloat(row[3]) || 0; // Columna D
+      const tareaId = row[4] || ''; // Columna E (Ranking/ID de tarea)
+      const empresa = row[5]; // Columna F
       
-      if (!fecha || !trabajadorRow || trabajadorRow.trim() !== trabajador) {
+      if (!fecha || !trabajadorRow || trabajadorRow.trim() !== trabajador || !tareaId) {
         return;
       }
 
@@ -2673,10 +2705,15 @@ app.post('/consultas/horas-trabajador', verifyJWT, async (req, res) => {
         // Verificar mes y año
         if (fechaObj.getMonth() + 1 === parseInt(mes) && fechaObj.getFullYear() === parseInt(año)) {
           totalHoras += horas;
+          
+          // Buscar invernadero correspondiente usando el ID de la tarea
+          const invernadero = tareaInvernaderoMap.get(tareaId.toString()) || 'No especificado';
+          
           detalles.push({
             fecha: fecha,
             horas: horas,
-            tarea: row[1] || 'No especificada' // Columna B si existe
+            tarea: grupo || 'No especificada', // Usar grupo (columna B) como tarea
+            invernadero: invernadero
           });
         }
       } catch (error) {
