@@ -2783,11 +2783,19 @@ menu button.urgent-task-btn {
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
+/* Solo aplicar ancho mínimo en desktop */
+@media (min-width: 769px) {
+  .detalle-tabla {
+    min-width: 760px; /* Asegurar ancho mínimo para evitar solapamiento */
+    overflow-x: auto; /* Scroll horizontal si es necesario */
+  }
+}
+
 .detalle-header {
   background: #4a90e2;
   color: white;
   display: grid;
-  grid-template-columns: 120px 80px 1fr 100px;
+  grid-template-columns: 110px 70px 140px 180px 120px; /* Tamaño por defecto para tablets */
   gap: 1rem;
   padding: 0.75rem;
   font-weight: 600;
@@ -2801,11 +2809,51 @@ menu button.urgent-task-btn {
 
 .detalle-row {
   display: grid;
-  grid-template-columns: 120px 80px 1fr 100px;
+  grid-template-columns: 110px 70px 140px 180px 120px; /* Tamaño por defecto para tablets */
   gap: 1rem;
   padding: 0.75rem;
   border-bottom: 1px solid #f0f0f0;
   font-size: 0.9rem;
+}
+
+/* Columnas más amplias solo para desktop */
+@media (min-width: 1024px) {
+  .detalle-header {
+    grid-template-columns: 120px 80px 180px 200px 140px;
+    gap: 1.2rem;
+  }
+
+  .detalle-row {
+    grid-template-columns: 120px 80px 180px 200px 140px;
+    gap: 1.2rem;
+  }
+}
+
+/* Estilos para filas de fecha agrupada */
+.detalle-row.fecha-grupo {
+  background: #f8f9fa;
+  font-weight: 600;
+  border-bottom: 2px solid #4a90e2;
+}
+
+.detalle-row.fecha-grupo .fecha-principal {
+  color: #2c5282;
+  font-weight: 700;
+}
+
+.detalle-row.fecha-grupo .total-dia {
+  color: #2c5282;
+  font-weight: 700;
+}
+
+/* Estilos para filas de detalle */
+.detalle-row.registro-detalle {
+  background: white;
+  padding-left: 1rem;
+}
+
+.detalle-row.registro-detalle:nth-child(even) {
+  background: #fafafa;
 }
 
 .detalle-row:last-child {
@@ -2827,14 +2875,31 @@ menu button.urgent-task-btn {
   text-align: center;
 }
 
-/* Estilos para columnas de tarea e invernadero */
+/* Estilos para columnas */
+.col-encargado {
+  color: #666;
+  font-size: 0.85rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0; /* Permitir que la columna se contraiga si es necesario */
+}
+
 .col-tarea {
   color: #666;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 .col-invernadero {
   color: #666;
   font-size: 0.85rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 /* Resumen: forzar color azul/negro en los items de resultado */
@@ -3132,8 +3197,8 @@ menu button.urgent-task-btn {
   text-align: center;
 }
 
-/* Responsive para móviles */
-@media (max-width: 768px) {
+/* Responsive para tablets (NO móviles) */
+@media (min-width: 481px) and (max-width: 768px) {
   .modal-consultas {
     width: 95vw;
     max-height: 90vh;
@@ -3220,28 +3285,35 @@ menu button.urgent-task-btn {
 
 .tabla-detalles {
   background: white;
+  overflow-x: auto;
+  border-radius: 6px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  min-width: 840px;
+  width: 100%;
 }
 
 .cabecera-tabla {
   display: grid;
-  grid-template-columns: 100px 180px 150px 80px 100px 1fr;
-  gap: 1rem;
+  grid-template-columns: 100px 180px 160px 60px 80px minmax(250px, 1fr);
+  gap: 0.8rem;
   padding: 12px 16px;
   background: #fafafa;
   font-weight: 600;
   color: #333;
   border-bottom: 1px solid #e0e0e0;
   font-size: 13px;
+  min-width: 840px;
 }
 
 .fila-detalle {
   display: grid;
-  grid-template-columns: 100px 180px 150px 80px 100px 1fr;
-  gap: 1rem;
+  grid-template-columns: 100px 180px 160px 60px 80px minmax(250px, 1fr);
+  gap: 0.8rem;
   padding: 10px 16px;
   border-bottom: 1px solid #f0f0f0;
   font-size: 13px;
   color: #555;
+  min-width: 840px;
 }
 
 .fila-detalle:last-child {
@@ -3260,31 +3332,49 @@ menu button.urgent-task-btn {
   font-weight: 600;
   color: #2c5282;
   text-align: center;
+  font-size: 12px;
 }
 
 .col-progreso {
   font-weight: 600;
   color: #38a169;
   text-align: center;
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .col-trabajador {
   color: #666;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 .col-tipo-tarea {
   color: #4a5568;
   font-weight: 500;
   font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 .col-descripcion {
   color: #777;
   font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 250px; /* Más espacio mínimo para la descripción */
+  max-width: 400px; /* Mayor ancho máximo */
 }
 
-/* Responsive para tabla agrupada */
-@media (max-width: 768px) {
+/* Responsive para tabla agrupada - Solo para tablets, NO móviles */
+@media (min-width: 481px) and (max-width: 768px) {
   .cabecera-tabla,
   .fila-detalle {
     grid-template-columns: 80px 120px 100px 60px 80px 1fr;
@@ -3297,5 +3387,488 @@ menu button.urgent-task-btn {
   .titulo-tarea {
     padding: 10px 12px;
     font-size: 13px;
+  }
+
+  /* Estilos para tablas de consulta horas-trabajador en tablets */
+  .detalle-tabla {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .detalle-header {
+    grid-template-columns: 90px 55px 100px 120px 80px;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    font-size: 0.8rem;
+  }
+
+  .detalle-row {
+    grid-template-columns: 90px 55px 100px 120px 80px;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    font-size: 0.8rem;
+  }
+
+  .col-fecha {
+    font-size: 0.75rem;
+  }
+
+  .col-horas {
+    font-size: 0.8rem;
+  }
+
+  .col-encargado {
+    font-size: 0.75rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .col-tarea {
+    font-size: 0.75rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .col-invernadero {
+    font-size: 0.7rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Resumen en móvil */
+  .resultado-resumen {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+
+  .resumen-item {
+    font-size: 0.9rem;
+    padding: 0.5rem;
+    background: white;
+    border-radius: 4px;
+    border: 1px solid #e0e0e0;
+  }
+
+  /* Formularios de consulta en tablets */
+  .consulta-form {
+    padding: 1.25rem;
+  }
+
+  .consulta-form .form-group {
+    margin-bottom: 0.875rem;
+  }
+
+  .consulta-form .form-control {
+    padding: 0.675rem;
+  }
+
+  /* Pestañas en tablets */
+  .tab-btn {
+    padding: 0.875rem 1.25rem;
+    font-size: 0.925rem;
+  }
+
+  /* Contenido de consulta en tablets */
+  .consulta-content {
+    padding: 1.25rem;
+  }
+
+  /* Tabla de horas por tarea en tablets */
+  .cabecera-tabla {
+    grid-template-columns: 80px 120px 100px 60px 80px 1fr;
+    gap: 0.5rem;
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+
+  .fila-detalle {
+    grid-template-columns: 80px 120px 100px 60px 80px 1fr;
+    gap: 0.5rem;
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+
+  .titulo-invernadero,
+  .titulo-tarea {
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+}
+
+/* Para pantallas muy pequeñas (menos de 480px) - Layout de tarjetas */
+@media (max-width: 480px) {
+  .detalle-tabla {
+    display: block !important;
+    min-width: auto !important;
+    overflow-x: visible !important;
+    width: 100% !important;
+  }
+
+  .detalle-header {
+    display: none !important; /* Ocultar cabecera en móviles muy pequeños */
+  }
+
+  .detalle-row {
+    display: block !important;
+    grid-template-columns: none !important;
+    gap: 0 !important;
+    margin-bottom: 1rem;
+    padding: 1rem;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border: 1px solid #e0e0e0;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .detalle-row:nth-child(even) {
+    background: white; /* Resetear el fondo alternativo */
+  }
+
+  .detalle-row span {
+    display: block;
+    margin-bottom: 0.5rem;
+    padding: 0.25rem 0;
+  }
+
+  .detalle-row span:last-child {
+    margin-bottom: 0;
+  }
+
+  /* Agregar etiquetas antes del contenido */
+  .col-fecha::before {
+    content: "Fecha: ";
+    font-weight: 600;
+    color: #4a5568;
+  }
+
+  .col-horas::before {
+    content: "Horas: ";
+    font-weight: 600;
+    color: #4a5568;
+  }
+
+  .col-encargado::before {
+    content: "Encargado: ";
+    font-weight: 600;
+    color: #4a5568;
+  }
+
+  .col-tarea::before {
+    content: "Tarea: ";
+    font-weight: 600;
+    color: #4a5568;
+  }
+
+  .col-invernadero::before {
+    content: "Invernadero: ";
+    font-weight: 600;
+    color: #4a5568;
+  }
+
+  .col-fecha,
+  .col-horas,
+  .col-encargado,
+  .col-tarea,
+  .col-invernadero {
+    font-size: 0.9rem;
+    color: #333;
+    text-overflow: initial;
+    white-space: normal;
+    overflow: visible;
+  }
+
+  /* Diseño especial para móviles: ocultar estructura de tabla y usar diseño personalizado */
+  .detalle-tabla {
+    display: block;
+  }
+
+  .detalle-header {
+    display: none; /* Ocultar cabecera completamente en móvil */
+  }
+
+  /* Grupo de fecha como cabecera de sección */
+  .detalle-row.fecha-grupo {
+    display: block;
+    background: #4a90e2;
+    color: white;
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.5rem;
+    border-radius: 6px;
+    font-weight: 700;
+    text-align: center;
+  }
+
+  .detalle-row.fecha-grupo span {
+    display: none; /* Ocultar todos los spans */
+  }
+
+  /* Crear contenido personalizado con pseudo-elementos */
+  .detalle-row.fecha-grupo::after {
+    content: attr(data-fecha) " - Total: " attr(data-total-horas);
+    font-size: 0.95rem;
+  }
+
+  /* Registros de detalle como tarjetas */
+  .detalle-row.registro-detalle {
+    display: block;
+    background: white;
+    margin-bottom: 0.75rem;
+    padding: 1rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border: 1px solid #e0e0e0;
+  }
+
+  .detalle-row.registro-detalle span {
+    display: block;
+    margin-bottom: 0.5rem;
+    padding: 0.25rem 0;
+  }
+
+  .detalle-row.registro-detalle span:empty {
+    display: none; /* Ocultar spans vacíos */
+  }
+
+  .col-horas {
+    text-align: left;
+  }
+
+  /* Resumen más compacto */
+  .resultado-resumen .resumen-item {
+    font-size: 0.85rem;
+    padding: 0.75rem;
+  }
+
+  /* Hacer los títulos de sección más pequeños */
+  .detalle-horas h6 {
+    font-size: 0.95rem;
+    margin-bottom: 0.75rem;
+  }
+
+  /* Pestañas de consulta en móvil */
+  .consultas-tabs {
+    flex-direction: column;
+  }
+
+  .tab-btn {
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+    border-bottom: 1px solid #e0e0e0;
+    border-left: 3px solid transparent;
+  }
+
+  .tab-btn.active {
+    border-bottom: 1px solid #e0e0e0;
+    border-left-color: #4a90e2;
+  }
+
+  /* Contenido de consulta en móvil */
+  .consulta-content {
+    padding: 1rem;
+  }
+
+  .consulta-content h4 {
+    font-size: 1.1rem;
+    margin-bottom: 1rem;
+  }
+
+  .consulta-description {
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+  }
+
+  /* Formulario de consulta en móvil */
+  .consulta-form {
+    padding: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .consulta-form .form-group {
+    margin-bottom: 0.75rem;
+  }
+
+  .consulta-form label {
+    font-size: 0.85rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .consulta-form .form-control {
+    padding: 0.6rem;
+    font-size: 0.9rem;
+  }
+
+  .form-actions {
+    margin-top: 1rem;
+    text-align: center;
+  }
+
+  .task-action-btn.consultar-btn {
+    width: 100%;
+    padding: 0.75rem;
+    font-size: 0.9rem;
+  }
+
+  /* Dropdowns de selección múltiple en móvil */
+  .searchable-dropdown {
+    font-size: 0.9rem;
+  }
+
+  .dropdown-input {
+    padding: 0.6rem;
+    font-size: 0.9rem;
+  }
+
+  .dropdown-options {
+    max-height: 200px;
+    font-size: 0.85rem;
+  }
+
+  .dropdown-option {
+    padding: 0.5rem;
+  }
+
+  .selected-items {
+    gap: 0.25rem;
+  }
+
+  .selected-item {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8rem;
+  }
+
+  .selected-item .remove-item {
+    font-size: 0.7rem;
+    margin-left: 0.25rem;
+  }
+
+  /* Mejorar el selector jerárquico en móvil */
+  .hierarchical-task-selector .task-option {
+    padding: 0.5rem;
+    font-size: 0.85rem;
+  }
+
+  .hierarchical-task-selector .task-option.subtask {
+    padding-left: 1rem;
+    font-size: 0.8rem;
+  }
+
+  /* Selector de invernadero en móvil */
+  .invernadero-selector .selected-items {
+    flex-wrap: wrap;
+  }
+
+  /* Tabla de horas por tarea en móvil - MUY ESPECÍFICO */
+  .consulta-content .tabla-detalles {
+    display: block !important;
+    width: 100% !important;
+    overflow-x: visible !important;
+    min-width: auto !important;
+  }
+
+  .consulta-content .cabecera-tabla {
+    display: none !important; /* Ocultar cabecera en móvil */
+  }
+
+  .consulta-content .fila-detalle {
+    display: block !important;
+    grid-template-columns: none !important;
+    gap: 0 !important;
+    margin-bottom: 1rem !important;
+    padding: 1rem !important;
+    background: white !important;
+    border-radius: 8px !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+    border: 1px solid #e0e0e0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: auto !important;
+  }
+
+  .consulta-content .fila-detalle:nth-child(even) {
+    background: white !important; /* Resetear fondo alternativo */
+  }
+
+  .consulta-content .fila-detalle div {
+    display: block !important;
+    margin-bottom: 0.5rem !important;
+    padding: 0.25rem 0 !important;
+    font-size: 0.9rem !important;
+  }
+
+  .consulta-content .fila-detalle div:last-child {
+    margin-bottom: 0 !important;
+  }
+
+  .consulta-content .fila-detalle div:empty {
+    display: none !important; /* Ocultar divs vacíos */
+  }
+
+  /* Etiquetas para cada campo en móvil - MUY ESPECÍFICO */
+  .consulta-content .fila-detalle .col-fecha::before {
+    content: "Fecha: ";
+    font-weight: 600;
+    color: #4a5568;
+  }
+
+  .consulta-content .fila-detalle .col-trabajador::before {
+    content: "Trabajador: ";
+    font-weight: 600;
+    color: #4a5568;
+  }
+
+  .consulta-content .fila-detalle .col-tipo-tarea::before {
+    content: "Tipo de Tarea: ";
+    font-weight: 600;
+    color: #4a5568;
+  }
+
+  .consulta-content .fila-detalle .col-horas::before {
+    content: "Horas: ";
+    font-weight: 600;
+    color: #4a5568;
+  }
+
+  .consulta-content .fila-detalle .col-progreso::before {
+    content: "Progreso: ";
+    font-weight: 600;
+    color: #4a5568;
+  }
+
+  .consulta-content .fila-detalle .col-descripcion::before {
+    content: "Descripción: ";
+    font-weight: 600;
+    color: #4a5568;
+  }
+
+  .consulta-content .fila-detalle .col-horas {
+    text-align: left !important;
+    color: #333 !important;
+  }
+
+  /* Títulos de grupo en móvil */
+  .titulo-invernadero,
+  .titulo-tarea {
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+    border-radius: 6px;
+    margin-bottom: 0.75rem;
+  }
+
+  .titulo-invernadero {
+    background: #4a90e2;
+    color: white;
+    font-weight: 700;
+  }
+
+  .titulo-tarea {
+    background: #e3f2fd;
+    color: #1976d2;
+    font-weight: 600;
+    margin-left: 0.5rem;
   }
 }

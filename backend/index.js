@@ -2626,25 +2626,30 @@ app.post('/consultas/horas-trabajador', verifyJWT, async (req, res) => {
     const trabajosRows = trabajosResponse.data.values || [];
     console.log(`📋 Encontradas ${trabajosRows.length} filas en hoja Trabajos`);
 
-    // Crear mapa de ID tarea -> invernadero usando la columna "Código" (columna A)
-    const tareaInvernaderoMap = new Map();
+    // Crear mapa de ID tarea -> información completa (invernadero + tarea)
+    const tareaInfoMap = new Map();
     if (trabajosRows.length > 1) {
       // Índices fijos según estructura de hoja Trabajos
       const tareaIdCol = 0;         // Columna A (Código/ID Tarea)
       const invernaderoCol = 3;     // Columna D
+      const tipoTareaCol = 4;       // Columna E (Tipo de Tarea)
 
       trabajosRows.slice(1).forEach(row => {
         const tareaId = row[tareaIdCol] || '';
         const invernadero = row[invernaderoCol] || '';
+        const tipoTarea = row[tipoTareaCol] || '';
 
-        if (tareaId && invernadero) {
-          // Usar ID de tarea como clave para el mapa
-          tareaInvernaderoMap.set(tareaId.toString(), invernadero);
+        if (tareaId) {
+          // Guardar información completa de la tarea
+          tareaInfoMap.set(tareaId.toString(), {
+            invernadero: invernadero || 'No especificado',
+            tipoTarea: tipoTarea || 'No especificada'
+          });
         }
       });
     }
 
-    console.log(`📋 Creado mapa de ID-tarea -> invernadero con ${tareaInvernaderoMap.size} entradas`);
+    console.log(`📋 Creado mapa de ID-tarea -> info completa con ${tareaInfoMap.size} entradas`);
 
     // Leer todas las horas de la hoja "Horas" incluyendo la columna Ranking (ID)
     const response = await sheets.spreadsheets.values.get({
@@ -2706,14 +2711,18 @@ app.post('/consultas/horas-trabajador', verifyJWT, async (req, res) => {
         if (fechaObj.getMonth() + 1 === parseInt(mes) && fechaObj.getFullYear() === parseInt(año)) {
           totalHoras += horas;
           
-          // Buscar invernadero correspondiente usando el ID de la tarea
-          const invernadero = tareaInvernaderoMap.get(tareaId.toString()) || 'No especificado';
+          // Buscar información completa de la tarea usando el ID
+          const tareaInfo = tareaInfoMap.get(tareaId.toString()) || { 
+            invernadero: 'No especificado', 
+            tipoTarea: 'No especificada' 
+          };
           
           detalles.push({
             fecha: fecha,
             horas: horas,
-            tarea: grupo || 'No especificada', // Usar grupo (columna B) como tarea
-            invernadero: invernadero
+            encargado: grupo || 'No especificado', // Columna B = Encargado/Grupo
+            tarea: tareaInfo.tipoTarea, // Tarea real desde hoja Trabajos
+            invernadero: tareaInfo.invernadero
           });
         }
       } catch (error) {
@@ -2728,15 +2737,46 @@ app.post('/consultas/horas-trabajador', verifyJWT, async (req, res) => {
       return fechaA - fechaB;
     });
 
+    // Agrupar detalles por fecha
+    const detallesAgrupados = [];
+    const fechasMap = new Map();
+
+    detalles.forEach(detalle => {
+      const fecha = detalle.fecha;
+      if (!fechasMap.has(fecha)) {
+        fechasMap.set(fecha, {
+          fecha: fecha,
+          totalHorasDia: 0,
+          registros: []
+        });
+      }
+      
+      const diaInfo = fechasMap.get(fecha);
+      diaInfo.totalHorasDia += detalle.horas;
+      diaInfo.registros.push({
+        horas: detalle.horas,
+        encargado: detalle.encargado,
+        tarea: detalle.tarea,
+        invernadero: detalle.invernadero
+      });
+    });
+
+    // Convertir el mapa a array y redondear totales
+    fechasMap.forEach((diaInfo, fecha) => {
+      diaInfo.totalHorasDia = Math.round(diaInfo.totalHorasDia * 100) / 100;
+      detallesAgrupados.push(diaInfo);
+    });
+
     const resultado = {
       trabajador,
       mes: parseInt(mes),
       año: parseInt(año),
       totalHoras: Math.round(totalHoras * 100) / 100, // Redondear a 2 decimales
-      totalDias: detalles.length,
-      detalles,
-      resumen: detalles.length > 0 
-        ? `${trabajador} trabajó ${totalHoras} horas en ${detalles.length} días durante ${mes}/${año}`
+      totalDias: detallesAgrupados.length,
+      detalles: detalles, // Mantener detalles planos para compatibilidad
+      detallesAgrupados: detallesAgrupados, // Nueva estructura agrupada
+      resumen: detallesAgrupados.length > 0 
+        ? `${trabajador} trabajó ${totalHoras} horas en ${detallesAgrupados.length} días durante ${mes}/${año}`
         : `No se encontraron horas registradas para ${trabajador} en ${mes}/${año}`
     };
 

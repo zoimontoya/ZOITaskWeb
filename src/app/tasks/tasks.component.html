@@ -835,15 +835,43 @@
                         <div class="detalle-header">
                             <span class="col-fecha">Fecha</span>
                             <span class="col-horas">Horas</span>
+                            <span class="col-encargado">Encargado</span>
                             <span class="col-tarea">Tarea</span>
                             <span class="col-invernadero">Invernadero</span>
                         </div>
-                        <div *ngFor="let registro of horasConsultaResultado.detalles" class="detalle-row">
-                            <span class="col-fecha">{{registro.fecha}}</span>
-                            <span class="col-horas">{{registro.horas}}h</span>
-                            <span class="col-tarea">{{registro.tarea}}</span>
-                            <span class="col-invernadero">{{registro.invernadero || 'N/A'}}</span>
-                        </div>
+                        <!-- Mostrar datos agrupados por fecha si están disponibles -->
+                        <ng-container *ngIf="horasConsultaResultado.detallesAgrupados && horasConsultaResultado.detallesAgrupados.length > 0">
+                            <ng-container *ngFor="let dia of horasConsultaResultado.detallesAgrupados">
+                                <!-- Fila de la fecha con total de horas del día -->
+                                <div class="detalle-row fecha-grupo" 
+                                     [attr.data-fecha]="dia.fecha" 
+                                     [attr.data-total-horas]="dia.totalHorasDia + 'h'">
+                                    <span class="col-fecha fecha-principal">{{dia.fecha}}</span>
+                                    <span class="col-horas total-dia">{{dia.totalHorasDia}}h</span>
+                                    <span class="col-encargado"></span>
+                                    <span class="col-tarea"></span>
+                                    <span class="col-invernadero"></span>
+                                </div>
+                                <!-- Filas de detalle para cada registro del día -->
+                                <div *ngFor="let registro of dia.registros" class="detalle-row registro-detalle">
+                                    <span class="col-fecha"></span>
+                                    <span class="col-horas">{{registro.horas}}h</span>
+                                    <span class="col-encargado" [title]="registro.encargado">{{registro.encargado}}</span>
+                                    <span class="col-tarea" [title]="registro.tarea">{{registro.tarea}}</span>
+                                    <span class="col-invernadero" [title]="registro.invernadero">{{registro.invernadero}}</span>
+                                </div>
+                            </ng-container>
+                        </ng-container>
+                        <!-- Fallback: mostrar datos planos si no hay agrupados -->
+                        <ng-container *ngIf="!horasConsultaResultado.detallesAgrupados || horasConsultaResultado.detallesAgrupados.length === 0">
+                            <div class="detalle-row" *ngFor="let registro of horasConsultaResultado.detalles">
+                                <span class="col-fecha">{{registro.fecha}}</span>
+                                <span class="col-horas">{{registro.horas}}h</span>
+                                <span class="col-encargado" [title]="registro.encargado || 'N/A'">{{registro.encargado || 'N/A'}}</span>
+                                <span class="col-tarea" [title]="registro.tarea || 'N/A'">{{registro.tarea || 'N/A'}}</span>
+                                <span class="col-invernadero" [title]="registro.invernadero || 'N/A'">{{registro.invernadero || 'N/A'}}</span>
+                            </div>
+                        </ng-container>
                     </div>
                 </div>
             </div>
@@ -1016,12 +1044,12 @@
                                 </div>
                                 
                                 <div *ngFor="let registro of tareaAgrupada.registros" class="fila-detalle">
-                                    <div class="col-fecha">{{registro.fecha}}</div>
-                                    <div class="col-trabajador">{{registro.trabajador}}</div>
-                                    <div class="col-tipo-tarea">{{registro.tipoTarea || '-'}}</div>
-                                    <div class="col-horas">{{registro.horas}}h</div>
-                                    <div class="col-progreso">{{registro.progreso || '-'}}</div>
-                                    <div class="col-descripcion">{{registro.descripcion || '-'}}</div>
+                                    <div class="col-fecha" [title]="registro.fecha">{{registro.fecha}}</div>
+                                    <div class="col-trabajador" [title]="registro.trabajador">{{registro.trabajador}}</div>
+                                    <div class="col-tipo-tarea" [title]="registro.tipoTarea || '-'">{{registro.tipoTarea || '-'}}</div>
+                                    <div class="col-horas" [title]="registro.horas + 'h'">{{registro.horas}}h</div>
+                                    <div class="col-progreso" [title]="registro.progreso || '-'">{{registro.progreso || '-'}}</div>
+                                    <div class="col-descripcion" [title]="registro.descripcion || '-'">{{registro.descripcion || '-'}}</div>
                                 </div>
                             </div>
                         </div>
