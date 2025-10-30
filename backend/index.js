@@ -157,6 +157,8 @@ app.use((req, res, next) => {
 
 const SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID || '1EEZlootxR63QHicF2cQ5GDmzQJ31V22fE202LXkufc4';
+// ID de la hoja de técnicos - "SeguimientoEstadoFruta"
+const TECHNICIAN_SPREADSHEET_ID = process.env.TECHNICIAN_SPREADSHEET_ID || '1I9mvuQRGx0Va3SAsBcNiI6ipybMI1EwCaSLMlXinBXM';
 
 // Función auxiliar para formatear fechas al formato europeo DD/MM/YYYY
 function formatDateToEuropean(date) {
@@ -1346,7 +1348,100 @@ app.post('/login', async (req, res) => {
   }
 });
 
+// Endpoint de login para técnicos
+app.post('/login-technician', async (req, res) => {
+  const { id, password } = req.body;
+  console.log('🔧 POST /login-technician - Petición recibida para técnico:', id);
+  console.log('📦 Body completo:', JSON.stringify(req.body, null, 2));
+  
+  if (!id || !password) {
+    console.log('❌ Faltan credenciales en la petición técnica');
+    return res.status(400).json({ success: false, error: 'Faltan credenciales' });
+  }
 
+  try {
+    const auth = getGoogleAuth();
+    const sheets = google.sheets({ version: 'v4', auth });
+    
+    // Leer de la hoja de técnicos "SeguimientoEstadoFruta" -> pestaña "usuarios"
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: TECHNICIAN_SPREADSHEET_ID,
+      range: 'usuarios', // Pestaña de usuarios técnicos
+    });
+
+    const rows = response.data.values;
+    console.log('🔧 Filas leídas de usuarios técnicos:', rows ? rows.length : 0);
+
+    if (!rows || rows.length === 0) {
+      console.log('❌ No hay usuarios técnicos en la hoja');
+      return res.status(500).json({ success: false, error: 'No hay usuarios técnicos configurados' });
+    }
+
+    const headers = rows[0];
+    console.log('🔧 Cabeceras técnicos:', headers);
+
+    const idxId = headers.findIndex(h => h.toLowerCase() === 'id');
+    const idxPassword = headers.findIndex(h => h.toLowerCase() === 'password' || h.toLowerCase() === 'contraseña');
+    const idxName = headers.findIndex(h => h.toLowerCase() === 'name' || h.toLowerCase() === 'nombre');
+    const idxRol = headers.findIndex(h => h.toLowerCase() === 'rol');
+
+    console.log('🔧 Índices técnicos:', { idxId, idxPassword, idxName, idxRol });
+
+    if (idxId === -1 || idxPassword === -1) {
+      console.log('❌ Faltan columnas id/password en usuarios técnicos');
+      return res.status(500).json({ success: false, error: 'Configuración incorrecta de usuarios técnicos' });
+    }
+
+    // Buscar usuario técnico
+    const techUserRow = rows.slice(1).find(row => {
+      return String(row[idxId]) === String(id) && String(row[idxPassword]) === String(password);
+    });
+
+    console.log('🔧 Fila técnico encontrada:', techUserRow);
+
+    if (techUserRow) {
+      const name = idxName !== -1 ? techUserRow[idxName] : id;
+      const rol = idxRol !== -1 ? techUserRow[idxRol] : 'tecnico';
+
+      // Crear el objeto usuario técnico
+      const user = { 
+        id: id, 
+        name: name, 
+        rol: rol,
+        tipo: 'tecnico' // Identificador especial
+      };
+
+      // Generar token JWT con duración de 24 horas
+      const token = jwt.sign(
+        {
+          userId: id,
+          name: name,
+          rol: rol,
+          tipo: 'tecnico',
+          nombre_completo: name
+        },
+        JWT_SECRET,
+        { expiresIn: '24h' }
+      );
+
+      console.log('✅ Login técnico correcto:', user);
+      console.log('🎫 Token JWT técnico generado para:', id);
+
+      return res.json({ 
+        success: true, 
+        token: token,
+        user: user,
+        message: 'Login técnico exitoso'
+      });
+    } else {
+      console.log('❌ ID o contraseña incorrectos para técnico');
+      return res.json({ success: false, message: 'Credenciales de técnico incorrectas' });
+    }
+  } catch (err) {
+    console.error('❌ Error en /login-technician:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
 
 // Endpoint para verificar token JWT
 app.post('/verify-token', (req, res) => {

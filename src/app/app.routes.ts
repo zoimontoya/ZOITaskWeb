@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { LoginPageComponent } from './pages/login/login-page.component';
 import { MainPageComponent } from './pages/main/main-page.component';
+import { TecnicoComponent } from './tecnico/tecnico.component';
 import { AuthGuard, LoginGuard } from './auth/auth.guard';
 
 export const routes: Routes = [
@@ -17,6 +18,11 @@ export const routes: Routes = [
   {
     path: 'app',
     component: MainPageComponent,
+    canActivate: [AuthGuard]
+  },
+  {
+    path: 'tecnico',
+    component: TecnicoComponent,
     canActivate: [AuthGuard]
   },
   {

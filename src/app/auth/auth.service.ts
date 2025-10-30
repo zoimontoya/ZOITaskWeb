@@ -149,6 +149,63 @@ export class AuthService {
   }
 
   /**
+   * Iniciar sesión como técnico
+   */
+  loginTechnician(credentials: { id: string; password: string }): Observable<any> {
+    console.log('🔧 AuthService.loginTechnician() - Iniciando login técnico con:', credentials.id);
+    
+    // Evitar múltiples logins simultáneos
+    if (this.isProcessingAuth) {
+      console.log('🔄 Login técnico ya en proceso, rechazando duplicado');
+      return new Observable(observer => {
+        observer.next({ success: false, message: 'Login ya en proceso' });
+        observer.complete();
+      });
+    }
+    
+    this.isProcessingAuth = true;
+    
+    return new Observable(observer => {
+      this.http.post<any>(`${environment.apiBaseUrl}/login-technician`, credentials).subscribe({
+        next: (response) => {
+          console.log('🔄 Login técnico response recibida:', response);
+          
+          if (response.success && response.token) {
+            // Guardar token y usuario técnico
+            localStorage.setItem('authToken', response.token);
+            localStorage.setItem('currentUser', JSON.stringify(response.user));
+            localStorage.setItem('userType', 'technician'); // Marcar como técnico
+            
+            console.log('💾 Token técnico guardado en localStorage:', !!localStorage.getItem('authToken'));
+            console.log('👤 Usuario técnico guardado en localStorage:', !!localStorage.getItem('currentUser'));
+            
+            // Actualizar el usuario actual con delay para evitar race conditions
+            setTimeout(() => {
+              this.currentUserSubject.next(response.user);
+              this.isProcessingAuth = false;
+            }, 50);
+            
+            console.log('✅ Login técnico exitoso:', response.user);
+            console.log('🎫 Token técnico disponible después del login:', !!this.getToken());
+            
+            observer.next(response);
+            observer.complete();
+          } else {
+            this.isProcessingAuth = false;
+            console.log('❌ Login técnico fallido:', response);
+            observer.next(response);
+            observer.complete();
+          }
+        },
+        error: (error) => {
+          this.isProcessingAuth = false;
+          observer.error(error);
+        }
+      });
+    });
+  }
+
+  /**
    * Verificar si un token es válido
    */
   private verifyToken(token: string): Observable<any> {
@@ -174,6 +231,7 @@ export class AuthService {
     this.isProcessingAuth = false; // Reset del flag
     localStorage.removeItem('authToken');
     localStorage.removeItem('currentUser');
+    localStorage.removeItem('userType'); // Limpiar tipo de usuario
     
     // Delay para evitar race conditions con login inmediato
     setTimeout(() => {
@@ -238,5 +296,12 @@ export class AuthService {
   isSuperior(): boolean {
     const user = this.getCurrentUser();
     return user?.rol === 'superior';
+  }
+
+  /**
+   * Verificar si el usuario es técnico
+   */
+  isTechnician(): boolean {
+    return localStorage.getItem('userType') === 'technician';
   }
 }

@@ -9,10 +9,26 @@ import { CommonModule } from '@angular/common';
   standalone: true,
   imports: [FormsModule, CommonModule],
   template: `
-    <div class="login-container">
-      <div class="login-card">
-        <h2>🔐 Iniciar Sesión</h2>
-        <p class="subtitle">ZOI Task Management</p>
+    <div class="login-container" [class.technician-mode]="isTechnicianMode">
+      <div class="login-card" [class.tech-card]="isTechnicianMode">
+        <!-- Toggle para cambiar modo -->
+        <div class="mode-toggle">
+          <label class="toggle-label">
+            <span class="mode-text" [class.active]="!isTechnicianMode">👥 Trabajadores</span>
+            <input type="checkbox" [(ngModel)]="isTechnicianMode" (change)="onModeChange()">
+            <div class="toggle-slider"></div>
+            <span class="mode-text" [class.active]="isTechnicianMode">🔧 Técnicos</span>
+          </label>
+        </div>
+
+        <h2>
+          <span *ngIf="!isTechnicianMode">🔐 Iniciar Sesión</span>
+          <span *ngIf="isTechnicianMode">⚙️ Login Técnico</span>
+        </h2>
+        <p class="subtitle">
+          <span *ngIf="!isTechnicianMode">ZOI Task Management</span>
+          <span *ngIf="isTechnicianMode">Sistema Técnico - Seguimiento Estado Género</span>
+        </p>
         
         <form (ngSubmit)="onLogin()" class="login-form">
           <div class="form-group">
@@ -22,7 +38,7 @@ import { CommonModule } from '@angular/common';
               id="id"
               [(ngModel)]="credentials.id" 
               name="id"
-              placeholder="Ingrese su ID"
+              [placeholder]="isTechnicianMode ? 'ID de Técnico' : 'Ingrese su ID'"
               required
               [disabled]="isLoading">
           </div>
@@ -42,8 +58,10 @@ import { CommonModule } from '@angular/common';
           <button 
             type="submit" 
             class="login-button"
+            [class.tech-button]="isTechnicianMode"
             [disabled]="isLoading || !credentials.id || !credentials.password">
-            <span *ngIf="!isLoading">🚀 Iniciar Sesión</span>
+            <span *ngIf="!isLoading && !isTechnicianMode">🚀 Iniciar Sesión</span>
+            <span *ngIf="!isLoading && isTechnicianMode">⚙️ Acceso Técnico</span>
             <span *ngIf="isLoading">⏳ Iniciando...</span>
           </button>
           
@@ -52,7 +70,8 @@ import { CommonModule } from '@angular/common';
           </div>
           
           <div class="jwt-info">
-            <small>✨ Tu sesión se mantendrá durante 24 horas</small>
+            <small *ngIf="!isTechnicianMode">✨ Tu sesión se mantendrá durante 24 horas</small>
+            <small *ngIf="isTechnicianMode">🔧 Acceso al sistema técnico de seguimiento</small>
           </div>
         </form>
       </div>
@@ -66,6 +85,12 @@ import { CommonModule } from '@angular/common';
       min-height: 100vh;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       padding: 20px;
+      transition: all 0.5s ease;
+    }
+    
+    /* Modo técnico - fondo diferente */
+    .login-container.technician-mode {
+      background: linear-gradient(135deg, #ff6b35 0%, #f7931e 50%, #ff6b35 100%);
     }
     
     .login-card {
@@ -76,6 +101,13 @@ import { CommonModule } from '@angular/common';
       width: 100%;
       max-width: 400px;
       text-align: center;
+      transition: all 0.3s ease;
+    }
+    
+    /* Modo técnico - card con borde naranja */
+    .login-card.tech-card {
+      border: 3px solid #ff6b35;
+      box-shadow: 0 20px 40px rgba(255, 107, 53, 0.2);
     }
     
     h2 {
@@ -172,6 +204,82 @@ import { CommonModule } from '@angular/common';
       border-radius: 6px;
       border: 1px solid #d4edda;
     }
+    
+    /* Estilos del toggle */
+    .mode-toggle {
+      margin-bottom: 30px;
+      padding: 15px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 15px;
+      backdrop-filter: blur(10px);
+    }
+    
+    .toggle-label {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 15px;
+      cursor: pointer;
+      user-select: none;
+    }
+    
+    .mode-text {
+      font-weight: 600;
+      color: #666;
+      transition: all 0.3s ease;
+      font-size: 0.9rem;
+    }
+    
+    .mode-text.active {
+      color: #333;
+      font-size: 1rem;
+      text-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    
+    .toggle-label input[type="checkbox"] {
+      display: none;
+    }
+    
+    .toggle-slider {
+      width: 60px;
+      height: 30px;
+      background: #ccc;
+      border-radius: 15px;
+      position: relative;
+      transition: all 0.3s ease;
+      cursor: pointer;
+    }
+    
+    .toggle-slider::before {
+      content: '';
+      position: absolute;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: white;
+      top: 2px;
+      left: 2px;
+      transition: all 0.3s ease;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    
+    /* Toggle activado (modo técnico) */
+    .toggle-label input[type="checkbox"]:checked + .toggle-slider {
+      background: #ff6b35;
+    }
+    
+    .toggle-label input[type="checkbox"]:checked + .toggle-slider::before {
+      transform: translateX(30px);
+    }
+    
+    /* Botón en modo técnico */
+    .login-button.tech-button {
+      background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+    }
+    
+    .login-button.tech-button:hover:not(:disabled) {
+      box-shadow: 0 10px 20px rgba(255, 107, 53, 0.3);
+    }
   `]
 })
 export class LoginComponent {
@@ -182,11 +290,18 @@ export class LoginComponent {
   
   isLoading = false;
   errorMessage = '';
+  isTechnicianMode = false; // Toggle para modo técnico
   
   constructor(
     private authService: AuthService,
     private router: Router
   ) {}
+  
+  onModeChange() {
+    // Limpiar credenciales al cambiar modo
+    this.credentials = { id: '', password: '' };
+    this.errorMessage = '';
+  }
   
   onLogin() {
     if (!this.credentials.id || !this.credentials.password) {
@@ -197,21 +312,42 @@ export class LoginComponent {
     this.isLoading = true;
     this.errorMessage = '';
     
-    this.authService.login(this.credentials).subscribe({
-      next: (response) => {
-        this.isLoading = false;
-        if (response.success) {
-          console.log('✅ Login exitoso con JWT');
-          this.router.navigate(['/tasks']);
-        } else {
-          this.errorMessage = 'ID o contraseña incorrectos';
+    if (this.isTechnicianMode) {
+      // Login para técnicos
+      this.authService.loginTechnician(this.credentials).subscribe({
+        next: (response) => {
+          this.isLoading = false;
+          if (response.success) {
+            console.log('✅ Login técnico exitoso');
+            this.router.navigate(['/tecnico']);
+          } else {
+            this.errorMessage = 'ID o contraseña incorrectos para técnico';
+          }
+        },
+        error: (error) => {
+          this.isLoading = false;
+          this.errorMessage = 'Error de conexión. Intente nuevamente.';
+          console.error('❌ Error en login técnico:', error);
         }
-      },
-      error: (error) => {
-        this.isLoading = false;
-        this.errorMessage = 'Error de conexión. Intente nuevamente.';
-        console.error('❌ Error en login:', error);
-      }
-    });
+      });
+    } else {
+      // Login normal para trabajadores
+      this.authService.login(this.credentials).subscribe({
+        next: (response) => {
+          this.isLoading = false;
+          if (response.success) {
+            console.log('✅ Login exitoso con JWT');
+            this.router.navigate(['/tasks']);
+          } else {
+            this.errorMessage = 'ID o contraseña incorrectos';
+          }
+        },
+        error: (error) => {
+          this.isLoading = false;
+          this.errorMessage = 'Error de conexión. Intente nuevamente.';
+          console.error('❌ Error en login:', error);
+        }
+      });
+    }
   }
 }
