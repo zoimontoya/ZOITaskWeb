@@ -1,4 +1,4 @@
-import { Component, OnInit, HostListener } from '@angular/core';
+import { Component, OnInit, HostListener, ChangeDetectorRef, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -368,7 +368,7 @@ import { Chart, registerables } from 'chart.js';
           
           <!-- Dropdown de Invernaderos Multi-selección -->
           <div class="form-group">
-            <div class="custom-dropdown" (clickOutside)="showAnalyticsInvernaderoDropdown = false">
+            <div class="custom-dropdown" (clickOutside)="onAnalyticsDropdownClickOutside($event)">
               <div class="input-container">
                 <input 
                   type="text" 
@@ -378,15 +378,20 @@ import { Chart, registerables } from 'chart.js';
                   class="dropdown-input"
                   (focus)="onAnalyticsInvernaderoFocus()"
                   (input)="filterAnalyticsInvernaderos()"
+                  (click)="onAnalyticsInvernaderoInputClick($event)"
+                  (keydown)="onAnalyticsInputKeydown($event)"
                   readonly>
-                <span class="dropdown-arrow" (click)="toggleAnalyticsInvernaderoDropdown()">
+                <span class="dropdown-arrow" (click)="toggleAnalyticsInvernaderoDropdown($event)">
                   {{showAnalyticsInvernaderoDropdown ? '▲' : '▼'}}
                 </span>
               </div>
                 
-              <div class="dropdown-panel" *ngIf="showAnalyticsInvernaderoDropdown" (click)="$event.stopPropagation()">
+              <div class="dropdown-panel" 
+                   *ngIf="showAnalyticsInvernaderoDropdown && groupedAnalyticsInvernaderos && groupedAnalyticsInvernaderos.length > 0" 
+                   (click)="$event.stopPropagation()"
+                   [style.display]="showAnalyticsInvernaderoDropdown ? 'block' : 'none'">
                 <div class="dropdown-content">
-                  <div *ngFor="let group of getFilteredAnalyticsInvernaderos()" class="group-section">
+                  <div *ngFor="let group of getFilteredAnalyticsInvernaderos(); trackBy: trackByGroupCabezal" class="group-section">
                     <div 
                       class="group-header" 
                       (click)="onAnalyticsCabezalClick($event, group.cabezal)">
@@ -1507,7 +1512,9 @@ export class TecnicoComponent implements OnInit {
   constructor(
     private authService: AuthService,
     private router: Router,
-    private http: HttpClient
+    private http: HttpClient,
+    private cdr: ChangeDetectorRef,
+    private ngZone: NgZone
   ) {
     // Register Chart.js components
     Chart.register(...registerables);
@@ -2086,28 +2093,50 @@ export class TecnicoComponent implements OnInit {
   }
 
   // Analytics Methods
+  resetAnalyticsState() {
+    console.log('🧹 Reseteando estado completo de analytics...');
+    
+    this.ngZone.run(() => {
+      this.selectedInvernaderos = [];
+      this.analyticsData = [];
+      this.searchAnalyticsInvernadero = '';
+      this.showAnalyticsInvernaderoDropdown = false;
+      this.collapsedAnalyticsCabezales = {};
+      this.isLoadingAnalytics = false;
+      
+      // Force change detection after reset
+      this.cdr.detectChanges();
+      
+      console.log('✅ Estado reseteado, dropdown cerrado:', !this.showAnalyticsInvernaderoDropdown);
+    });
+    
+    this.destroyCharts();
+  }
+
   openAnalyticsModal() {
     console.log('🔍 Abriendo modal de analytics...');
-    this.showAnalyticsModal = true;
-    this.selectedInvernaderos = [];
-    this.analyticsData = [];
-    this.searchAnalyticsInvernadero = '';
-    this.showAnalyticsInvernaderoDropdown = false;
-    this.collapsedAnalyticsCabezales = {};
     
-    // Cargar invernaderos de la hoja "invernaderos"
-    this.loadAvailableInvernaderos();
+    // Reset completo del estado antes de abrir
+    this.resetAnalyticsState();
+    
+    this.ngZone.run(() => {
+      this.showAnalyticsModal = true;
+      this.cdr.detectChanges();
+      
+      console.log('✅ Modal de analytics abierto, estado limpio');
+      
+      // Cargar invernaderos después de que el modal esté completamente renderizado
+      setTimeout(() => {
+        console.log('📡 Iniciando carga de invernaderos...');
+        this.loadAvailableInvernaderos();
+      }, 200);
+    });
   }
 
   closeAnalyticsModal() {
     console.log('🔒 Cerrando modal de analytics...');
     this.showAnalyticsModal = false;
-    this.selectedInvernaderos = [];
-    this.analyticsData = [];
-    this.searchAnalyticsInvernadero = '';
-    this.showAnalyticsInvernaderoDropdown = false;
-    this.collapsedAnalyticsCabezales = {};
-    this.destroyCharts();
+    this.resetAnalyticsState();
   }
 
   loadAvailableInvernaderos() {
@@ -2187,11 +2216,79 @@ export class TecnicoComponent implements OnInit {
 
   // Métodos del dropdown de analytics
   onAnalyticsInvernaderoFocus() {
-    this.showAnalyticsInvernaderoDropdown = true;
+    console.log('🎯 Analytics dropdown focus activated');
+    this.ngZone.run(() => {
+      this.showAnalyticsInvernaderoDropdown = true;
+      this.cdr.detectChanges();
+    });
   }
 
-  toggleAnalyticsInvernaderoDropdown() {
-    this.showAnalyticsInvernaderoDropdown = !this.showAnalyticsInvernaderoDropdown;
+  onAnalyticsInvernaderoInputClick(event: Event) {
+    event.stopPropagation();
+    event.preventDefault();
+    console.log('📝 Analytics input clicked, opening dropdown');
+    
+    this.ngZone.run(() => {
+      this.showAnalyticsInvernaderoDropdown = true;
+      this.cdr.detectChanges();
+      
+      setTimeout(() => {
+        console.log('🔍 Input click - dropdown state:', this.showAnalyticsInvernaderoDropdown);
+        const dropdownElement = document.querySelector('.analytics-modal .dropdown-panel');
+        console.log('🎯 Input click - DOM element exists:', !!dropdownElement);
+      }, 50);
+    });
+  }
+
+  onAnalyticsDropdownClickOutside(event: Event) {
+    console.log('🌐 Click outside analytics dropdown detected');
+    this.ngZone.run(() => {
+      this.showAnalyticsInvernaderoDropdown = false;
+      this.cdr.detectChanges();
+    });
+  }
+
+  onAnalyticsInputKeydown(event: KeyboardEvent) {
+    if (event.key === 'Escape') {
+      this.ngZone.run(() => {
+        this.showAnalyticsInvernaderoDropdown = false;
+        this.cdr.detectChanges();
+      });
+    } else if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      this.toggleAnalyticsInvernaderoDropdown();
+    }
+  }
+
+  trackByGroupCabezal(index: number, group: any): string {
+    return group.cabezal;
+  }
+
+  toggleAnalyticsInvernaderoDropdown(event?: Event) {
+    if (event) {
+      event.stopPropagation();
+      event.preventDefault();
+    }
+    
+    console.log('🔄 Toggling analytics dropdown from', this.showAnalyticsInvernaderoDropdown, 'to', !this.showAnalyticsInvernaderoDropdown);
+    
+    // Use NgZone to ensure the change happens within Angular's zone
+    this.ngZone.run(() => {
+      this.showAnalyticsInvernaderoDropdown = !this.showAnalyticsInvernaderoDropdown;
+      
+      // Force change detection immediately
+      this.cdr.detectChanges();
+      
+      console.log('✅ Analytics dropdown state after toggle:', this.showAnalyticsInvernaderoDropdown);
+      
+      // Additional verification with timeout
+      setTimeout(() => {
+        console.log('🔍 Verifying dropdown state after timeout:', this.showAnalyticsInvernaderoDropdown);
+        const dropdownElement = document.querySelector('.analytics-modal .dropdown-panel');
+        console.log('🎯 DOM dropdown element exists:', !!dropdownElement);
+        console.log('🎯 DOM dropdown visible:', dropdownElement ? getComputedStyle(dropdownElement).display !== 'none' : false);
+      }, 100);
+    });
   }
 
   filterAnalyticsInvernaderos() {
@@ -2224,12 +2321,19 @@ export class TecnicoComponent implements OnInit {
 
   onAnalyticsInvernaderoClick(event: Event, invernaderoNombre: string) {
     event.stopPropagation();
+    event.preventDefault();
+    
+    console.log('🏠 Analytics invernadero clicked:', invernaderoNombre);
     
     if (this.selectedInvernaderos.includes(invernaderoNombre)) {
       this.selectedInvernaderos = this.selectedInvernaderos.filter(inv => inv !== invernaderoNombre);
+      console.log('➖ Removed invernadero:', invernaderoNombre);
     } else {
       this.selectedInvernaderos.push(invernaderoNombre);
+      console.log('➕ Added invernadero:', invernaderoNombre);
     }
+    
+    console.log('📋 Current selected invernaderos:', this.selectedInvernaderos);
   }
 
   removeSelectedInvernadero(invernadero: string) {
@@ -2243,7 +2347,15 @@ export class TecnicoComponent implements OnInit {
     }
 
     console.log('📊 Actualizando gráficos para invernaderos:', this.selectedInvernaderos);
-    this.isLoadingAnalytics = true;
+    
+    // Cerrar dropdown y limpiar estado antes de generar gráficas
+    this.ngZone.run(() => {
+      this.showAnalyticsInvernaderoDropdown = false;
+      this.isLoadingAnalytics = true;
+      this.cdr.detectChanges();
+      
+      console.log('🔒 Dropdown cerrado antes de generar gráficas');
+    });
     
     // Get analytics data from backend
     const requestBody = {
