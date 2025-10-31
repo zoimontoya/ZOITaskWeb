@@ -3167,6 +3167,538 @@ app.listen(PORT, '0.0.0.0', () => {
   }, 2000);
 });
 
+// ===========================================
+// ENDPOINTS PARA SISTEMA TÉCNICO
+// ===========================================
+
+// Obtener cabezales del usuario técnico
+app.get('/technician/user-cabezales/:userId', verifyJWT, async (req, res) => {
+  const { userId } = req.params;
+  console.log('🔧 GET /technician/user-cabezales - Usuario:', userId);
+
+  try {
+    const auth = getGoogleAuth();
+    const sheets = google.sheets({ version: 'v4', auth });
+
+    // Leer usuarios técnicos
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: TECHNICIAN_SPREADSHEET_ID,
+      range: 'usuarios',
+    });
+
+    const rows = response.data.values;
+    if (!rows || rows.length === 0) {
+      return res.json({ success: false, error: 'No hay usuarios técnicos' });
+    }
+
+    const headers = rows[0];
+    const idxId = headers.findIndex(h => h.toLowerCase() === 'id');
+    const idxCabezal = headers.findIndex(h => h.toLowerCase() === 'cabezal');
+
+    if (idxId === -1 || idxCabezal === -1) {
+      return res.json({ success: false, error: 'Faltan columnas en usuarios técnicos' });
+    }
+
+    // Buscar usuario
+    const userRow = rows.slice(1).find(row => String(row[idxId]) === String(userId));
+    if (!userRow) {
+      return res.json({ success: false, error: 'Usuario técnico no encontrado' });
+    }
+
+    // Obtener cabezales (pueden estar separados por ;)
+    const cabezalesStr = userRow[idxCabezal] || '';
+    const cabezales = cabezalesStr.split(';').map(c => c.trim()).filter(c => c);
+
+    console.log('✅ Cabezales del usuario técnico:', cabezales);
+    res.json({ success: true, cabezales });
+
+  } catch (error) {
+    console.error('❌ Error obteniendo cabezales del usuario técnico:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Obtener invernaderos filtrados por cabezales del usuario
+app.get('/technician/invernaderos/:userId', verifyJWT, async (req, res) => {
+  const { userId } = req.params;
+  console.log('🔧 GET /technician/invernaderos - Usuario:', userId);
+
+  try {
+    const auth = getGoogleAuth();
+    const sheets = google.sheets({ version: 'v4', auth });
+
+    // Primero obtener cabezales del usuario
+    const userResponse = await sheets.spreadsheets.values.get({
+      spreadsheetId: TECHNICIAN_SPREADSHEET_ID,
+      range: 'usuarios',
+    });
+
+    const userRows = userResponse.data.values;
+    if (!userRows || userRows.length === 0) {
+      return res.json({ success: false, error: 'No hay usuarios técnicos' });
+    }
+
+    const userHeaders = userRows[0];
+    const idxUserId = userHeaders.findIndex(h => h.toLowerCase() === 'id');
+    const idxUserCabezal = userHeaders.findIndex(h => h.toLowerCase() === 'cabezal');
+
+    const userRow = userRows.slice(1).find(row => String(row[idxUserId]) === String(userId));
+    if (!userRow) {
+      return res.json({ success: false, error: 'Usuario técnico no encontrado' });
+    }
+
+    const userCabezalesStr = userRow[idxUserCabezal] || '';
+    const userCabezales = userCabezalesStr.split(';').map(c => c.trim()).filter(c => c);
+
+    // Obtener invernaderos
+    const invResponse = await sheets.spreadsheets.values.get({
+      spreadsheetId: TECHNICIAN_SPREADSHEET_ID,
+      range: 'Invernaderos',
+    });
+
+    const invRows = invResponse.data.values;
+    if (!invRows || invRows.length === 0) {
+      return res.json({ success: false, error: 'No hay invernaderos' });
+    }
+
+    // Estructura de columnas: A = Invernadero (índice 0), B = Cabezal (índice 1)
+    const idxNombre = 0; // Columna A
+    const idxCabezal = 1; // Columna B
+
+    // Filtrar invernaderos por cabezales del usuario
+    const groupedInvernaderos = [];
+    
+    console.log(`🔍 Cabezales del usuario ${userId}:`, userCabezales);
+    
+    userCabezales.forEach(cabezal => {
+      const invernaderosCabezal = invRows.slice(1)
+        .filter(row => row[idxCabezal] === cabezal)
+        .map(row => ({ nombre: row[idxNombre] }));
+      
+      console.log(`📋 Cabezal "${cabezal}" tiene ${invernaderosCabezal.length} invernaderos`);
+      
+      if (invernaderosCabezal.length > 0) {
+        groupedInvernaderos.push({
+          cabezal: cabezal,
+          invernaderos: invernaderosCabezal
+        });
+      }
+    });
+
+    console.log('✅ Invernaderos agrupados:', groupedInvernaderos);
+    res.json({ success: true, invernaderos: groupedInvernaderos });
+
+  } catch (error) {
+    console.error('❌ Error obteniendo invernaderos:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Obtener estados de planta agrupados
+app.get('/technician/estados-planta', verifyJWT, async (req, res) => {
+  console.log('🔧 GET /technician/estados-planta');
+
+  try {
+    const auth = getGoogleAuth();
+    const sheets = google.sheets({ version: 'v4', auth });
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: TECHNICIAN_SPREADSHEET_ID,
+      range: 'estado_Planta',
+    });
+
+    const rows = response.data.values;
+    if (!rows || rows.length === 0) {
+      return res.json({ success: false, error: 'No hay estados de planta' });
+    }
+
+    const headers = rows[0];
+    const idxTipo = headers.findIndex(h => h.toLowerCase() === 'tipo_estado');
+    const idxSubtipo = headers.findIndex(h => h.toLowerCase() === 'subtipo_estado');
+    const idxNombre = headers.findIndex(h => h.toLowerCase() === 'nombre_estado');
+
+    // Agrupar por tipo_estado
+    const grouped = {};
+    rows.slice(1).forEach(row => {
+      const tipo = row[idxTipo] || 'Sin Tipo';
+      const subtipo = row[idxSubtipo] || '';
+      const nombre = row[idxNombre] || '';
+
+      if (!grouped[tipo]) {
+        grouped[tipo] = [];
+      }
+
+      grouped[tipo].push({
+        tipo_estado: tipo,
+        subtipo_estado: subtipo,
+        nombre_estado: nombre
+      });
+    });
+
+    const groupedArray = Object.keys(grouped).map(tipo => ({
+      tipo: tipo,
+      estados: grouped[tipo]
+    }));
+
+    console.log('✅ Estados de planta agrupados:', groupedArray);
+    res.json({ success: true, estados: groupedArray });
+
+  } catch (error) {
+    console.error('❌ Error obteniendo estados de planta:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Obtener estados de género agrupados
+app.get('/technician/estados-genero', verifyJWT, async (req, res) => {
+  console.log('🔧 GET /technician/estados-genero');
+
+  try {
+    const auth = getGoogleAuth();
+    const sheets = google.sheets({ version: 'v4', auth });
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: TECHNICIAN_SPREADSHEET_ID,
+      range: 'estado_Genero',
+    });
+
+    const rows = response.data.values;
+    if (!rows || rows.length === 0) {
+      return res.json({ success: false, error: 'No hay estados de género' });
+    }
+
+    const headers = rows[0];
+    const idxTipo = headers.findIndex(h => h.toLowerCase() === 'tipo_estado');
+    const idxSubtipo = headers.findIndex(h => h.toLowerCase() === 'subtipo_estado');
+    const idxNombre = headers.findIndex(h => h.toLowerCase() === 'nombre_estado');
+
+    // Agrupar por tipo_estado
+    const grouped = {};
+    rows.slice(1).forEach(row => {
+      const tipo = row[idxTipo] || 'Sin Tipo';
+      const subtipo = row[idxSubtipo] || '';
+      const nombre = row[idxNombre] || '';
+
+      if (!grouped[tipo]) {
+        grouped[tipo] = [];
+      }
+
+      grouped[tipo].push({
+        tipo_estado: tipo,
+        subtipo_estado: subtipo,
+        nombre_estado: nombre
+      });
+    });
+
+    const groupedArray = Object.keys(grouped).map(tipo => ({
+      tipo: tipo,
+      estados: grouped[tipo]
+    }));
+
+    console.log('✅ Estados de género agrupados:', groupedArray);
+    res.json({ success: true, estados: groupedArray });
+
+  } catch (error) {
+    console.error('❌ Error obteniendo estados de género:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Obtener géneros
+app.get('/technician/generos', verifyJWT, async (req, res) => {
+  console.log('🔧 GET /technician/generos');
+
+  try {
+    const auth = getGoogleAuth();
+    const sheets = google.sheets({ version: 'v4', auth });
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: TECHNICIAN_SPREADSHEET_ID,
+      range: 'Generos',
+    });
+
+    const rows = response.data.values;
+    if (!rows || rows.length === 0) {
+      return res.json({ success: false, error: 'No hay géneros' });
+    }
+
+    const headers = rows[0];
+    const idxGenero = headers.findIndex(h => h.toLowerCase() === 'genero');
+
+    const generos = rows.slice(1)
+      .map(row => row[idxGenero])
+      .filter(genero => genero && genero.trim())
+      .map(genero => genero.trim());
+
+    console.log('✅ Géneros obtenidos:', generos);
+    res.json({ success: true, generos });
+
+  } catch (error) {
+    console.error('❌ Error obteniendo géneros:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Crear informe técnico
+app.post('/technician/create-report', verifyJWT, async (req, res) => {
+  console.log('🔧 POST /technician/create-report');
+  console.log('📦 Datos del informe:', req.body);
+
+  const {
+    invernadero,
+    estadoPlanta,
+    porcentajePlanta,
+    genero,
+    estadoGenero,
+    porcentajeGenero,
+    fechaMax,
+    descripcion,
+    nombre_encargado
+  } = req.body;
+
+  try {
+    const auth = getGoogleAuth();
+    const sheets = google.sheets({ version: 'v4', auth });
+
+    // Generar código único
+    const now = new Date();
+    const timestamp = now.getTime();
+    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+    const codigo = `TEC-${timestamp}-${random}`;
+
+    // Formatear fecha actual en formato europeo
+    const fechaCreacion = formatDateToEuropean(now);
+
+    // Preparar fila para insertar
+    const newRow = [
+      codigo,
+      fechaCreacion,
+      nombre_encargado,
+      invernadero,
+      genero,
+      estadoPlanta,
+      porcentajePlanta,
+      estadoGenero,
+      porcentajeGenero,
+      fechaMax,
+      descripcion || ''
+    ];
+
+    // Insertar en la hoja estudio_Tecnico
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: TECHNICIAN_SPREADSHEET_ID,
+      range: 'estudio_Tecnico',
+      valueInputOption: 'RAW',
+      resource: {
+        values: [newRow]
+      }
+    });
+
+    console.log('✅ Informe técnico creado exitosamente:', codigo);
+    res.json({ 
+      success: true, 
+      message: 'Informe creado exitosamente',
+      codigo: codigo
+    });
+
+  } catch (error) {
+    console.error('❌ Error creando informe técnico:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Endpoint para obtener datos de analytics 
+app.post('/technician/analytics', verifyJWT, async (req, res) => {
+  try {
+    console.log('📊 Obteniendo datos de analytics...');
+    
+    const { invernaderos } = req.body;
+    
+    console.log('🔍 Invernaderos seleccionados:', invernaderos);
+    
+    if (!invernaderos || !Array.isArray(invernaderos) || invernaderos.length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Se requiere al menos un invernadero seleccionado' 
+      });
+    }
+
+    // Configurar autenticación usando la función existente
+    const auth = getGoogleAuth();
+    const sheets = google.sheets({ version: 'v4', auth });
+
+    // Obtener datos de la hoja estudio_Tecnico
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: TECHNICIAN_SPREADSHEET_ID,
+      range: 'estudio_Tecnico'
+    });
+
+    const rows = response.data.values || [];
+    
+    console.log(`📋 Total de filas encontradas: ${rows.length}`);
+    
+    if (rows.length <= 1) {
+      console.log('⚠️ No hay datos en la hoja estudio_Tecnico');
+      return res.json({ 
+        success: true, 
+        data: [], 
+        message: 'No hay datos disponibles para analytics' 
+      });
+    }
+
+    // Procesar los datos para analytics
+    const analyticsData = [];
+    const headers = rows[0];
+    
+    console.log('📊 Headers encontrados:', headers);
+    
+    // Encontrar índices de las columnas según la estructura especificada
+    // Columna D (índice 3): Invernadero
+    // Columna B (índice 1): Fecha
+    // Columna F (índice 5): Estado Planta
+    // Columna G (índice 6): Porcentaje Planta
+    // Columna H (índice 7): Estado Genero
+    // Columna I (índice 8): Porcentaje Genero
+    const invernaderoIndex = 3; // Columna D
+    const fechaIndex = 1; // Columna B
+    const estadoPlantaIndex = 5; // Columna F
+    const porcentajePlantaIndex = 6; // Columna G
+    const estadoGeneroIndex = 7; // Columna H
+    const porcentajeGeneroIndex = 8; // Columna I
+
+    // Procesar datos de filas (comenzar desde fila 1, saltando headers)
+    console.log(`🔄 Procesando ${rows.length - 1} filas de datos...`);
+    
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      const invernadero = row[invernaderoIndex];
+      const fecha = row[fechaIndex];
+      
+      console.log(`📝 Fila ${i}: Invernadero="${invernadero}", Fecha="${fecha}"`);
+      
+      // Filtrar por invernaderos seleccionados
+      if (invernaderos.includes(invernadero)) {
+        console.log(`✅ Invernadero "${invernadero}" coincide con selección`);
+        // Agregar datos de estado de planta (Columnas F y G)
+        const estadoPlanta = row[estadoPlantaIndex];
+        const porcentajePlanta = row[porcentajePlantaIndex];
+        
+        console.log(`🌱 Estado Planta: "${estadoPlanta}", Porcentaje: "${porcentajePlanta}"`);
+        
+        if (estadoPlanta && porcentajePlanta) {
+          const dataPlanta = {
+            Invernadero: invernadero,
+            Fecha: fecha,
+            Estado: estadoPlanta,
+            Porcentaje: parseFloat(porcentajePlanta) || 0,
+            Tipo: 'Planta'
+          };
+          analyticsData.push(dataPlanta);
+          console.log('✅ Agregado dato de planta:', dataPlanta);
+        }
+        
+        // Agregar datos de estado de género (Columnas H e I)
+        const estadoGenero = row[estadoGeneroIndex];
+        const porcentajeGenero = row[porcentajeGeneroIndex];
+        
+        console.log(`🧬 Estado Género: "${estadoGenero}", Porcentaje: "${porcentajeGenero}"`);
+        
+        if (estadoGenero && porcentajeGenero) {
+          const dataGenero = {
+            Invernadero: invernadero,
+            Fecha: fecha,
+            Estado: estadoGenero,
+            Porcentaje: parseFloat(porcentajeGenero) || 0,
+            Tipo: 'Genero'
+          };
+          analyticsData.push(dataGenero);
+          console.log('✅ Agregado dato de género:', dataGenero);
+        }
+      } else {
+        console.log(`❌ Invernadero "${invernadero}" NO coincide con selección:`, invernaderos);
+      }
+    }
+
+    // Información adicional para debugging
+    const uniqueInvernaderos = [...new Set(rows.slice(1).map(row => row[invernaderoIndex]).filter(inv => inv))];
+    console.log('🏠 Invernaderos únicos encontrados en estudio_Tecnico:', uniqueInvernaderos);
+    
+    console.log(`✅ Analytics data obtenidos: ${analyticsData.length} registros`);
+    res.json({ 
+      success: true, 
+      data: analyticsData,
+      debug: {
+        totalRows: rows.length - 1,
+        uniqueInvernaderos: uniqueInvernaderos,
+        selectedInvernaderos: invernaderos,
+        processedRecords: analyticsData.length
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Error obteniendo datos de analytics:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Endpoint para obtener lista de invernaderos (sin userId para analytics)
+app.get('/technician/invernaderos', verifyJWT, async (req, res) => {
+  try {
+    console.log('🏠 Obteniendo lista de invernaderos para analytics...');
+
+    // Configurar autenticación usando la función existente
+    const auth = getGoogleAuth();
+    const sheets = google.sheets({ version: 'v4', auth });
+
+    // Obtener datos de invernaderos desde la hoja "Invernaderos"
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: TECHNICIAN_SPREADSHEET_ID,
+      range: 'Invernaderos'
+    });
+
+    const rows = response.data.values || [];
+    
+    if (rows.length <= 1) {
+      return res.json({ success: true, data: [] });
+    }
+
+    // Estructura corregida: Columna A (índice 0) = Invernadero, Columna B (índice 1) = Cabezal
+    const groupedData = {};
+    
+    console.log(`📊 Procesando ${rows.length - 1} filas de invernaderos...`);
+    
+    // Procesar filas (saltando header en índice 0)
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      const invernadero = row[0]; // Columna A: Invernadero
+      const cabezal = row[1]; // Columna B: Cabezal
+      
+      if (invernadero && cabezal) {
+        if (!groupedData[cabezal]) {
+          groupedData[cabezal] = [];
+        }
+        groupedData[cabezal].push({ nombre: invernadero });
+        console.log(`✅ Agregado: ${invernadero} → ${cabezal}`);
+      }
+    }
+    
+    // Convertir a array de objetos agrupados
+    const invernaderos = Object.keys(groupedData).map(cabezal => ({
+      cabezal: cabezal,
+      invernaderos: groupedData[cabezal]
+    }));
+    
+    console.log(`🏠 Grupos de invernaderos creados:`, invernaderos.map(g => `${g.cabezal} (${g.invernaderos.length})`));
+
+    console.log(`✅ Invernaderos encontrados: ${invernaderos.length}`);
+    res.json({ success: true, data: invernaderos });
+
+  } catch (error) {
+    console.error('❌ Error obteniendo invernaderos:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 
 
 
