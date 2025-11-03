@@ -239,6 +239,23 @@ function parseEuropeanDateToISO(europeanDate) {
   return String(europeanDate);
 }
 
+// Función para parsear fecha en formato DD/MM/YYYY a objeto Date
+function parseDateFromString(dateStr) {
+  if (!dateStr || dateStr === '') {
+    return new Date(0); // Fecha muy antigua para comparación
+  }
+  
+  // Si es formato DD/MM/YYYY
+  const match = String(dateStr).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (match) {
+    const [, day, month, year] = match;
+    return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+  }
+  
+  // Fallback a parseo estándar
+  return new Date(dateStr);
+}
+
 // 🔒 Configuración segura de credenciales de Google
 const getGoogleAuth = () => {
   // Opción 1: Variables de entorno (Docker/Producción)
@@ -3559,12 +3576,14 @@ app.post('/technician/analytics', verifyJWT, async (req, res) => {
     // Columna G (índice 6): Porcentaje Planta
     // Columna H (índice 7): Estado Genero
     // Columna I (índice 8): Porcentaje Genero
+    // Columna J (índice 9): Fecha Máxima
     const invernaderoIndex = 3; // Columna D
     const fechaIndex = 1; // Columna B
     const estadoPlantaIndex = 5; // Columna F
     const porcentajePlantaIndex = 6; // Columna G
     const estadoGeneroIndex = 7; // Columna H
     const porcentajeGeneroIndex = 8; // Columna I
+    const fechaMaxIndex = 9; // Columna J
 
     // Procesar datos de filas (comenzar desde fila 1, saltando headers)
     console.log(`🔄 Procesando ${rows.length - 1} filas de datos...`);
@@ -3619,6 +3638,34 @@ app.post('/technician/analytics', verifyJWT, async (req, res) => {
       }
     }
 
+    // Recopilar fechas máximas por invernadero (última fecha registrada para cada uno)
+    const fechasMaximas = {};
+    
+    // Agrupar por invernadero y encontrar la última fecha máxima
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      const invernadero = row[invernaderoIndex];
+      const fechaReporte = row[fechaIndex];
+      const fechaMax = row[fechaMaxIndex];
+      
+      if (invernaderos.includes(invernadero) && fechaMax) {
+        console.log(`📅 Procesando fechaMax para ${invernadero}: ${fechaMax} (reporte del ${fechaReporte})`);
+        
+        // Convertir fecha del reporte a objeto Date para comparación
+        const fechaReporteObj = parseDateFromString(fechaReporte);
+        
+        if (!fechasMaximas[invernadero] || 
+            fechaReporteObj > parseDateFromString(fechasMaximas[invernadero].fechaReporte)) {
+          fechasMaximas[invernadero] = {
+            fechaMax: fechaMax,
+            fechaReporte: fechaReporte
+          };
+        }
+      }
+    }
+    
+    console.log('📅 Fechas máximas por invernadero:', fechasMaximas);
+    
     // Información adicional para debugging
     const uniqueInvernaderos = [...new Set(rows.slice(1).map(row => row[invernaderoIndex]).filter(inv => inv))];
     console.log('🏠 Invernaderos únicos encontrados en estudio_Tecnico:', uniqueInvernaderos);
@@ -3627,6 +3674,7 @@ app.post('/technician/analytics', verifyJWT, async (req, res) => {
     res.json({ 
       success: true, 
       data: analyticsData,
+      fechasMaximas: fechasMaximas,
       debug: {
         totalRows: rows.length - 1,
         uniqueInvernaderos: uniqueInvernaderos,

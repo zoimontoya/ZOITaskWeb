@@ -1455,6 +1455,7 @@ export class TecnicoComponent implements OnInit {
   selectedInvernaderos: string[] = [];
   availableInvernaderos: string[] = [];
   analyticsData: any[] = [];
+  fechasMaximas: any = {}; // Almacena las fechas máximas por invernadero
   isLoadingAnalytics = false;
   
   // Dropdown de analytics
@@ -2100,6 +2101,7 @@ export class TecnicoComponent implements OnInit {
     this.ngZone.run(() => {
       this.selectedInvernaderos = [];
       this.analyticsData = [];
+      this.fechasMaximas = {};
       this.searchAnalyticsInvernadero = '';
       this.showAnalyticsInvernaderoDropdown = false;
       this.collapsedAnalyticsCabezales = {};
@@ -2372,7 +2374,9 @@ export class TecnicoComponent implements OnInit {
         console.log('✅ Respuesta de analytics recibida:', response);
         if (response.success) {
           this.analyticsData = response.data;
+          this.fechasMaximas = response.fechasMaximas || {};
           console.log('📊 Datos de analytics procesados:', this.analyticsData.length, 'registros');
+          console.log('📅 Fechas máximas recibidas:', this.fechasMaximas);
           console.log('🔍 Muestra de datos:', this.analyticsData.slice(0, 3));
           
           // Esperar un tick para que Angular renderice los canvas
@@ -2453,13 +2457,38 @@ export class TecnicoComponent implements OnInit {
       stateTypeMap[estado] = tipo;
     });
     
-    // Get all unique dates and states
-    const allDates = [...new Set(this.analyticsData.map((item: any) => item.Fecha))].sort((a, b) => {
+    // Get all unique dates from analytics data
+    const analyticsDates = [...new Set(this.analyticsData.map((item: any) => item.Fecha))];
+    
+    // Get fechas máximas for selected invernaderos
+    const fechasMaximasArray: string[] = [];
+    this.selectedInvernaderos.forEach(invernadero => {
+      if (this.fechasMaximas[invernadero]) {
+        const fechaMax = this.fechasMaximas[invernadero].fechaMax;
+        if (fechaMax && fechaMax !== '') {
+          fechasMaximasArray.push(fechaMax);
+          console.log(`📅 Agregando fecha máxima de ${invernadero}: ${fechaMax}`);
+        }
+      }
+    });
+    
+    // Obtener fecha actual
+    const today = new Date();
+    const todayFormatted = this.formatDateToSpanish(today);
+    
+    // Combine analytics dates, fechas máximas Y FECHA ACTUAL, luego ordenar
+    const allDates = [...new Set([...analyticsDates, ...fechasMaximasArray, todayFormatted])].sort((a, b) => {
       // Convertir fechas DD/MM/YYYY a objetos Date para ordenar correctamente
       const dateA = this.parseSpanishDate(a);
       const dateB = this.parseSpanishDate(b);
       return dateA.getTime() - dateB.getTime();
     });
+    
+    console.log('📅 Fechas de analytics:', analyticsDates);
+    console.log('📅 Fechas máximas:', fechasMaximasArray);
+    console.log('📅 Fecha actual:', todayFormatted);
+    console.log('📅 Todas las fechas combinadas (incluyendo HOY):', allDates);
+    
     const allStates = [...new Set(this.analyticsData.map((item: any) => item.Estado))];
     
     // Separate states by type
@@ -2586,6 +2615,9 @@ export class TecnicoComponent implements OnInit {
     
     console.log('📈 Datasets creados:', datasets.length);
 
+    // Agregar líneas verticales para fechas máximas
+    this.addFechasMaximasLines(datasets, chartData.allDates);
+
     console.log('📊 Creando datasets para gráfico de líneas:', datasets.length, 'datasets');
     console.log('📅 Labels del gráfico:', chartData.allDates);
     
@@ -2635,9 +2667,9 @@ export class TecnicoComponent implements OnInit {
           },
           subtitle: {
             display: true,
-            text: '🌱 Líneas sólidas Verde→Azul (●◆) = Estados de Planta  •  🧬 Líneas punteadas Rojo→Morado (▲■⭐) = Estados de Género',
+            text: '🌱 Líneas sólidas Verde→Azul (●◆) = Estados de Planta  •  🧬 Líneas punteadas Rojo→Morado (▲■⭐) = Estados de Género  •  🔴 Marcadores rojos = Fechas máximas estimadas',
             font: {
-              size: 11,
+              size: 10,
               style: 'italic'
             },
             padding: {
@@ -2659,6 +2691,15 @@ export class TecnicoComponent implements OnInit {
               display: true,
               text: 'Fecha'
             }
+          }
+        },
+        onHover: (event: any, activeElements: any[], chart: any) => {
+          // Custom hover behavior if needed
+        },
+        animation: {
+          onComplete: (animation: any) => {
+            // Dibujar líneas verticales después de completar la animación
+            this.drawVerticalLines(animation.chart, chartData.allDates);
           }
         }
       }
@@ -2834,6 +2875,197 @@ export class TecnicoComponent implements OnInit {
       this.barChart.destroy();
       this.barChart = null;
     }
+  }
+
+  // Agregar líneas verticales para fechas máximas
+  addFechasMaximasLines(datasets: any[], allDates: string[]) {
+    console.log('📅 Agregando líneas de fechas máximas...');
+    console.log('🔍 Fechas máximas disponibles:', this.fechasMaximas);
+    console.log('🔍 Todas las fechas en gráfica:', allDates);
+    
+    // Para cada invernadero seleccionado que tenga fecha máxima
+    this.selectedInvernaderos.forEach((invernadero, index) => {
+      if (this.fechasMaximas[invernadero]) {
+        const fechaMaxInfo = this.fechasMaximas[invernadero];
+        const fechaMax = fechaMaxInfo.fechaMax;
+        
+        console.log(`📅 Procesando fecha máxima para ${invernadero}: ${fechaMax}`);
+        
+        // Encontrar el índice de la fecha máxima en allDates
+        let fechaMaxIndex = allDates.indexOf(fechaMax);
+        
+        if (fechaMaxIndex === -1) {
+          console.log(`⚠️ Fecha máxima ${fechaMax} no encontrada en allDates para ${invernadero}`);
+          return;
+        }
+        
+        console.log(`✅ Fecha máxima ${fechaMax} encontrada en índice ${fechaMaxIndex} para ${invernadero}`);
+        
+        // Crear datos para línea vertical: dos puntos (0% y 100%) solo en la fecha máxima
+        const verticalLineData = allDates.map((date, i) => {
+          if (i === fechaMaxIndex) {
+            return 50; // Punto en el medio para crear línea visible
+          }
+          return null;
+        });
+        
+        // Dataset para marcar la fecha máxima
+        const verticalLineDataset = {
+          label: `� ${invernadero} - Recogida: ${fechaMax}`,
+          data: verticalLineData,
+          borderColor: '#FF0000', // Rojo brillante
+          backgroundColor: '#FF0000',
+          borderWidth: 4,
+          borderDash: [], // Línea sólida para que se vea mejor
+          fill: false,
+          pointRadius: 8, // Punto grande y visible
+          pointHoverRadius: 10,
+          pointStyle: 'rect', // Cuadrado para distinguir
+          tension: 0,
+          spanGaps: false,
+          showLine: false, // Solo mostrar el punto
+          order: -1 // Mostrar encima de otros datasets
+        };
+        
+        datasets.push(verticalLineDataset);
+        console.log(`✅ Marcador de fecha máxima agregado para ${invernadero} en fecha ${fechaMax} (índice ${fechaMaxIndex})`);
+      }
+    });
+  }
+
+  // Dibujar líneas verticales en el canvas
+  drawVerticalLines(chart: any, allDates: string[]) {
+    const ctx = chart.ctx;
+    const chartArea = chart.chartArea;
+    
+    if (!ctx || !chartArea) return;
+    
+    console.log('🎨 Dibujando líneas verticales...');
+    
+    // Obtener fecha actual en formato DD/MM/YYYY
+    const today = new Date();
+    const todayFormatted = this.formatDateToSpanish(today);
+    
+    console.log(`📅 Fecha actual: ${todayFormatted}`);
+    console.log(`📊 Fechas disponibles:`, allDates.slice(0, 10), '...', allDates.slice(-10));
+    
+    // Buscar la fecha actual en el array completo
+    let todayIndex = allDates.findIndex(date => date === todayFormatted);
+    
+    // Si no encontramos la fecha exacta, calcular donde debería ir cronológicamente
+    if (todayIndex === -1) {
+      console.log('⚠️ Fecha exacta no encontrada, calculando posición cronológica...');
+      
+      // Convertir fecha actual a objeto Date para comparación
+      const todayDate = this.parseDateFromString(todayFormatted);
+      
+      // Encontrar la posición cronológica correcta
+      for (let i = 0; i < allDates.length; i++) {
+        const currentDate = this.parseDateFromString(allDates[i]);
+        if (todayDate < currentDate) {
+          todayIndex = i - 0.5; // Posición intermedia
+          break;
+        }
+      }
+      
+      // Si es posterior a todas las fechas, ponerla al final
+      if (todayIndex === -1) {
+        todayIndex = allDates.length;
+      }
+    }
+    
+    console.log(`📍 Índice calculado para HOY: ${todayIndex}`);
+    
+    // Calcular posición X correcta
+    let todayXPosition;
+    if (todayIndex === allDates.length) {
+      // Al final del gráfico
+      todayXPosition = chartArea.right - 20;
+    } else if (todayIndex % 1 !== 0) {
+      // Posición intermedia (entre dos fechas)
+      const leftIndex = Math.floor(todayIndex);
+      const rightIndex = Math.ceil(todayIndex);
+      const leftX = chart.scales.x.getPixelForValue(leftIndex);
+      const rightX = chart.scales.x.getPixelForValue(rightIndex);
+      todayXPosition = leftX + (rightX - leftX) * (todayIndex - leftIndex);
+    } else {
+      // Posición exacta
+      todayXPosition = chart.scales.x.getPixelForValue(todayIndex);
+    }
+    
+    // DIBUJAR LÍNEA AZUL SIEMPRE
+    ctx.save();
+    ctx.strokeStyle = '#00BFFF'; // Azul más intenso
+    ctx.lineWidth = 4;
+    ctx.setLineDash([15, 8]);
+    ctx.beginPath();
+    ctx.moveTo(todayXPosition, chartArea.top);
+    ctx.lineTo(todayXPosition, chartArea.bottom);
+    ctx.stroke();
+    
+    // Etiqueta más pequeña para "HOY"
+    ctx.fillStyle = 'rgba(0, 191, 255, 0.9)';
+    ctx.fillRect(todayXPosition - 20, chartArea.top, 40, 16);
+    ctx.fillStyle = 'white';
+    ctx.font = 'bold 10px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('HOY', todayXPosition, chartArea.top + 12);
+    
+    ctx.restore();
+    console.log(`✅ Línea "HOY" dibujada en posición X: ${todayXPosition}`);
+    
+    // Dibujar líneas verticales rojas para fechas máximas
+    this.selectedInvernaderos.forEach((invernadero, index) => {
+      if (this.fechasMaximas[invernadero]) {
+        const fechaMaxInfo = this.fechasMaximas[invernadero];
+        const fechaMax = fechaMaxInfo.fechaMax;
+        const fechaMaxIndex = allDates.indexOf(fechaMax);
+        
+        if (fechaMaxIndex !== -1) {
+          const xPosition = chart.scales.x.getPixelForValue(fechaMaxIndex);
+          
+          ctx.save();
+          ctx.strokeStyle = '#FF0000'; // Rojo
+          ctx.lineWidth = 3;
+          ctx.setLineDash([8, 4]);
+          ctx.beginPath();
+          ctx.moveTo(xPosition, chartArea.top);
+          ctx.lineTo(xPosition, chartArea.bottom);
+          ctx.stroke();
+          
+          // Etiqueta MÁS PEQUEÑA para fecha máxima
+          const labelY = chartArea.top + (index * 20) + 20;
+          const labelText = `${invernadero}`;
+          
+          ctx.fillStyle = 'rgba(255, 0, 0, 0.9)';
+          ctx.fillRect(xPosition - 18, labelY - 6, 36, 12); // Más pequeño
+          ctx.fillStyle = 'white';
+          ctx.font = 'bold 8px Arial'; // Fuente más pequeña
+          ctx.textAlign = 'center';
+          ctx.fillText(labelText, xPosition, labelY + 2);
+          
+          ctx.restore();
+          console.log(`✅ Línea roja dibujada para ${invernadero} en índice ${fechaMaxIndex} (${fechaMax})`);
+        }
+      }
+    });
+  }
+
+  // Formatear fecha actual a formato DD/MM/YYYY  
+  formatDateToSpanish(date: Date): string {
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  }
+
+  // Parsear fecha desde string DD/MM/YYYY a objeto Date
+  parseDateFromString(dateStr: string): Date {
+    if (!dateStr || !dateStr.includes('/')) {
+      return new Date();
+    }
+    const [day, month, year] = dateStr.split('/');
+    return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
   }
 
   // Utility method para parsear fechas en formato DD/MM/YYYY
