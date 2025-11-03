@@ -171,7 +171,7 @@ import { Chart, registerables } from 'chart.js';
 
             <!-- Porcentaje Estado Planta -->
             <div class="form-group">
-              <label for="porcentajePlanta">📊 Porcentaje Estado Planta: {{reportData.porcentajePlanta}}%</label>
+              <label for="porcentajePlanta">📊 Porcentaje Estado Planta: {{reportData.porcentajePlanta}}% *</label>
               <input 
                 type="range" 
                 id="porcentajePlanta" 
@@ -179,6 +179,7 @@ import { Chart, registerables } from 'chart.js';
                 name="porcentajePlanta"
                 min="0" 
                 max="100" 
+                required
                 class="slider">
               <div class="slider-labels">
                 <span>0%</span>
@@ -285,7 +286,7 @@ import { Chart, registerables } from 'chart.js';
 
             <!-- Porcentaje Estado Género -->
             <div class="form-group">
-              <label for="porcentajeGenero">📈 Porcentaje Estado Género: {{reportData.porcentajeGenero}}%</label>
+              <label for="porcentajeGenero">📈 Porcentaje Estado Género: {{reportData.porcentajeGenero}}% *</label>
               <input 
                 type="range" 
                 id="porcentajeGenero" 
@@ -293,6 +294,7 @@ import { Chart, registerables } from 'chart.js';
                 name="porcentajeGenero"
                 min="0" 
                 max="100" 
+                required
                 class="slider">
               <div class="slider-labels">
                 <span>0%</span>
@@ -302,13 +304,12 @@ import { Chart, registerables } from 'chart.js';
 
             <!-- Fecha Máxima de Recogida -->
             <div class="form-group">
-              <label for="fechaMax">📅 Fecha Máxima de Recogida Estimada *</label>
+              <label for="fechaMax">📅 Fecha Máxima de Recogida Estimada</label>
               <input 
                 type="date" 
                 id="fechaMax" 
                 [(ngModel)]="reportData.fechaMax" 
-                name="fechaMax" 
-                required
+                name="fechaMax"
                 class="form-input">
             </div>
 
@@ -2428,11 +2429,14 @@ export class TecnicoComponent implements OnInit {
   processAnalyticsData() {
     console.log('🔄 Procesando datos de analytics...');
     const processedData: any = {};
+    const stateTypeMap: any = {}; // Mapeo de estado -> tipo (Planta/Genero)
     
     // Group data by invernadero and date
     this.analyticsData.forEach((item: any) => {
       const invernadero = item.Invernadero;
       const date = item.Fecha;
+      const estado = item.Estado;
+      const tipo = item.Tipo || 'Unknown'; // Planta o Genero
       
       if (!processedData[invernadero]) {
         processedData[invernadero] = {};
@@ -2443,7 +2447,10 @@ export class TecnicoComponent implements OnInit {
       }
       
       // Store state percentages
-      processedData[invernadero][date][item.Estado] = item.Porcentaje;
+      processedData[invernadero][date][estado] = item.Porcentaje;
+      
+      // Map estado to tipo for styling
+      stateTypeMap[estado] = tipo;
     });
     
     // Get all unique dates and states
@@ -2455,14 +2462,22 @@ export class TecnicoComponent implements OnInit {
     });
     const allStates = [...new Set(this.analyticsData.map((item: any) => item.Estado))];
     
+    // Separate states by type
+    const plantaStates = allStates.filter(state => stateTypeMap[state] === 'Planta');
+    const generoStates = allStates.filter(state => stateTypeMap[state] === 'Genero');
+    
     console.log('📅 Fechas encontradas:', allDates);
-    console.log('🏷️ Estados encontrados:', allStates);
+    console.log('� Estados de Planta:', plantaStates);
+    console.log('🧬 Estados de Género:', generoStates);
     console.log('🗂️ Datos agrupados:', processedData);
     
     return {
       processedData,
       allDates,
-      allStates
+      allStates,
+      plantaStates,
+      generoStates,
+      stateTypeMap
     };
   }
 
@@ -2475,39 +2490,97 @@ export class TecnicoComponent implements OnInit {
     }
     console.log('✅ Canvas encontrado:', ctx);
 
-    const colors = [
-      '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7',
-      '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9'
-    ];
+    // Colores con gradiente amplio - Verde a Azul para planta, Rojo a Morado para género
+    const plantaColors = [
+      '#006400', // Verde oscuro
+      '#228B22', // Verde bosque
+      '#32CD32', // Verde lima
+      '#00FF7F', // Verde primavera
+      '#00CED1', // Turquesa oscuro
+      '#20B2AA', // Verde mar claro
+      '#4682B4', // Azul acero
+      '#1E90FF', // Azul dodger
+      '#0000FF', // Azul puro
+      '#4169E1'  // Azul real
+    ]; // Gradiente Verde → Azul para estados de planta
+    
+    const generoColors = [
+      '#8B0000', // Rojo oscuro
+      '#DC143C', // Carmesí
+      '#FF1493', // Rosa profundo
+      '#FF4500', // Naranja rojizo
+      '#FF6347', // Tomate
+      '#FF69B4', // Rosa caliente
+      '#DA70D6', // Orquídea
+      '#9370DB', // Violeta medio
+      '#8A2BE2', // Azul violeta
+      '#4B0082'  // Índigo
+    ]; // Gradiente Rojo → Morado para estados de género
 
     const datasets: any[] = [];
     
     console.log('🎯 Estados disponibles:', chartData.allStates);
-    console.log('🏠 Invernaderos seleccionados:', this.selectedInvernaderos);
+    console.log('� Estados de Planta:', chartData.plantaStates);
+    console.log('🧬 Estados de Género:', chartData.generoStates);
+    console.log('�🏠 Invernaderos seleccionados:', this.selectedInvernaderos);
     
-    chartData.allStates.forEach((state: string, stateIndex: number) => {
-      this.selectedInvernaderos.forEach((invernadero: string, invIndex: number) => {
+    // Process Planta states first
+    let plantaColorIndex = 0;
+    chartData.plantaStates.forEach((state: string) => {
+      this.selectedInvernaderos.forEach((invernadero: string) => {
         const data = chartData.allDates.map((date: string) => {
           const value = chartData.processedData[invernadero]?.[date]?.[state];
-          // Si no hay valor, retornamos null para que Chart.js salte ese punto
-          // Si hay valor, lo retornamos (incluso si es 0 real)
           return value !== undefined ? value : null;
         });
         
-        console.log(`📊 Dataset para ${invernadero} - ${state}:`, data);
+        console.log(`🌱 Dataset para ${invernadero} - ${state}:`, data);
         
         const dataset = {
-          label: `${invernadero} - ${state}`,
+          label: `🌱 ${invernadero} - ${state}`,
           data: data,
-          borderColor: colors[(stateIndex * this.selectedInvernaderos.length + invIndex) % colors.length],
-          backgroundColor: colors[(stateIndex * this.selectedInvernaderos.length + invIndex) % colors.length] + '20',
-          borderWidth: 2,
+          borderColor: plantaColors[plantaColorIndex % plantaColors.length],
+          backgroundColor: plantaColors[plantaColorIndex % plantaColors.length] + '20',
+          borderWidth: 3 + (plantaColorIndex % 2), // Alternar grosor 3-4
+          borderDash: [], // Línea sólida para estados de planta
           fill: false,
-          tension: 0.4,
-          spanGaps: true // Permite conectar puntos saltándose los valores null
+          tension: 0.3,
+          spanGaps: true,
+          pointStyle: plantaColorIndex % 2 === 0 ? 'circle' : 'rectRot', // Alternar círculos y diamantes
+          pointRadius: 4 + (plantaColorIndex % 2)
         };
         
         datasets.push(dataset);
+        plantaColorIndex++;
+      });
+    });
+    
+    // Process Genero states second
+    let generoColorIndex = 0;
+    chartData.generoStates.forEach((state: string) => {
+      this.selectedInvernaderos.forEach((invernadero: string) => {
+        const data = chartData.allDates.map((date: string) => {
+          const value = chartData.processedData[invernadero]?.[date]?.[state];
+          return value !== undefined ? value : null;
+        });
+        
+        console.log(`🧬 Dataset para ${invernadero} - ${state}:`, data);
+        
+        const dataset = {
+          label: `🧬 ${invernadero} - ${state}`,
+          data: data,
+          borderColor: generoColors[generoColorIndex % generoColors.length],
+          backgroundColor: generoColors[generoColorIndex % generoColors.length] + '20',
+          borderWidth: 3 + (generoColorIndex % 2), // Alternar grosor 3-4
+          borderDash: generoColorIndex % 3 === 0 ? [10, 5] : generoColorIndex % 3 === 1 ? [15, 5, 5, 5] : [20, 10], // Tres estilos de punteado diferentes
+          fill: false,
+          tension: 0.3,
+          spanGaps: true,
+          pointStyle: generoColorIndex % 3 === 0 ? 'triangle' : generoColorIndex % 3 === 1 ? 'rect' : 'star', // Tres estilos de punto
+          pointRadius: 4 + (generoColorIndex % 3)
+        };
+        
+        datasets.push(dataset);
+        generoColorIndex++;
       });
     });
     
@@ -2532,11 +2605,44 @@ export class TecnicoComponent implements OnInit {
         plugins: {
           title: {
             display: true,
-            text: 'Evolución de Estados por Fecha'
+            text: 'Evolución de Estados por Fecha',
+            font: {
+              size: 16,
+              weight: 'bold'
+            }
           },
           legend: {
             display: true,
-            position: 'top'
+            position: 'top',
+            labels: {
+              usePointStyle: true,
+              padding: 20,
+              generateLabels: function(chart: any) {
+                const original = Chart.defaults.plugins.legend.labels.generateLabels;
+                const labels = original.call(this, chart);
+                
+                // Group labels by type
+                const plantaLabels = labels.filter((label: any) => label.text.includes('🌱'));
+                const generoLabels = labels.filter((label: any) => label.text.includes('🧬'));
+                
+                return [
+                  ...plantaLabels,
+                  { text: '──────────', hidden: true, fillStyle: 'transparent', strokeStyle: 'transparent' }, // Separator
+                  ...generoLabels
+                ];
+              }
+            }
+          },
+          subtitle: {
+            display: true,
+            text: '🌱 Líneas sólidas Verde→Azul (●◆) = Estados de Planta  •  🧬 Líneas punteadas Rojo→Morado (▲■⭐) = Estados de Género',
+            font: {
+              size: 11,
+              style: 'italic'
+            },
+            padding: {
+              bottom: 10
+            }
           }
         },
         scales: {
@@ -2570,17 +2676,18 @@ export class TecnicoComponent implements OnInit {
     }
     console.log('✅ Canvas encontrado:', ctx);
 
-    const colors = [
-      '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7',
-      '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9'
-    ];
+    // Colors with wide gradient range - Green to Blue for planta, Red to Purple for genero
+    const plantaColors = ['#006400', '#228B22', '#32CD32', '#00FF7F', '#00CED1', '#20B2AA', '#4682B4', '#1E90FF', '#0000FF', '#4169E1'];
+    const generoColors = ['#8B0000', '#DC143C', '#FF1493', '#FF4500', '#FF6347', '#FF69B4', '#DA70D6', '#9370DB', '#8A2BE2', '#4B0082'];
 
-    // Calculate average percentages by state across all selected invernaderos
-    const stateAverages: any = {};
+    // Calculate averages separately for planta and genero states
+    const plantaAverages: any = {};
+    const generoAverages: any = {};
     
     console.log('📊 Calculando promedios por estado...');
     
-    chartData.allStates.forEach((state: string) => {
+    // Calculate averages for planta states
+    chartData.plantaStates.forEach((state: string) => {
       let totalPercentage = 0;
       let count = 0;
       
@@ -2595,21 +2702,76 @@ export class TecnicoComponent implements OnInit {
       });
       
       const average = count > 0 ? totalPercentage / count : 0;
-      stateAverages[state] = average;
-      console.log(`📈 Promedio para "${state}": ${average.toFixed(2)}% (${count} registros)`);
+      plantaAverages[state] = average;
+      console.log(`🌱 Promedio para "${state}": ${average.toFixed(2)}% (${count} registros)`);
     });
     
-    console.log('📊 Promedios calculados:', stateAverages);
+    // Calculate averages for genero states
+    chartData.generoStates.forEach((state: string) => {
+      let totalPercentage = 0;
+      let count = 0;
+      
+      this.selectedInvernaderos.forEach((invernadero: string) => {
+        chartData.allDates.forEach((date: string) => {
+          const percentage = chartData.processedData[invernadero]?.[date]?.[state];
+          if (percentage !== undefined) {
+            totalPercentage += percentage;
+            count++;
+          }
+        });
+      });
+      
+      const average = count > 0 ? totalPercentage / count : 0;
+      generoAverages[state] = average;
+      console.log(`🧬 Promedio para "${state}": ${average.toFixed(2)}% (${count} registros)`);
+    });
+    
+    console.log('📊 Promedios calculados - Planta:', plantaAverages);
+    console.log('📊 Promedios calculados - Género:', generoAverages);
+
+    // Create datasets for grouped bar chart
+    const datasets = [];
+    
+    if (chartData.plantaStates.length > 0) {
+      datasets.push({
+        label: '🌱 Estados de Planta',
+        data: chartData.plantaStates.map((state: string) => plantaAverages[state]),
+        backgroundColor: chartData.plantaStates.map((_: string, index: number) => plantaColors[index % plantaColors.length]),
+        borderColor: chartData.plantaStates.map((_: string, index: number) => plantaColors[index % plantaColors.length]),
+        borderWidth: 2
+      });
+    }
+    
+    if (chartData.generoStates.length > 0) {
+      datasets.push({
+        label: '🧬 Estados de Género',
+        data: chartData.generoStates.map((state: string) => generoAverages[state]),
+        backgroundColor: chartData.generoStates.map((_: string, index: number) => generoColors[index % generoColors.length]),
+        borderColor: chartData.generoStates.map((_: string, index: number) => generoColors[index % generoColors.length]),
+        borderWidth: 2
+      });
+    }
+
+    // Combine labels (planta states first, then genero states)
+    const combinedLabels = [...chartData.plantaStates, ...chartData.generoStates];
+    const combinedData = [
+      ...chartData.plantaStates.map((state: string) => plantaAverages[state]),
+      ...chartData.generoStates.map((state: string) => generoAverages[state])
+    ];
+    const combinedColors = [
+      ...chartData.plantaStates.map((_: string, index: number) => plantaColors[index % plantaColors.length]),
+      ...chartData.generoStates.map((_: string, index: number) => generoColors[index % generoColors.length])
+    ];
 
     this.barChart = new Chart(ctx, {
       type: 'bar',
       data: {
-        labels: chartData.allStates,
+        labels: combinedLabels,
         datasets: [{
           label: 'Promedio de Estados (%)',
-          data: chartData.allStates.map((state: string) => stateAverages[state]),
-          backgroundColor: chartData.allStates.map((_: string, index: number) => colors[index % colors.length]),
-          borderColor: chartData.allStates.map((_: string, index: number) => colors[index % colors.length]),
+          data: combinedData,
+          backgroundColor: combinedColors,
+          borderColor: combinedColors,
           borderWidth: 2
         }]
       },
@@ -2620,10 +2782,25 @@ export class TecnicoComponent implements OnInit {
         plugins: {
           title: {
             display: true,
-            text: 'Promedio de Estados en Invernaderos Seleccionados'
+            text: 'Promedios por Tipo de Estado',
+            font: {
+              size: 16,
+              weight: 'bold'
+            }
           },
           legend: {
             display: false
+          },
+          subtitle: {
+            display: true,
+            text: '🌱 Gradiente Verde→Azul = Estados de Planta  •  🧬 Gradiente Rojo→Morado = Estados de Género',
+            font: {
+              size: 12,
+              style: 'italic'
+            },
+            padding: {
+              bottom: 10
+            }
           }
         },
         scales: {
