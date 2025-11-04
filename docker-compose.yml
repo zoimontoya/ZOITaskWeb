@@ -14,7 +14,9 @@ services:
     networks:
       - zoi-network
     restart: unless-stopped
-    # No exponer puerto directamente - solo a través del frontend
+    # Exponer puerto para desarrollo y acceso directo
+    ports:
+      - "3000:3000"
     expose:
       - "3000"
 

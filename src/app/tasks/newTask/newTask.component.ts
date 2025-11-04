@@ -303,10 +303,13 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
   }
 
   onInvernaderoSelectionChange(selection: InvernaderoSelection) {
+    console.log('🔄 === CAMBIO DE SELECCIÓN INVERNADERO ===');
+    console.log('📋 Nueva selección recibida:', selection);
     this.invernaderoSelection = selection;
     
     // En modo edición, no limpiar valores existentes
     if (!this.task) {
+      console.log('✅ Modo CREACIÓN - Ejecutando detectAlmacenMode()');
       // Solo ejecutar limpiezas y reseteos en modo CREACIÓN (nueva tarea)
       
       // Detectar si estamos en modo ALMACÉN
@@ -318,6 +321,7 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
       // Sincronizar fechas y encargados si están en modo único
       this.syncSingleValues();
     } else {
+      console.log('📝 Modo EDICIÓN - Ejecutando detectAlmacenMode()');
       // En modo edición, solo detectar modo almacén, NO limpiar datos
       this.detectAlmacenMode();
       
@@ -350,29 +354,36 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
   }
   
   private detectAlmacenMode() {
-    // Detectar modo ALMACÉN basado en cabezales Y grupo de trabajo
+    // Detectar modo ALMACÉN SOLO por cabezal del invernadero seleccionado
+    // NO por grupo de trabajo (usuarios pueden tener "CAMPO Y ALMACEN")
     this.isAlmacenMode = false;
     
-    // MÉTODO 1: Detectar por grupo de trabajo
-    if (this.grupoTrabajo && this.grupoTrabajo.toUpperCase().includes('ALMACEN')) {
-      this.isAlmacenMode = true;
-    }
+    console.log('🔍 === DETECTANDO MODO ALMACÉN ===');
+    console.log('📋 invernaderoSelection:', this.invernaderoSelection);
+    console.log('🏷️ cabezales disponibles:', this.invernaderoSelection?.cabezales);
+    console.log('🏠 invernaderos disponibles:', this.invernaderoSelection?.invernaderos);
     
-    // MÉTODO 2: Detectar por cabezales seleccionados
+    // MÉTODO 1: Detectar por cabezales seleccionados
     if (this.invernaderoSelection && this.invernaderoSelection.cabezales && this.invernaderoSelection.cabezales.length > 0) {
       this.invernaderoSelection.cabezales.forEach(cabezal => {
         const cabezalUpper = cabezal.toUpperCase().trim();
+        console.log(`🔍 Evaluando cabezal: "${cabezal}" → "${cabezalUpper}"`);
         
         // Buscar ALMACEN de forma más flexible
         if (cabezalUpper.includes('ALMACEN') || cabezalUpper.includes('ALMACÉN') || 
             cabezalUpper.includes('WAREHOUSE') || cabezalUpper.includes('DEPOSITO') ||
             cabezalUpper.includes('ALMAC')) {
+          console.log(`✅ ENCONTRADO CABEZAL ALMACÉN: "${cabezal}"`);
           this.isAlmacenMode = true;
+        } else {
+          console.log(`❌ Cabezal NO es almacén: "${cabezal}"`);
         }
       });
+    } else {
+      console.log('⚠️ No hay cabezales en invernaderoSelection');
     }
     
-    // MÉTODO 3: Detectar por nombres de invernaderos que contengan patrones de almacén
+    // MÉTODO 2: Detectar por nombres de invernaderos que contengan patrones de almacén
     if (this.invernaderoSelection && this.invernaderoSelection.invernaderos && this.invernaderoSelection.invernaderos.length > 0) {
       this.invernaderoSelection.invernaderos.forEach(invernadero => {
         const invUpper = invernadero.toUpperCase().trim();
@@ -382,13 +393,8 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
       });
     }
     
-    // Log detallado para confirmar funcionamiento
-    console.log('📦 Detección modo ALMACÉN:', {
-      grupoTrabajo: this.grupoTrabajo,
-      cabezales: this.invernaderoSelection?.cabezales,
-      invernaderos: this.invernaderoSelection?.invernaderos,
-      isAlmacenMode: this.isAlmacenMode
-    });
+    console.log(`🏪 RESULTADO FINAL: isAlmacenMode = ${this.isAlmacenMode}`);
+    console.log('='.repeat(50));
     
 
   }

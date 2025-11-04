@@ -191,8 +191,12 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   filteredUrgentTipos: string[] = [];
   urgentInvernaderosWithDimensions: { nombre: string; dimensiones: number }[] = [];
 
-  // Accordion state for urgent invernaderos grouped by cabezal
+  // Accordion state for urgent invernaderos grouped by cabezal (filtrado por usuario)
   urgentInvernaderosByCabezal: { nombre: string; invernaderos: { nombre: string; dimensiones: number }[] }[] = [];
+  
+  // TODOS los cabezales disponibles (sin filtrar) - para isAlmacenTask()
+  allCabezales: { nombre: string; invernaderos: { nombre: string; dimensiones: number }[] }[] = [];
+  
   expandedCabezalIndices: Set<number> = new Set();
   urgentTiposJerarquicos: { tipo: string; subtipos: string[]; hasSubtipos: boolean }[] = [];
   filteredUrgentTiposJerarquicos: { tipo: string; subtipos: string[]; hasSubtipos: boolean }[] = [];
@@ -396,7 +400,16 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     // Cargar todos los invernaderos agrupados por cabezal para el acordeón
     this.greenhouseService.getGreenhousesGrouped().subscribe({
       next: (data) => {
-        // Agrupar por cabezal para el acordeón
+        // Guardar TODOS los cabezales para isAlmacenTask()
+        this.allCabezales = data.cabezales.map(cabezal => ({
+          nombre: cabezal.nombre,
+          invernaderos: cabezal.invernaderos.map(inv => ({
+            nombre: inv.nombre,
+            dimensiones: parseFloat(inv.dimensiones.replace(',', '.')) || 0
+          }))
+        }));
+        
+        // Agrupar por cabezal para el acordeón (todos, ya que es fallback)
         this.urgentInvernaderosByCabezal = data.cabezales.map(cabezal => ({
           nombre: cabezal.nombre,
           invernaderos: cabezal.invernaderos.map(inv => ({
@@ -425,6 +438,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
         this.allUrgentInvernaderos = Array.from(allInvernaderos).sort();
         this.urgentInvernaderosWithDimensions = [];
         this.urgentInvernaderosByCabezal = [];
+        this.allCabezales = []; // También limpiar allCabezales si falla
         this.filterUrgentInvernaderos();
       }
     });
@@ -1390,36 +1404,25 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     return recoleccionKeywords.some(keyword => taskName.includes(keyword));
   }
 
-  // Determinar si es una tarea de almacén real (NO solo por kilos)
+  // Obtener el cabezal de un invernadero específico (usando TODOS los cabezales)
+  getCabezalByInvernadero(invernaderoNombre: string): string | null {
+    for (const cabezal of this.allCabezales) {
+      const encontrado = cabezal.invernaderos.find(inv => inv.nombre === invernaderoNombre);
+      if (encontrado) {
+        return cabezal.nombre;
+      }
+    }
+    return null;
+  }
+
+  // Determinar si es una tarea de almacén (SIMPLE: solo por cabezal del invernadero)
   isAlmacenTask(task: Task | null): boolean {
-    if (!task) return false;
+    if (!task || !task.invernadero) return false;
     
-    // Si el usuario pertenece al grupo ALMACEN, todas sus tareas son de almacén
-    if (this.loggedUser?.grupo_trabajo === 'ALMACEN') {
-      return true;
-    }
-    
-    // Si es tarea de recolección, NO es de almacén (aunque use kilos)
-    // EXCEPCIÓN: A menos que el usuario sea del grupo ALMACEN
-    if (this.isRecoleccionTask(task)) {
-      return false;
-    }
-    
-    // Una tarea es de almacén si:
-    // 1. Usa kilos (horas_kilos = 1) Y
-    // 2. Tiene género (indica que es ALMACEN-CONFECC) O
-    // 3. Es específicamente una tarea de almacén por tipo
-    const usaKilos = this.isKilosMode(task);
-    const tieneGenero = !!(task.genero && task.genero.trim() !== '');
-    const esAlmacenPorTipo = !!(task.tipo_tarea && (
-      task.tipo_tarea.toLowerCase().includes('almac') ||
-      task.tipo_tarea.toLowerCase().includes('confec') ||
-      task.tipo_tarea.toLowerCase().includes('género')
-    ));
-    
-    // Solo es almacén si usa kilos Y (tiene género O es tipo almacén)
-    // Las tareas de recolección usan kilos pero NO son de almacén
-    return usaKilos && (tieneGenero || esAlmacenPorTipo);
+    // Si el cabezal del invernadero es ALMACEN → es tarea de almacén
+    // Si no → es tarea de campo/invernadero
+    const cabezal = this.getCabezalByInvernadero(task.invernadero);
+    return !!(cabezal && cabezal.toUpperCase().includes('ALMACEN'));
   }
 
   trackById(index: number, item: Task) {
@@ -1487,10 +1490,20 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     // Siempre cargar todos los cabezales y sus invernaderos para el acordeón
     this.greenhouseService.getGreenhousesGrouped().subscribe({
       next: (data) => {
+        // Guardar TODOS los cabezales (sin filtrar) para isAlmacenTask()
+        this.allCabezales = data.cabezales.map(cabezal => ({
+          nombre: cabezal.nombre,
+          invernaderos: cabezal.invernaderos.map(inv => ({
+            nombre: inv.nombre,
+            dimensiones: parseFloat((typeof inv.dimensiones === 'string' ? inv.dimensiones : String(inv.dimensiones)).replace(',', '.')) || 0
+          }))
+        }));
+        
         // Obtener los cabezales del usuario (pueden ser varios separados por ';')
         let userCabezalStr = this.loggedUser?.cabezal || '';
         let userCabezales = userCabezalStr.split(';').map(c => c.trim()).filter(Boolean);
-        // Filtrar solo los cabezales a los que pertenece el usuario
+        
+        // Filtrar solo los cabezales a los que pertenece el usuario (para UI de tareas urgentes)
         this.urgentInvernaderosByCabezal = data.cabezales
           .filter(cabezal => userCabezales.includes(cabezal.nombre))
           .map(cabezal => ({

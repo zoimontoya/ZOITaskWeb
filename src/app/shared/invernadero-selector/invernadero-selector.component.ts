@@ -510,6 +510,17 @@ export class InvernaderoSelectorComponent implements OnInit, OnChanges {
     return Array.from(this.selectedInvernaderos);
   }
   
+  // Obtener el cabezal al que pertenece un invernadero específico
+  private getCabezalOfInvernadero(invernaderoNombre: string): string | null {
+    for (const cabezal of this.cabezales) {
+      const foundInv = cabezal.invernaderos.find((inv: Invernadero) => inv.nombre === invernaderoNombre);
+      if (foundInv) {
+        return cabezal.nombre;
+      }
+    }
+    return null;
+  }
+  
   getAllSelectedInvernaderos(): string[] {
     const allSelected: string[] = [];
     
@@ -528,10 +539,27 @@ export class InvernaderoSelectorComponent implements OnInit, OnChanges {
   }
   
   private emitSelection() {
+    // Obtener cabezales seleccionados completamente
+    const allCabezales = new Set(Array.from(this.selectedCabezales));
+    
+    // NUEVO: Agregar cabezales de invernaderos seleccionados individualmente
+    this.selectedInvernaderos.forEach(invNombre => {
+      const cabezalDelInv = this.getCabezalOfInvernadero(invNombre);
+      if (cabezalDelInv) {
+        allCabezales.add(cabezalDelInv);
+        console.log(`🔧 Agregando cabezal "${cabezalDelInv}" del invernadero "${invNombre}"`);
+      }
+    });
+    
     const selection: InvernaderoSelection = {
       invernaderos: this.getAllSelectedInvernaderos(),
-      cabezales: Array.from(this.selectedCabezales)
+      cabezales: Array.from(allCabezales)
     };
+    
+    console.log('📡 === EMITIENDO SELECCIÓN DESDE SELECTOR ===');
+    console.log('🏠 Invernaderos seleccionados:', selection.invernaderos);
+    console.log('🏭 Cabezales seleccionados:', selection.cabezales);
+    console.log('🔧 Set completo selectedCabezales:', this.selectedCabezales);
     
     this.selectionChange.emit(selection);
   }

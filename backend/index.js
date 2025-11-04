@@ -1639,7 +1639,7 @@ app.post('/tasks', verifyJWT, async (req, res) => {
 
       const updatedRow = [
         idToUpdate,                                    // A: id
-        req.body.invernadero,                          // B: invernadero
+        `'${req.body.invernadero}`,                    // B: invernadero (prefijo con ' para forzar texto en Excel)
         req.body.tipo_tarea,                           // C: tipo_tarea
         estimacionHoras,                               // D: estimacion_horas (ya calculado en frontend)
         horaJornal,                                    // E: hora_jornal (0=6hrs, 1=8hrs)
@@ -1997,7 +1997,7 @@ app.post('/tasks', verifyJWT, async (req, res) => {
       
       const row = [
         tarea.id,                                    // A: id
-        tarea.invernadero,                           // B: invernadero
+        `'${tarea.invernadero}`,                     // B: invernadero (prefijo con ' para forzar texto en Excel)
         tarea.tipo_tarea,                            // C: tipo_tarea
         estimacionHoras,                             // D: estimacion_horas (ya calculado en frontend)
         horaJornal,                                  // E: hora_jornal (0=SIN cálculos para urgentes, 1=8hrs)
@@ -3524,7 +3524,7 @@ app.post('/technician/create-report', verifyJWT, async (req, res) => {
       codigo,
       fechaCreacion,
       nombre_encargado,
-      invernadero,
+      `'${invernadero}`,  // Prefijo con ' para forzar texto en Excel
       genero,
       estadoPlanta,
       porcentajePlanta,
@@ -3553,6 +3553,101 @@ app.post('/technician/create-report', verifyJWT, async (req, res) => {
 
   } catch (error) {
     console.error('❌ Error creando informe técnico:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Endpoint para crear informe de encargado
+app.post('/technician/create-manager-report', verifyJWT, async (req, res) => {
+  try {
+    console.log('👔 POST /technician/create-manager-report');
+    console.log('📋 Datos recibidos:', req.body);
+
+    const { invernadero, genero, kgTotales, intervalos, necesidadCogida, razonCogida, descripcion, nombre_encargado } = req.body;
+
+    // Validaciones
+    if (!invernadero || !genero || !kgTotales || kgTotales <= 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Faltan campos obligatorios o KG totales inválido' 
+      });
+    }
+
+    // Validar intervalos si existen
+    if (intervalos && intervalos.length > 0) {
+      const totalKgIntervalos = intervalos.reduce((sum, interval) => sum + (interval.kg || 0), 0);
+      if (Math.abs(totalKgIntervalos - kgTotales) > 0.01) { // Tolerancia de 1 centésimo
+        return res.status(400).json({
+          success: false,
+          error: `Los KG de intervalos (${totalKgIntervalos}) no coinciden con el total (${kgTotales})`
+        });
+      }
+    }
+
+    // Configurar autenticación
+    const auth = getGoogleAuth();
+    const sheets = google.sheets({ version: 'v4', auth });
+
+    // Generar código único para el informe
+    const fecha = new Date();
+    const fechaFormateada = getCurrentEuropeanDate();
+    const codigo = `ENC-COG-${fecha.getFullYear()}${String(fecha.getMonth() + 1).padStart(2, '0')}${String(fecha.getDate()).padStart(2, '0')}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+
+    // Formatear intervalos según el formato requerido
+    let intervalokgFormatted = '';
+    let kgintervaloFormatted = '';
+    
+    if (intervalos && intervalos.length > 0) {
+      // Crear arrays para intervalos y sus KG
+      const intervalRanges = [];
+      const intervalKgs = [];
+      
+      intervalos.forEach(interval => {
+        intervalRanges.push(`${interval.rangeStart}-${interval.rangeEnd}`);
+        intervalKgs.push(interval.kg.toString());
+      });
+      
+      intervalokgFormatted = intervalRanges.join(';');
+      kgintervaloFormatted = intervalKgs.join(';');
+    }
+
+    // Preparar fila según las cabeceras: codigo, fecha, nombre_encargado, invernadero, genero, kilos, intervalokg, kgintervalo, necesidadcogida, razoncogida, descripcion
+    const nuevaFila = [
+      codigo,                                    // A: codigo
+      fechaFormateada,                          // B: fecha
+      nombre_encargado || 'Desconocido',        // C: nombre_encargado
+      `'${invernadero}`,                        // D: invernadero (prefijo con ' para forzar texto en Excel)
+      genero,                                   // E: genero
+      kgTotales,                               // F: kilos
+      intervalokgFormatted,                    // G: intervalokg (0-6;7-10)
+      kgintervaloFormatted,                    // H: kgintervalo (1000;500)
+      necesidadCogida ? 1 : 0,                 // I: necesidadcogida (0 o 1)
+      razonCogida || '',                       // J: razoncogida
+      descripcion || ''                        // K: descripcion
+    ];
+
+    console.log('📝 Guardando en hoja "estudio_Cogida":', nuevaFila);
+
+    // Insertar en la hoja estudio_Cogida del spreadsheet SeguimientoEstadoFruta
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: TECHNICIAN_SPREADSHEET_ID,
+      range: 'estudio_Cogida',
+      valueInputOption: 'USER_ENTERED',
+      resource: {
+        values: [nuevaFila]
+      }
+    });
+
+    console.log('✅ Informe de encargado de cogida creado exitosamente');
+    
+    res.json({ 
+      success: true, 
+      message: 'Informe de encargado de cogida creado exitosamente',
+      codigo: codigo
+    });
+
+  } catch (error) {
+    console.error('❌ Error procesando informe de encargado:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -3631,40 +3726,92 @@ app.post('/technician/analytics', verifyJWT, async (req, res) => {
       // Filtrar por invernaderos seleccionados
       if (invernaderos.includes(invernadero)) {
         console.log(`✅ Invernadero "${invernadero}" coincide con selección`);
-        // Agregar datos de estado de planta (Columnas F y G)
+        // Agregar datos de estado de planta (Columnas F y G) - SOPORTE MULTISELECT
         const estadoPlanta = row[estadoPlantaIndex];
         const porcentajePlanta = row[porcentajePlantaIndex];
         
         console.log(`🌱 Estado Planta: "${estadoPlanta}", Porcentaje: "${porcentajePlanta}"`);
         
         if (estadoPlanta && porcentajePlanta) {
-          const dataPlanta = {
-            Invernadero: invernadero,
-            Fecha: fecha,
-            Estado: estadoPlanta,
-            Porcentaje: parseFloat(porcentajePlanta) || 0,
-            Tipo: 'Planta'
-          };
-          analyticsData.push(dataPlanta);
-          console.log('✅ Agregado dato de planta:', dataPlanta);
+          // Verificar si hay múltiples estados separados por ";"
+          const estadosRaw = estadoPlanta.toString().split(';');
+          const porcentajesRaw = porcentajePlanta.toString().split(';');
+          
+          console.log(`🔍 Estados RAW (antes de filtrar):`, estadosRaw);
+          console.log(`🔍 Porcentajes RAW (antes de filtrar):`, porcentajesRaw);
+          
+          const estados = estadosRaw.map(s => s.trim()).filter(s => s);
+          const porcentajes = porcentajesRaw.map(s => s.trim());
+          
+          console.log(`🔄 Estados FILTRADOS:`, estados);
+          console.log(`🔄 Porcentajes FILTRADOS:`, porcentajes);
+          console.log(`📊 Total estados: ${estados.length}, Total porcentajes: ${porcentajes.length}`);
+          
+          // Crear una entrada por cada estado (manteniendo correspondencia por posición)
+          for (let j = 0; j < estados.length; j++) {
+            const estado = estados[j];
+            const porcentaje = porcentajes[j] || '0'; // Si no hay porcentaje correspondiente, usar 0
+            
+            console.log(`🔍 Procesando estado ${j + 1}: "${estado}" con porcentaje "${porcentaje}"`);
+            
+            if (estado) { // Solo procesar si el estado no está vacío
+              const dataPlanta = {
+                Invernadero: invernadero,
+                Fecha: fecha,
+                Estado: `${estado} (Planta)`, // 🔧 AGREGAR SUFIJO PARA DIFERENCIAR
+                Porcentaje: parseFloat(porcentaje) || 0,
+                Tipo: 'Planta'
+              };
+              analyticsData.push(dataPlanta);
+              console.log(`✅ Agregado dato de planta ${j + 1}/${estados.length}:`, dataPlanta);
+            } else {
+              console.log(`⚠️ Estado ${j + 1} está vacío, omitiendo...`);
+            }
+          }
         }
         
-        // Agregar datos de estado de género (Columnas H e I)
+        // Agregar datos de estado de género (Columnas H e I) - SOPORTE MULTISELECT
         const estadoGenero = row[estadoGeneroIndex];
         const porcentajeGenero = row[porcentajeGeneroIndex];
         
         console.log(`🧬 Estado Género: "${estadoGenero}", Porcentaje: "${porcentajeGenero}"`);
         
         if (estadoGenero && porcentajeGenero) {
-          const dataGenero = {
-            Invernadero: invernadero,
-            Fecha: fecha,
-            Estado: estadoGenero,
-            Porcentaje: parseFloat(porcentajeGenero) || 0,
-            Tipo: 'Genero'
-          };
-          analyticsData.push(dataGenero);
-          console.log('✅ Agregado dato de género:', dataGenero);
+          // Verificar si hay múltiples estados separados por ";"
+          const estadosRaw = estadoGenero.toString().split(';');
+          const porcentajesRaw = porcentajeGenero.toString().split(';');
+          
+          console.log(`🔍 Estados GÉNERO RAW (antes de filtrar):`, estadosRaw);
+          console.log(`🔍 Porcentajes GÉNERO RAW (antes de filtrar):`, porcentajesRaw);
+          
+          const estados = estadosRaw.map(s => s.trim()).filter(s => s);
+          const porcentajes = porcentajesRaw.map(s => s.trim());
+          
+          console.log(`🔄 Estados GÉNERO FILTRADOS:`, estados);
+          console.log(`🔄 Porcentajes GÉNERO FILTRADOS:`, porcentajes);
+          console.log(`📊 Total estados género: ${estados.length}, Total porcentajes género: ${porcentajes.length}`);
+          
+          // Crear una entrada por cada estado (manteniendo correspondencia por posición)
+          for (let j = 0; j < estados.length; j++) {
+            const estado = estados[j];
+            const porcentaje = porcentajes[j] || '0'; // Si no hay porcentaje correspondiente, usar 0
+            
+            console.log(`🔍 Procesando estado género ${j + 1}: "${estado}" con porcentaje "${porcentaje}"`);
+            
+            if (estado) { // Solo procesar si el estado no está vacío
+              const dataGenero = {
+                Invernadero: invernadero,
+                Fecha: fecha,
+                Estado: `${estado} (Género)`, // 🔧 AGREGAR SUFIJO PARA DIFERENCIAR
+                Porcentaje: parseFloat(porcentaje) || 0,
+                Tipo: 'Genero'
+              };
+              analyticsData.push(dataGenero);
+              console.log(`✅ Agregado dato de género ${j + 1}/${estados.length}:`, dataGenero);
+            } else {
+              console.log(`⚠️ Estado género ${j + 1} está vacío, omitiendo...`);
+            }
+          }
         }
       } else {
         console.log(`❌ Invernadero "${invernadero}" NO coincide con selección:`, invernaderos);
@@ -3776,6 +3923,125 @@ app.get('/technician/invernaderos', verifyJWT, async (req, res) => {
 
   } catch (error) {
     console.error('❌ Error obteniendo invernaderos:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Endpoint para consultar informes de cogida por invernadero
+app.post('/technician/cogida-reports', verifyJWT, async (req, res) => {
+  try {
+    console.log('🔍 POST /technician/cogida-reports');
+    console.log('📋 Datos recibidos:', req.body);
+
+    const { invernadero } = req.body;
+
+    if (!invernadero) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invernadero es requerido' 
+      });
+    }
+
+    const auth = getGoogleAuth();
+    const sheets = google.sheets({ version: 'v4', auth });
+
+    // Obtener datos de la hoja estudio_Cogida
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: TECHNICIAN_SPREADSHEET_ID,
+      range: 'estudio_Cogida'
+    });
+
+    const rows = response.data.values;
+    if (!rows || rows.length < 2) {
+      console.log('📭 No se encontraron datos en estudio_Cogida');
+      return res.json({ 
+        success: true, 
+        reports: [],
+        message: 'No hay informes registrados' 
+      });
+    }
+
+    // Las cabeceras deberían ser: codigo, fecha, nombre_encargado, invernadero, genero, kilos, intervalokg, kgintervalo, necesidadcogida, razoncogida, descripcion
+    const headers = rows[0];
+    console.log('📋 Cabeceras encontradas:', headers);
+
+    const codigoIndex = headers.findIndex(h => h && h.toLowerCase().includes('codigo'));
+    const fechaIndex = headers.findIndex(h => h && h.toLowerCase().includes('fecha'));
+    const nombreEncargadoIndex = headers.findIndex(h => h && h.toLowerCase().includes('nombre_encargado'));
+    const invernaderoIndex = headers.findIndex(h => h && h.toLowerCase().includes('invernadero'));
+    const generoIndex = headers.findIndex(h => h && h.toLowerCase().includes('genero'));
+    const kilosIndex = headers.findIndex(h => h && h.toLowerCase().includes('kilos'));
+    const intervalokgIndex = headers.findIndex(h => h && h.toLowerCase().includes('intervalokg'));
+    const kgintervaloIndex = headers.findIndex(h => h && h.toLowerCase().includes('kgintervalo'));
+    const necesidadcogidaIndex = headers.findIndex(h => h && h.toLowerCase().includes('necesidadcogida'));
+    const razoncogidaIndex = headers.findIndex(h => h && h.toLowerCase().includes('razoncogida'));
+    const descripcionIndex = headers.findIndex(h => h && h.toLowerCase().includes('descripcion'));
+
+    console.log('📊 Índices de columnas:', {
+      codigoIndex,
+      fechaIndex,
+      nombreEncargadoIndex,
+      invernaderoIndex,
+      generoIndex,
+      kilosIndex,
+      intervalokgIndex,
+      kgintervaloIndex,
+      necesidadcogidaIndex,
+      razoncogidaIndex,
+      descripcionIndex
+    });
+
+    // Filtrar por invernadero y crear objetos de informes
+    const reports = [];
+    
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      const rowInvernadero = row[invernaderoIndex];
+      
+      // Comparar invernadero (remover posibles comillas simples del almacenamiento)
+      const cleanRowInvernadero = rowInvernadero ? rowInvernadero.replace(/^'/, '') : '';
+      
+      console.log(`🔍 Comparando: "${cleanRowInvernadero}" con "${invernadero}"`);
+      
+      if (cleanRowInvernadero === invernadero) {
+        const report = {
+          codigo: row[codigoIndex] || '',
+          fecha: row[fechaIndex] || '',
+          nombre_encargado: row[nombreEncargadoIndex] || '',
+          invernadero: cleanRowInvernadero,
+          genero: row[generoIndex] || '',
+          kilos: row[kilosIndex] || '',
+          intervalokg: row[intervalokgIndex] || '',
+          kgintervalo: row[kgintervaloIndex] || '',
+          necesidadcogida: row[necesidadcogidaIndex] || '0',
+          razoncogida: row[razoncogidaIndex] || '',
+          descripcion: row[descripcionIndex] || ''
+        };
+        
+        reports.push(report);
+        console.log('✅ Informe agregado:', report);
+      }
+    }
+
+    // Ordenar por fecha (más reciente primero)
+    reports.sort((a, b) => {
+      // Convertir fechas DD/MM/YYYY a Date para comparar
+      const dateA = new Date(a.fecha.split('/').reverse().join('-'));
+      const dateB = new Date(b.fecha.split('/').reverse().join('-'));
+      return dateB.getTime() - dateA.getTime();
+    });
+
+    console.log(`📋 Total informes encontrados para ${invernadero}: ${reports.length}`);
+
+    res.json({ 
+      success: true, 
+      reports: reports,
+      total: reports.length,
+      invernadero: invernadero
+    });
+
+  } catch (error) {
+    console.error('❌ Error consultando informes de cogida:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });

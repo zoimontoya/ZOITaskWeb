@@ -198,11 +198,11 @@ import { CommonModule } from '@angular/common';
     }
     
     .jwt-info small {
-      color: #28a745;
-      background: #f8fff8;
+      color: #1565c0;
+      background: #f0f7ff;
       padding: 8px 12px;
       border-radius: 6px;
-      border: 1px solid #d4edda;
+      border: 1px solid #b3d9ff;
     }
     
     /* Estilos del toggle */
