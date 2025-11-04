@@ -781,21 +781,196 @@ select:required::after {
   border: 1px solid rgba(75, 175, 79, 0.3);
 }
 
-/* Mensaje informativo para modo ALMACÉN */
-.almacen-info-message {
+/* Configuración específica para modo ALMACÉN */
+.almacen-config-section {
   margin-bottom: 1rem;
+}
+
+.almacen-info-text {
+  color: #ffd700;
+  font-size: 0.9rem;
+  margin: 0 0 1rem 0;
+  text-align: center;
+  font-weight: 500;
   padding: 0.75rem;
   background: rgba(255, 165, 0, 0.1);
   border: 1px solid rgba(255, 165, 0, 0.3);
   border-radius: 6px;
 }
 
-.almacen-info-message .info-text {
-  color: #ffd700;
-  font-size: 0.9rem;
+/* Estimación de Kg para modo almacén */
+.almacen-kg-estimation {
+  background: rgba(34, 139, 34, 0.1);
+  border: 2px solid rgba(34, 139, 34, 0.3);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-top: 1rem;
+}
+
+.kg-label {
+  display: block;
+  color: #90EE90;
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.kg-input-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.kg-input {
+  flex: 1;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  color: #fff;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+}
+
+.kg-input:focus {
+  outline: none;
+  border-color: #90EE90;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.kg-input::placeholder {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.kg-unit {
+  color: #90EE90;
+  font-weight: 600;
+  font-size: 1rem;
+  min-width: 30px;
+}
+
+.kg-help-text {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.85rem;
   margin: 0;
+  font-style: italic;
+}
+
+/* Estilos para selector de género */
+.genre-selector-container {
+  margin-bottom: 1rem;
+}
+
+.genre-dropdown {
+  position: relative;
+  width: 100%;
+}
+
+.genre-dropdown-header {
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  padding: 0.75rem;
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.3s ease;
+}
+
+.genre-dropdown-header:hover {
+  border-color: #90EE90;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.genre-dropdown.open .genre-dropdown-header {
+  border-color: #90EE90;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.dropdown-text {
+  flex: 1;
+  text-align: left;
+}
+
+.dropdown-icon {
+  color: #90EE90;
+  font-weight: bold;
+  transition: transform 0.3s ease;
+}
+
+.dropdown-icon.expanded {
+  transform: rotate(180deg);
+}
+
+.genre-dropdown-content {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: #2a2a2a;
+  border: 2px solid rgba(144, 238, 144, 0.5);
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+  z-index: 1000;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.genre-search-container {
+  padding: 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.genre-search-input {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  padding: 0.5rem;
+  color: #fff;
+  font-size: 0.9rem;
+}
+
+.genre-search-input:focus {
+  outline: none;
+  border-color: #90EE90;
+}
+
+.genre-search-input::placeholder {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.genre-options-list {
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.genre-option {
+  padding: 0.75rem;
+  color: #fff;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.genre-option:hover {
+  background: rgba(144, 238, 144, 0.2);
+}
+
+.genre-option.selected {
+  background: rgba(144, 238, 144, 0.3);
+  color: #90EE90;
+  font-weight: 600;
+}
+
+.genre-no-results {
+  padding: 1rem;
+  color: rgba(255, 255, 255, 0.6);
   text-align: center;
-  font-weight: 500;
+  font-style: italic;
 }
 
 .working-area-section {

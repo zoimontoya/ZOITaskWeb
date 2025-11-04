@@ -18,6 +18,7 @@ export interface Task {
   proceso: string;
   progreso?: string; // Propiedad opcional para manejar ambos nombres de columna
   fecha_actualizacion?: string; // Nueva columna para fecha de última actualización
+  genero?: string; // Columna R: género para tareas ALMACEN-CONFECC
 }
 
 export interface NewTask {

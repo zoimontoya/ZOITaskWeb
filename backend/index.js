@@ -1215,7 +1215,8 @@ app.get('/tasks', optionalJWT, async (req, res) => {
         desarrollo_actual: row[13] || '',              // N
         dimension_total: row[14] || '',                // O
         proceso: row[15] || 'No iniciado',             // P - ÚNICO campo de estado
-        fecha_actualizacion: row[16] || ''             // Q
+        fecha_actualizacion: row[16] || '',            // Q
+        genero: row[17] || ''                          // R - Género para tareas ALMACEN-CONFECC
       };
       
       // Combinar mapeo dinámico con mapeo explícito (prioridad al explícito)
@@ -1627,6 +1628,15 @@ app.post('/tasks', verifyJWT, async (req, res) => {
       console.log(`📋 fecha_actualizacion desde request: "${req.body.fecha_actualizacion}"`);
       console.log(`📋 fecha_actualizacion final: "${fechaActualizacionFinal}"`);
       
+      // Preservar género existente si no se envía nuevo
+      const generoOriginal = rows[rowIndex][17] || ''; // Columna R (índice 17)
+      const generoFinal = req.body.genero || generoOriginal;
+      
+      console.log(`🔧 === PRESERVANDO GÉNERO ===`);
+      console.log(`📋 genero original (BD): "${generoOriginal}"`);
+      console.log(`📋 genero desde request: "${req.body.genero}"`);
+      console.log(`📋 genero final: "${generoFinal}"`);
+
       const updatedRow = [
         idToUpdate,                                    // A: id
         req.body.invernadero,                          // B: invernadero
@@ -1644,7 +1654,8 @@ app.post('/tasks', verifyJWT, async (req, res) => {
         req.body.desarrollo_actual !== undefined ? parseFloat((parseFloat(req.body.desarrollo_actual) || 0).toFixed(3)) : (parseFloat(rows[rowIndex][13]) || 0),      // N: desarrollo_actual (preservar si no se envía)
         parseFloat((parseFloat(req.body.dimension_total) || 0).toFixed(3)),     // O: dimension_total (máximo 3 decimales)
         req.body.proceso || rows[rowIndex][15] || 'No iniciado',             // P: proceso (preservar el estado existente si no se envía)
-        fechaActualizacionFinal                        // Q: fecha_actualizacion (preservar el valor existente al editar)
+        fechaActualizacionFinal,                       // Q: fecha_actualizacion (preservar el valor existente al editar)
+        generoFinal                                    // R: genero (nuevo campo para tareas ALMACEN-CONFECC)
       ];
       
       console.log('🔄 Actualizando tarea con proceso:', req.body.proceso);
@@ -1652,7 +1663,7 @@ app.post('/tasks', verifyJWT, async (req, res) => {
       
       await sheets.spreadsheets.values.update({
         spreadsheetId: SPREADSHEET_ID,
-        range: `${tareasSheet.properties.title}!A${rowIndex + 1}:Q${rowIndex + 1}`, // Volvemos a columna Q (17 columnas)
+        range: `${tareasSheet.properties.title}!A${rowIndex + 1}:R${rowIndex + 1}`, // Actualizado a columna R (18 columnas)
         valueInputOption: 'RAW',
         resource: { values: [updatedRow] }
       });
@@ -2001,7 +2012,8 @@ app.post('/tasks', verifyJWT, async (req, res) => {
         esTareaUrgente ? parseFloat((parseFloat(tarea.desarrollo_actual || dimensionTotalSeleccionada) || 0).toFixed(3)) : 0, // N: desarrollo_actual (para urgentes = dimension_total)
         parseFloat((parseFloat(dimensionTotalSeleccionada) || 0).toFixed(3)), // O: dimension_total (máximo 3 decimales)
         tarea.proceso || 'No iniciado',              // P: proceso (respeta valor del frontend)
-        ''                                           // Q: fecha_actualizacion (vacía al crear, se llenará al actualizar)
+        '',                                          // Q: fecha_actualizacion (vacía al crear, se llenará al actualizar)
+        tarea.genero || ''                           // R: genero (nuevo campo para tareas ALMACEN-CONFECC)
       ];
       
       // Si es tarea urgente creada por un superior (ya validada), rellenar fechas L, M y Q con fecha_limite
@@ -2014,6 +2026,7 @@ app.post('/tasks', verifyJWT, async (req, res) => {
       }
       
       console.log(`📋 FILA COMPLETA PREPARADA:`, row);
+      console.log(`🏪 GÉNERO guardado en columna R (índice 17):`, tarea.genero || 'VACÍO');
       newRows.push(row);
     }
     
@@ -2130,9 +2143,21 @@ app.post('/tasks/:id/accept', verifyJWT, async (req, res) => {
     
     const currentRow = rows[rowIndex];
     const estadoAnterior = currentRow[15] || ''; // proceso (columna P)
+    const tipoTarea = currentRow[2] || ''; // tipo_tarea (columna C)
+    const horasKilos = Number(currentRow[5]) || 0; // horas_kilos (columna F) - 1=almacén con kg
+    const esAlmacen = horasKilos === 1;
     
-    // Asegurar que el array tenga suficientes elementos para la nueva estructura de 17 columnas
-    while (currentRow.length < 17) {
+    console.log('🏪 ACEPTANDO TAREA:', {
+      taskId: taskId,
+      tipoTarea: tipoTarea,
+      horasKilos: horasKilos,
+      esAlmacen: esAlmacen,
+      estadoAnterior: estadoAnterior,
+      fechaActual: getCurrentEuropeanDate()
+    });
+    
+    // Asegurar que el array tenga suficientes elementos para la nueva estructura de 18 columnas (A-R)
+    while (currentRow.length < 18) {
       currentRow.push('');
     }
     
@@ -2140,9 +2165,17 @@ app.post('/tasks/:id/accept', verifyJWT, async (req, res) => {
     currentRow[11] = getCurrentEuropeanDate(); // fecha_inicio (columna L) en formato DD/MM/YYYY
     currentRow[15] = 'Iniciada'; // proceso (columna P)
     
+    if (esAlmacen) {
+      console.log('✅ TAREA DE ALMACÉN ACEPTADA:', {
+        tipoTarea: tipoTarea,
+        fechaInicio: currentRow[11],
+        nuevoEstado: currentRow[15]
+      });
+    }
+    
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${tareasSheet.properties.title}!A${rowIndex + 1}:Q${rowIndex + 1}`, // Actualizado a columna Q (17 columnas)
+      range: `${tareasSheet.properties.title}!A${rowIndex + 1}:R${rowIndex + 1}`, // Actualizado a columna R (18 columnas)
       valueInputOption: 'RAW',
       resource: { values: [currentRow] }
     });
@@ -2236,8 +2269,8 @@ app.post('/tasks/:id/complete-direct', verifyJWT, async (req, res) => {
     const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
     const fechaActual = new Date().toLocaleDateString('es-ES'); // Formato DD/MM/YYYY
     
-    // Asegurar que el array tenga suficientes elementos
-    while (currentRow.length < 17) {
+    // Asegurar que el array tenga suficientes elementos para 18 columnas (A-R)
+    while (currentRow.length < 18) {
       currentRow.push('');
     }
     
@@ -2285,7 +2318,7 @@ app.post('/tasks/:id/complete-direct', verifyJWT, async (req, res) => {
     // Actualizar toda la fila de una vez
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${tareasSheet.properties.title}!A${rowIndex + 1}:Q${rowIndex + 1}`,
+      range: `${tareasSheet.properties.title}!A${rowIndex + 1}:R${rowIndex + 1}`,
       valueInputOption: 'RAW',
       resource: { values: [currentRow] }
     });
@@ -2365,8 +2398,8 @@ app.post('/tasks/:id/complete', verifyJWT, async (req, res) => {
     const currentRow = rows[rowIndex];
     const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
     
-    // Asegurar que el array tenga suficientes elementos para la nueva estructura de 17 columnas
-    while (currentRow.length < 17) {
+    // Asegurar que el array tenga suficientes elementos para la nueva estructura de 18 columnas
+    while (currentRow.length < 18) {
       currentRow.push('');
     }
     
@@ -2380,7 +2413,7 @@ app.post('/tasks/:id/complete', verifyJWT, async (req, res) => {
     
     await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${tareasSheet.properties.title}!A${rowIndex + 1}:Q${rowIndex + 1}`, // Actualizado a columna Q (17 columnas)
+      range: `${tareasSheet.properties.title}!A${rowIndex + 1}:R${rowIndex + 1}`, // Actualizado a columna R (18 columnas)
       valueInputOption: 'RAW',
       resource: { values: [currentRow] }
     });
@@ -2741,10 +2774,11 @@ app.post('/consultas/horas-trabajador', verifyJWT, async (req, res) => {
     // Crear mapa de ID tarea -> información completa (invernadero + tarea)
     const tareaInfoMap = new Map();
     if (trabajosRows.length > 1) {
-      // Índices fijos según estructura de hoja Trabajos
-      const tareaIdCol = 0;         // Columna A (Código/ID Tarea)
-      const invernaderoCol = 3;     // Columna D
-      const tipoTareaCol = 4;       // Columna E (Tipo de Tarea)
+      // Índices según nuevas cabeceras de hoja "Trabajos"
+      // Código, Fecha, Encargado, Inver CCoste, Actividad, Genero, Descrip Actividad, Resultado, Horas, FechaFinReal, FechaLimite, JornalesEstimados, desarrollo_ha, dimension_total
+      const tareaIdCol = 0;         // Columna A (Código)
+      const invernaderoCol = 3;     // Columna D (Inver CCoste = Invernadero)
+      const tipoTareaCol = 4;       // Columna E (Actividad = Tipo de Tarea)
 
       trabajosRows.slice(1).forEach(row => {
         const tareaId = row[tareaIdCol] || '';
@@ -2945,36 +2979,33 @@ app.post('/consultas/horas-tarea', verifyJWT, async (req, res) => {
     const headers = rows[0] || [];
     console.log('📋 Headers encontrados en hoja Trabajos:', headers);
     
-    // Usar índices fijos según la estructura de la hoja Trabajos
-    // Columna A = índice 0 (ID Tarea) - NUEVO
-    // Columna B = índice 1 (Fecha)
-    // Columna C = índice 2 (Trabajador)
-    // Columna D = índice 3 (Invernadero) 
-    // Columna E = índice 4 (Actividad/TipoTarea)
-    // Columna F = índice 5 (Descripción)
-    // Columna G = índice 6 (Progreso/Estado) - NUEVO
-    // Columna H = índice 7 (Horas)
-    const tareaIdCol = 0;         // Columna A - NUEVO
-    const fechaCol = 1;           // Columna B
-    const trabajadorCol = 2;      // Columna C
-    const invernaderoCol = 3;     // Columna D  
-    const tipoTareaCol = 4;       // Columna E
-    const descripcionCol = 5;     // Columna F
-    const progresoCol = 6;        // Columna G - NUEVO (Progreso/Estado)
-    const horasCol = 7;           // Columna H
+    // Usar índices según nuevas cabeceras de hoja "Trabajos"
+    // Código, Fecha, Encargado, Inver CCoste, Actividad, Genero, Descrip Actividad, Resultado, Horas, FechaFinReal, FechaLimite, JornalesEstimados, desarrollo_ha, dimension_total
+    const tareaIdCol = 0;         // Columna A (Código)
+    const fechaCol = 1;           // Columna B (Fecha)
+    const encargadoCol = 2;       // Columna C (Encargado)
+    const invernaderoCol = 3;     // Columna D (Inver CCoste = Invernadero)
+    const tipoTareaCol = 4;       // Columna E (Actividad = TipoTarea)
+    const generoCol = 5;          // Columna F (Genero)
+    const descripcionCol = 6;     // Columna G (Descrip Actividad = Descripción)
+    const resultadoCol = 7;       // Columna H (Resultado)
+    const horasCol = 8;           // Columna I (Horas)
 
-    console.log(`📋 Columnas fijas - TareaID: ${tareaIdCol}(A), Fecha: ${fechaCol}(B), Trabajador: ${trabajadorCol}(C), Invernadero: ${invernaderoCol}(D), TipoTarea: ${tipoTareaCol}(E), Descripción: ${descripcionCol}(F), Progreso: ${progresoCol}(G), Horas: ${horasCol}(H)`);
+    console.log(`📋 Columnas según nuevas cabeceras - TareaID: ${tareaIdCol}(A), Fecha: ${fechaCol}(B), Encargado: ${encargadoCol}(C), Invernadero: ${invernaderoCol}(D), TipoTarea: ${tipoTareaCol}(E), Genero: ${generoCol}(F), Descripción: ${descripcionCol}(G), Resultado: ${resultadoCol}(H), Horas: ${horasCol}(I)`);
     console.log(`📋 Headers en posiciones:
     - A(${tareaIdCol}): ${headers[tareaIdCol] || 'vacío'}
     - B(${fechaCol}): ${headers[fechaCol] || 'vacío'}
-    - C(${trabajadorCol}): ${headers[trabajadorCol] || 'vacío'}
+    - C(${encargadoCol}): ${headers[encargadoCol] || 'vacío'}
     - D(${invernaderoCol}): ${headers[invernaderoCol] || 'vacío'}  
     - E(${tipoTareaCol}): ${headers[tipoTareaCol] || 'vacío'}
-    - F(${descripcionCol}): ${headers[descripcionCol] || 'vacío'}
-    - G(${progresoCol}): ${headers[progresoCol] || 'vacío'}
-    - H(${horasCol}): ${headers[horasCol] || 'vacío'}`);      // Verificar que hay suficientes columnas
-    if (headers.length < 8) {
-      console.log('❌ Error: La hoja Trabajos no tiene suficientes columnas (mínimo 8 esperadas)');
+    - F(${generoCol}): ${headers[generoCol] || 'vacío'}
+    - G(${descripcionCol}): ${headers[descripcionCol] || 'vacío'}
+    - H(${resultadoCol}): ${headers[resultadoCol] || 'vacío'}
+    - I(${horasCol}): ${headers[horasCol] || 'vacío'}`);
+    
+    // Verificar que hay suficientes columnas (necesitamos al menos 9 para columna I)
+    if (headers.length < 9) {
+      console.log('❌ Error: La hoja Trabajos no tiene suficientes columnas (mínimo 9 esperadas)');
       console.log('📋 Headers disponibles:', headers);
       return res.status(500).json({ error: 'La hoja Trabajos no tiene la estructura esperada (faltan columnas)' });
     }
@@ -2990,9 +3021,10 @@ app.post('/consultas/horas-tarea', verifyJWT, async (req, res) => {
       const horas = parseFloat(row[horasCol]) || 0;
       const tipoTareaRow = (row[tipoTareaCol] || '').trim();
       const invernaderoRow = (row[invernaderoCol] || '').trim();
-      const trabajador = row[trabajadorCol] || '';
+      const encargado = row[encargadoCol] || '';
       const descripcion = row[descripcionCol] || '';
-      const progreso = row[progresoCol] || '';
+      const resultado = row[resultadoCol] || '';
+      const genero = row[generoCol] || '';
       
       if (!fecha || !tipoTareaRow || !invernaderoRow) {
         return;
@@ -3062,9 +3094,10 @@ app.post('/consultas/horas-tarea', verifyJWT, async (req, res) => {
             horas: horas,
             tipoTarea: tipoTareaRow,
             invernadero: invernaderoRow,
-            trabajador: trabajador,
+            encargado: encargado,           // Columna C - Nombre del encargado
             descripcion: descripcion,
-            progreso: progreso,
+            progreso: resultado,            // Columna H - Progreso/Estado de la tarea (antes "resultado")
+            genero: genero,
             fila: index + 2 // +2 porque empezamos desde slice(1) y las filas están 1-indexed
           });
         }

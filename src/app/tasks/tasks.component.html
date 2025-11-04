@@ -264,7 +264,9 @@
     <div class="modal-confirm" (click)="$event.stopPropagation()">
         <h3>¿Seguro que quieres eliminar esta tarea?</h3>
         <p *ngIf="taskToDelete">
-            <b>{{taskToDelete.tipo_tarea}}</b> de invernadero <b>{{taskToDelete.invernadero}}</b>
+            <!-- Mostrar "del almacén" para tareas de kg, "de invernadero" para las demás -->
+            <span *ngIf="isAlmacenTask(taskToDelete)"><b>{{taskToDelete.tipo_tarea}}</b> del almacén <b>{{taskToDelete.invernadero}}</b></span>
+            <span *ngIf="!isAlmacenTask(taskToDelete)"><b>{{taskToDelete.tipo_tarea}}</b> de invernadero <b>{{taskToDelete.invernadero}}</b></span>
         </p>
         <div class="modal-actions">
             <button class="task-action-btn delete-btn" (click)="confirmDeleteTask()">Sí, eliminar</button>
@@ -286,7 +288,9 @@
     <div class="modal-confirm complete-modal" (click)="$event.stopPropagation()">
         <h3>Completar Tarea</h3>
         <p *ngIf="taskToComplete">
-            <b>{{taskToComplete.tipo_tarea}}</b> de invernadero <b>{{taskToComplete.invernadero}}</b>
+            <!-- Mostrar "del almacén" para tareas de kg, "de invernadero" para las demás -->
+            <span *ngIf="isAlmacenTask(taskToComplete)"><b>{{taskToComplete.tipo_tarea}}</b> del almacén <b>{{taskToComplete.invernadero}}</b></span>
+            <span *ngIf="!isAlmacenTask(taskToComplete)"><b>{{taskToComplete.tipo_tarea}}</b> de invernadero <b>{{taskToComplete.invernadero}}</b></span>
         </p>
         <div class="progress-section">
             <!-- MODO HECTÁREAS: Barra de progreso por porcentaje -->
@@ -575,8 +579,12 @@
                 </div>
                 <div class="task-card-desc">{{task.descripcion}}</div>
                 <div class="task-card-meta">
-                    <span>Invernadero: <b>{{task.invernadero}}</b></span>
-                    <span *ngIf="!isUrgentTask(task)">Estimación jornales: <b>{{task.estimacion_horas}}</b></span>
+                    <!-- Mostrar "Almacén" para tareas de kg, "Invernadero" para las demás -->
+                    <span *ngIf="isAlmacenTask(task)">Almacén: <b>{{task.invernadero}}</b></span>
+                    <span *ngIf="!isAlmacenTask(task)">Invernadero: <b>{{task.invernadero}}</b></span>
+                    <!-- Mostrar género para tareas de almacén con kg, o jornales para las demás -->
+                    <span *ngIf="!isUrgentTask(task) && shouldShowGeneroInsteadOfJornales(task)">Género: <b>{{task.genero}}</b></span>
+                    <span *ngIf="!isUrgentTask(task) && !shouldShowGeneroInsteadOfJornales(task)">Estimación jornales: <b>{{task.estimacion_horas}}</b></span>
                     <span *ngIf="task.jornales_reales && task.jornales_reales > 0">Horas reales: <b>{{task.jornales_reales}}</b></span>
                     <!-- Eliminado mensaje de URGENTE horas trabajadas -->
                     <span [class.overdue-date]="isTaskOverdue(task)">
@@ -700,7 +708,9 @@
         <h3>Validar Tarea Urgente</h3>
         <div *ngIf="taskToValidate" class="validation-details">
             <p><strong>Tarea:</strong> {{taskToValidate.tipo_tarea}}</p>
-            <p><strong>Invernadero:</strong> {{taskToValidate.invernadero}}</p>
+            <!-- Mostrar "Almacén" para tareas de kg, "Invernadero" para las demás -->
+            <p *ngIf="isAlmacenTask(taskToValidate)"><strong>Almacén:</strong> {{taskToValidate.invernadero}}</p>
+            <p *ngIf="!isAlmacenTask(taskToValidate)"><strong>Invernadero:</strong> {{taskToValidate.invernadero}}</p>
             <p><strong>Descripción:</strong> {{taskToValidate.descripcion}}</p>
             <p><strong>Horas trabajadas:</strong> {{taskToValidate.jornales_reales}} horas</p>
             <div class="validation-warning">
@@ -1036,7 +1046,7 @@
                             <div class="tabla-detalles">
                                 <div class="cabecera-tabla">
                                     <div class="col-fecha">Fecha</div>
-                                    <div class="col-trabajador">Trabajador</div>
+                                    <div class="col-trabajador">Encargado</div>
                                     <div class="col-tipo-tarea">Tipo de Tarea</div>
                                     <div class="col-horas">Horas</div>
                                     <div class="col-progreso">Progreso</div>
@@ -1045,7 +1055,7 @@
                                 
                                 <div *ngFor="let registro of tareaAgrupada.registros" class="fila-detalle">
                                     <div class="col-fecha" [title]="registro.fecha">{{registro.fecha}}</div>
-                                    <div class="col-trabajador" [title]="registro.trabajador">{{registro.trabajador}}</div>
+                                    <div class="col-trabajador" [title]="registro.encargado">{{registro.encargado}}</div>
                                     <div class="col-tipo-tarea" [title]="registro.tipoTarea || '-'">{{registro.tipoTarea || '-'}}</div>
                                     <div class="col-horas" [title]="registro.horas + 'h'">{{registro.horas}}h</div>
                                     <div class="col-progreso" [title]="registro.progreso || '-'">{{registro.progreso || '-'}}</div>

@@ -1375,6 +1375,53 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     return horasKilos == 1 || String(horasKilos) === '1' || Number(horasKilos) === 1;
   }
 
+  // Determinar si debe mostrar género en lugar de estimación de jornales
+  shouldShowGeneroInsteadOfJornales(task: Task | null): boolean {
+    if (!task) return false;
+    // Mostrar género si es tarea de kilos (almacén) Y tiene género
+    return this.isKilosMode(task) && !!(task.genero && task.genero.trim() !== '');
+  }
+
+  // Detectar si es tarea de recolección (campo con kilos)
+  isRecoleccionTask(task: Task | null): boolean {
+    if (!task) return false;
+    const recoleccionKeywords = ['recolección', 'recoleccion', 'cosecha', 'recoger', 'cosech', 'recolect'];
+    const taskName = task.tipo_tarea.toLowerCase();
+    return recoleccionKeywords.some(keyword => taskName.includes(keyword));
+  }
+
+  // Determinar si es una tarea de almacén real (NO solo por kilos)
+  isAlmacenTask(task: Task | null): boolean {
+    if (!task) return false;
+    
+    // Si el usuario pertenece al grupo ALMACEN, todas sus tareas son de almacén
+    if (this.loggedUser?.grupo_trabajo === 'ALMACEN') {
+      return true;
+    }
+    
+    // Si es tarea de recolección, NO es de almacén (aunque use kilos)
+    // EXCEPCIÓN: A menos que el usuario sea del grupo ALMACEN
+    if (this.isRecoleccionTask(task)) {
+      return false;
+    }
+    
+    // Una tarea es de almacén si:
+    // 1. Usa kilos (horas_kilos = 1) Y
+    // 2. Tiene género (indica que es ALMACEN-CONFECC) O
+    // 3. Es específicamente una tarea de almacén por tipo
+    const usaKilos = this.isKilosMode(task);
+    const tieneGenero = !!(task.genero && task.genero.trim() !== '');
+    const esAlmacenPorTipo = !!(task.tipo_tarea && (
+      task.tipo_tarea.toLowerCase().includes('almac') ||
+      task.tipo_tarea.toLowerCase().includes('confec') ||
+      task.tipo_tarea.toLowerCase().includes('género')
+    ));
+    
+    // Solo es almacén si usa kilos Y (tiene género O es tipo almacén)
+    // Las tareas de recolección usan kilos pero NO son de almacén
+    return usaKilos && (tieneGenero || esAlmacenPorTipo);
+  }
+
   trackById(index: number, item: Task) {
     return item.id;
   }

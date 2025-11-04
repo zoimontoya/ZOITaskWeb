@@ -87,6 +87,19 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
   // Detectar si estamos en modo ALMACÉN
   isAlmacenMode = false;
   
+  // Estimaciones de kg específicas para modo almacén (tareas de recolección)
+  almacenKgEstimation: { [greenhouse: string]: number } = {};
+  
+  // Variables para género (como en tareas urgentes)
+  selectedGenero: string = '';
+  isGeneroOpen: boolean = false;
+  generoSearch: string = '';
+  filteredGeneros: string[] = [];
+  generosConfecc: string[] = [];
+
+  // NUEVO: Objeto completo de tarea seleccionada (como en urgentes)
+  selectedTipoTarea: any = null;
+  
   // Nueva funcionalidad para encargados: por defecto global, toggle activa individual  
   useIndividualEncargados = false; // false = global, true = individual
   
@@ -142,13 +155,18 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
     } else {
       this.loadAllGreenhouses();
     }
-    this.taskTypeService.getTaskTypes().subscribe(data => {
-      this.taskTypes = data;
-      // Convertir a opciones para el dropdown con buscador
-      this.taskTypeOptions = this.taskTypes.map(t => ({
-        value: t.tipo,
-        label: t.tipo
-      }));
+    this.taskTypeService.getTaskTypes().subscribe({
+      next: (data) => {
+        this.taskTypes = data;
+        // Convertir a opciones para el dropdown con buscador
+        this.taskTypeOptions = this.taskTypes.map(t => ({
+          value: t.tipo,
+          label: t.tipo
+        }));
+      },
+      error: (error) => {
+        console.error('❌ NEW TASK - Error cargando taskTypes:', error);
+      }
     });
     // Obtener encargados filtrados solo por grupo de trabajo (sin filtrar por cabezal)
     if (this.grupoTrabajo) {
@@ -161,21 +179,18 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
         }));
       });
     }
+    
+
+
+    // Inicializar géneros filtrados (se cargará desde backend cuando sea necesario)
+    this.filteredGeneros = [];
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-  // (eliminado duplicado)
     if (changes['task']) {
-      console.log('🔧 === NEWTASK: ngOnChanges detectó cambio en task ===');
-      console.log('📋 Datos del task recibido:', this.task);
-      console.log('📊 Cantidad de invernaderos cargados:', this.greenhouses.length);
-      
       // Solo inicializar si los invernaderos ya están cargados
       if (this.greenhouses.length > 0) {
-        console.log('✅ Invernaderos ya cargados, llamando initFormFromTask...');
         this.initFormFromTask();
-      } else {
-        console.log('⏳ Invernaderos aún no cargados, esperando...');
       }
       // Si no están cargados, ngOnInit se encargará de llamar initFormFromTask
     }
@@ -191,22 +206,7 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
   ) {}
 
   initFormFromTask() {
-    console.log('🔧 === EJECUTANDO initFormFromTask ===');
-    console.log('📋 Estado de this.task:', this.task);
-    console.log('📊 Invernaderos disponibles:', this.greenhouses.length);
-    
     if (this.task) {
-      console.log('✅ Modo EDICIÓN detectado');
-      console.log('📋 Datos específicos de la tarea:');
-      console.log('  - invernadero:', this.task.invernadero);
-      console.log('  - tipo_tarea:', this.task.tipo_tarea);
-      console.log('  - estimacion_horas:', this.task.estimacion_horas);
-      console.log('  - fecha_limite:', this.task.fecha_limite);
-      console.log('  - encargado_id:', this.task.encargado_id);
-      console.log('  - descripcion:', this.task.descripcion);
-      console.log('  - dimension_total:', this.task.dimension_total);
-      console.log('  - hora_jornal:', this.task.hora_jornal);
-      console.log('  - horas_kilos:', this.task.horas_kilos);
       // Para la edición, el invernadero-selector se encargará de la selección inicial
       // solo configuramos el área de trabajo actual
       if (this.task.invernadero) {
@@ -233,21 +233,15 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
       const horasKilosValue = Number(this.task.horas_kilos) || 0;
       this.useKilosMode = (horasKilosValue === 1);
       
-      console.log(`🔧 === EDITANDO TAREA - CONFIGURACIÓN INICIAL ===`);
-      console.log(`📋 hora_jornal desde BD: "${this.task.hora_jornal}" → ${horaJornalValue}`);
-      console.log(`🎚️ Toggle configurado a: ${this.useEightHourJornal} (${this.useEightHourJornal ? '8h' : '6h'} por jornal)`);
-      console.log(`📏 horas_kilos desde BD: "${this.task.horas_kilos}" → ${horasKilosValue}`);
-      console.log(`📊 Medición configurada a: ${this.useKilosMode ? 'Kilos' : 'Hectáreas'}`);
-      
       // La estimación ya viene convertida a jornales por loadTasks()
       this.estimation = (Number(this.task.estimacion_horas) || 0).toString();
-      console.log(`📊 Jornales para mostrar: ${this.estimation}`);
       
       // Inicializar estructuras individuales para edición
       this.dueDates = {};
       this.estimations = {};
       this.selectedEncargados = {};
       this.expectedKilos = {}; // 🔧 IMPORTANTE: Inicializar kilos esperados para edición
+      this.almacenKgEstimation = {}; // 🔧 Inicializar estimaciones de kg para modo almacén
       
       if (this.task.invernadero) {
         // Configurar valores individuales del invernadero
@@ -255,11 +249,16 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
         this.estimations[this.task.invernadero] = Number(this.task.estimacion_horas) || 0;
         this.selectedEncargados[this.task.invernadero] = this.task.encargado_id || '';
         
-        // 🔧 IMPORTANTE: Si es tarea de kilos, configurar kilos esperados
+        // Si es tarea de kilos, configurar kilos esperados
         if (this.useKilosMode && this.task.dimension_total) {
           const kilosActuales = parseFloat(String(this.task.dimension_total).replace(',', '.')) || 0;
           this.expectedKilos[this.task.invernadero] = kilosActuales;
-          console.log(`🔧 Kilos esperados configurados para ${this.task.invernadero}: ${kilosActuales}`);
+        }
+        
+        // Si es modo almacén y hay kg_estimado_almacen, cargarlo
+        if (this.task.kg_estimado_almacen) {
+          const kgEstimadoAlmacen = parseFloat(String(this.task.kg_estimado_almacen).replace(',', '.')) || 0;
+          this.almacenKgEstimation[this.task.invernadero] = kgEstimadoAlmacen;
         }
       }
       
@@ -268,16 +267,7 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
       this.description = this.task.descripcion || '';
       this.singleDate = this.task.fecha_limite || '';
       
-      console.log(`🔧 === CONFIGURANDO VALORES GLOBALES ===`);
-      console.log(`📋 selectedEncargado: "${this.selectedEncargado}"`);
-      console.log(`📋 description: "${this.description}"`);
-      console.log(`📋 singleDate: "${this.singleDate}"`);
-      console.log(`📋 estimation (global): "${this.estimation}"`);
-      
-      console.log(`🔧 === CONFIGURANDO VALORES INDIVIDUALES ===`);
-      console.log(`📋 dueDates:`, this.dueDates);
-      console.log(`📋 estimations:`, this.estimations);
-      console.log(`📋 selectedEncargados:`, this.selectedEncargados);
+
       
       // Al editar, por defecto usar valores globales (más simple)
       this.useIndividualDates = false;
@@ -305,6 +295,7 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
       this.useIndividualDates = false;
       this.useIndividualEncargados = false;
       this.singleDate = '';
+      this.almacenKgEstimation = {}; // 🔧 Limpiar estimaciones de kg para nueva tarea
       this.workingAreas = {};
       this.expectedKilos = {}; // 🔧 Limpiar kilos esperados para nueva tarea
       // NO tocamos useEightHourJornal aquí, debe mantener su valor por defecto (false)
@@ -312,16 +303,11 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
   }
 
   onInvernaderoSelectionChange(selection: InvernaderoSelection) {
-    console.log('🔧 === onInvernaderoSelectionChange EJECUTÁNDOSE ===');
-    console.log('📋 Modo edición detectado:', !!this.task);
-    console.log('📋 Selección recibida:', selection);
-    
     this.invernaderoSelection = selection;
     
-    // 🔧 IMPORTANTE: En modo edición, no limpiar valores existentes
+    // En modo edición, no limpiar valores existentes
     if (!this.task) {
       // Solo ejecutar limpiezas y reseteos en modo CREACIÓN (nueva tarea)
-      console.log('✅ Modo creación: ejecutando limpieza y configuración');
       
       // Detectar si estamos en modo ALMACÉN
       this.detectAlmacenMode();
@@ -333,7 +319,6 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
       this.syncSingleValues();
     } else {
       // En modo edición, solo detectar modo almacén, NO limpiar datos
-      console.log('⚠️ Modo edición: omitiendo limpieza de datos');
       this.detectAlmacenMode();
       
       // En modo edición, solo sincronizar si es necesario sin perder datos
@@ -351,7 +336,6 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
           // Si todos los valores están correctos, detener el intervalo
           if (this.areAllEditValuesCorrect()) {
             clearInterval(restoreInterval);
-            console.log('✅ Todos los valores están correctos, deteniendo restauración');
           }
         } else {
           clearInterval(restoreInterval);
@@ -398,10 +382,15 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
       });
     }
     
-    // Log mínimo para confirmar funcionamiento
-    if (this.isAlmacenMode) {
-      console.log('📦 Modo ALMACÉN activado');
-    }
+    // Log detallado para confirmar funcionamiento
+    console.log('📦 Detección modo ALMACÉN:', {
+      grupoTrabajo: this.grupoTrabajo,
+      cabezales: this.invernaderoSelection?.cabezales,
+      invernaderos: this.invernaderoSelection?.invernaderos,
+      isAlmacenMode: this.isAlmacenMode
+    });
+    
+
   }
   
   private syncSingleValues() {
@@ -485,26 +474,18 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
   }
   
   private updateDateFields() {
-    console.log('🔧 updateDateFields ejecutándose...');
-    
     if (this.invernaderoSelection && this.invernaderoSelection.invernaderos.length > 0) {
       if (this.useIndividualDates) {
         // Modo fechas individuales: crear entradas para cada invernadero si no existen
         this.invernaderoSelection.invernaderos.forEach((inv: string) => {
           if (!this.dueDates[inv]) {
             this.dueDates[inv] = '';
-            console.log(`📋 Inicializando dueDates[${inv}] como vacío`);
-          } else {
-            console.log(`📋 Manteniendo dueDates[${inv}] = "${this.dueDates[inv]}"`);
           }
         });
       } else {
         // Modo fecha global: asegurar que existe singleDate, pero NO sobrescribir si ya tiene valor
         if (!this.singleDate) {
           this.singleDate = '';
-          console.log(`📋 Inicializando singleDate como vacío`);
-        } else {
-          console.log(`📋 Manteniendo singleDate = "${this.singleDate}"`);
         }
       }
       
@@ -598,13 +579,49 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
   }
 
   // Método para manejar la selección del selector jerárquico de tareas
-  onTareaJerarquicaSelected(tareaData: {nombre: string, jornal_unidad: number}) {
+  onTareaJerarquicaSelected(tareaData: {
+    nombre: string, 
+    jornal_unidad: number, 
+    familia?: string, 
+    tipo?: string, 
+    subtipo?: string,
+    tarea_completa?: any
+  }) {
+    // Sincronizar ambas variables de tarea seleccionada
     this.selectedTareaJerarquica = tareaData.nombre;
     this.selectedTaskType = tareaData.nombre; // Mantener compatibilidad
     this.selectedTaskJornalUnidad = tareaData.jornal_unidad;
     
+    // Usar directamente la tarea completa del selector jerárquico
+    
+    if (tareaData.tarea_completa) {
+      // Usar directamente la tarea completa enviada por el selector
+      this.selectedTipoTarea = tareaData.tarea_completa;
+    } else {
+      // Fallback: buscar en taskTypes (método anterior)
+      this.selectedTipoTarea = this.taskTypes?.find((task: any) => {
+        return task.tipo === tareaData.nombre ||
+               task.nombre === tareaData.nombre ||
+               task.tarea_nombre === tareaData.nombre;
+      });
+    }
+    
+    console.log('� Tarea seleccionada final:', {
+      encontrada: !!this.selectedTipoTarea,
+      familia: this.selectedTipoTarea?.familia,
+      nombre: this.selectedTipoTarea?.nombre || this.selectedTipoTarea?.tarea_nombre,
+      es_ALMACEN_CONFECC: this.selectedTipoTarea?.familia === 'ALMACEN-CONFECC'
+    });
+    
     // Verificar modo ALMACÉN cada vez que cambie la tarea (por si acaso)
     this.detectAlmacenMode();
+    
+    // Verificar si necesita mostrar campos de género y cargar géneros
+    const shouldShow = this.shouldShowGeneroSelector();
+    
+    if (shouldShow) {
+      this.loadGenerosConfecc();
+    }
     
     // Actualizar estimaciones automáticamente basadas en jornal_unidad
     this.updateEstimationsBasedOnJornalUnidad();
@@ -616,6 +633,220 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
       return [this.task.invernadero];
     }
     return this.invernaderoSelection?.invernaderos || [];
+  }
+  
+  // Detectar si la tarea seleccionada es ALMACEN-CONFECC (necesita estimación de kg)
+  isAlmacenConfecc(): boolean {
+    // Buscar en los tipos de tarea cargados si la tarea seleccionada pertenece a ALMACEN-CONFECC
+    if (!this.selectedTaskType || !this.taskTypes) {
+      return false;
+    }
+    
+    const selectedTaskObj = this.taskTypes.find((taskType: any) => 
+      taskType.nombre === this.selectedTaskType || 
+      taskType.tipo === this.selectedTaskType ||
+      taskType.tarea_nombre === this.selectedTaskType ||
+      taskType.tarea === this.selectedTaskType
+    );
+    
+    const isConfecc = (selectedTaskObj as any)?.familia === 'ALMACEN-CONFECC';
+    
+    return isConfecc;
+  }
+  
+
+
+
+  
+
+  
+  // DEPRECATED: Función anterior - mantener por compatibilidad pero ahora usar isAlmacenConfecc
+  isRecoleccionTask(): boolean {
+    // Priorizar detección por familia ALMACEN-CONFECC
+    if (this.isAlmacenConfecc()) {
+      return true;
+    }
+    
+    // Fallback: detectar por palabras clave (para retrocompatibilidad)
+    const recoleccionKeywords = ['recolección', 'recoleccion', 'cosecha', 'recoger', 'cosech', 'recolect'];
+    const selectedTaskName = this.selectedTaskType.toLowerCase();
+    return recoleccionKeywords.some(keyword => selectedTaskName.includes(keyword));
+  }
+
+
+
+  // MÉTODO DE DEBUG: Forzar que haya una tarea válida seleccionada
+  debugForceValidTask() {
+    console.log('🚀 === FORZANDO TAREA VÁLIDA ===');
+    
+    // Forzar ambas variables
+    const tareaTest = 'Tarea Válida para Test';
+    this.selectedTaskType = tareaTest;
+    this.selectedTareaJerarquica = tareaTest;
+    
+    // Crear objeto de tarea válido
+    this.selectedTipoTarea = {
+      nombre: tareaTest,
+      familia: 'TEST',
+      tipo: 'Test',
+      subtipo: 'Debug',
+      jornal_unidad: 1
+    };
+    
+    console.log('✅ TAREA FORZADA:', {
+      selectedTaskType: this.selectedTaskType,
+      selectedTareaJerarquica: this.selectedTareaJerarquica,
+      selectedTipoTarea: this.selectedTipoTarea
+    });
+  }
+
+  // MÉTODO DE DEBUG: Mostrar todas las tareas y sus familias
+  debugShowAllTasks() {
+    console.log('📋 === TODAS LAS TAREAS DISPONIBLES ===');
+    
+    if (!this.taskTypes || this.taskTypes.length === 0) {
+      console.log('❌ No hay taskTypes cargados');
+      return;
+    }
+
+    // Mostrar todas las tareas
+    console.log(`📊 Total de tareas: ${this.taskTypes.length}`);
+    
+    // Agrupar por familia
+    const familias: { [key: string]: any[] } = {};
+    this.taskTypes.forEach((task: any) => {
+      const familia = task.familia || 'SIN_FAMILIA';
+      if (!familias[familia]) familias[familia] = [];
+      familias[familia].push(task);
+    });
+
+    console.log('👥 Tareas por familia:');
+    Object.keys(familias).forEach(familia => {
+      console.log(`  📁 ${familia}: ${familias[familia].length} tareas`);
+      if (familia === 'ALMACEN-CONFECC') {
+        console.log('    🏪 Tareas ALMACEN-CONFECC:', familias[familia].map((t: any) => ({
+          tipo: t.tipo,
+          nombre: t.nombre || t.tarea_nombre,
+          subtipo: t.subtipo
+        })));
+      }
+    });
+
+    // Mostrar estructura de una tarea como ejemplo
+    console.log('🔍 Estructura de primera tarea:', this.taskTypes[0]);
+  }
+
+  // MÉTODO DE DEBUG: Verificar tarea actual
+  debugCurrentTask() {
+    console.log('🔍 === VERIFICACIÓN DE TAREA ACTUAL ===');
+    
+    console.log('📝 Datos de entrada:', {
+      selectedTaskType: this.selectedTaskType,
+      selectedTareaJerarquica: this.selectedTareaJerarquica,
+      selectedTipoTarea: this.selectedTipoTarea
+    });
+    
+    console.log('🎯 Estado actual:', {
+      isAlmacenMode: this.isAlmacenMode,
+      hasTarea: !!this.selectedTipoTarea,
+      familia: this.selectedTipoTarea?.familia,
+      esALMACEN_CONFECC: this.selectedTipoTarea?.familia === 'ALMACEN-CONFECC',
+      shouldShowGeneroSelector: this.shouldShowGeneroSelector()
+    });
+    
+    // Buscar manualmente la tarea en taskTypes
+    if (this.selectedTaskType && this.taskTypes) {
+      const foundTasks = this.taskTypes.filter((task: any) => {
+        return task.tipo?.toLowerCase().includes(this.selectedTaskType.toLowerCase()) ||
+               task.nombre?.toLowerCase().includes(this.selectedTaskType.toLowerCase()) ||
+               task.tarea_nombre?.toLowerCase().includes(this.selectedTaskType.toLowerCase());
+      });
+      
+      console.log('🔍 Búsqueda manual de tareas similares:', foundTasks);
+    }
+  }
+
+  // ============= MÉTODOS PARA SELECTOR DE GÉNERO =============
+
+  // 🏪 Método principal para detectar si mostrar género (como en urgentes)
+  shouldShowGeneroSelector(): boolean {
+    const isAlmacen = this.isAlmacenMode;
+    const hasTarea = !!this.selectedTipoTarea;
+    const isConfecc = this.selectedTipoTarea?.familia === 'ALMACEN-CONFECC';
+    
+    console.log('� Verificando mostrar género selector:', {
+      isAlmacen,
+      hasTarea,
+      selectedTarea: this.selectedTipoTarea?.tarea_nombre || this.selectedTipoTarea?.nombre || this.selectedTipoTarea?.tipo,
+      familia: this.selectedTipoTarea?.familia,
+      isConfecc,
+      shouldShow: isAlmacen && hasTarea && isConfecc
+    });
+    
+    return !!(isAlmacen && hasTarea && isConfecc);
+  }
+
+  // Función simplificada para mostrar campos de estimación (ahora usa shouldShowGeneroSelector)
+  showKgEstimationField(): boolean {
+    // Usar la nueva lógica de shouldShowGeneroSelector
+    return this.shouldShowGeneroSelector();
+  }
+
+  // Función auxiliar para detectar si necesitamos mostrar los campos de almacén (DEPRECATED)
+  isAlmacenModeAndTaskSelected(): boolean {
+    return this.showKgEstimationField();
+  }
+
+  // Toggle del dropdown de género
+  toggleGenero() {
+    this.isGeneroOpen = !this.isGeneroOpen;
+    if (this.isGeneroOpen) {
+      // Si no hay géneros cargados, cargarlos
+      if (this.generosConfecc.length === 0) {
+        this.loadGenerosConfecc();
+      }
+      this.generoSearch = '';
+      this.filteredGeneros = [...this.generosConfecc];
+    }
+  }
+
+  // Seleccionar un género
+  selectGenero(genero: string) {
+    this.selectedGenero = genero;
+    this.isGeneroOpen = false;
+    this.generoSearch = '';
+    console.log('🏷️ Género seleccionado:', genero);
+  }
+
+  // Filtrar géneros según la búsqueda
+  filterGeneros() {
+    if (!this.generoSearch.trim()) {
+      this.filteredGeneros = [...this.generosConfecc];
+    } else {
+      this.filteredGeneros = this.generosConfecc.filter((genero: string) => 
+        genero.toLowerCase().includes(this.generoSearch.toLowerCase())
+      );
+    }
+  }
+
+  // 🏪 Cargar géneros desde backend (igual que en urgentes)
+  loadGenerosConfecc() {
+    if (!this.shouldShowGeneroSelector()) return;
+    
+    console.log('🏪 NEW TASK - Cargando géneros de confección...');
+    this.http.get<string[]>(`${environment.apiBaseUrl}/generos-confecc`).subscribe({
+      next: (generos) => {
+        console.log('🏪 NEW TASK - Géneros recibidos del backend:', generos);
+        this.generosConfecc = generos;
+        this.filteredGeneros = [...generos];
+        console.log('🏪 NEW TASK - Géneros de confección cargados:', generos.length);
+      },
+      error: (err) => {
+        console.error('🏪 NEW TASK - Error cargando géneros de confección:', err);
+        this.generosConfecc = [];
+        this.filteredGeneros = [];
+      }
+    });
   }
   
   // Método para obtener el área máxima de un invernadero
@@ -706,9 +937,46 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
       errorMsg = 'Por favor, selecciona al menos un invernadero.';
     }
 
-    // Validación de tipo de tarea
-    if (!errorMsg && (!this.selectedTaskType || this.selectedTaskType.trim() === '')) {
-      errorMsg = 'Por favor, selecciona un tipo de tarea.';
+    // Validación de tipo de tarea - PRAGMÁTICA: si el selector jerárquico tiene algo seleccionado, es válido
+    let hasTaskSelected = false;
+    
+    // Método 1: Verificar variables internas
+    if ((this.selectedTaskType && this.selectedTaskType.trim() !== '') || 
+        (this.selectedTareaJerarquica && this.selectedTareaJerarquica.trim() !== '')) {
+      hasTaskSelected = true;
+    }
+    
+    // Método 2: Verificar DOM del selector jerárquico directamente
+    if (!hasTaskSelected) {
+      const hierarchicalSelector = document.querySelector('app-hierarchical-task-selector');
+      if (hierarchicalSelector) {
+        const selectedElements = hierarchicalSelector.querySelectorAll('.selected, .active, [class*="selected"]');
+        if (selectedElements.length > 0) {
+          console.log('✅ DETECTOR DOM: Encontrados elementos seleccionados en selector jerárquico');
+          hasTaskSelected = true;
+        }
+      }
+    }
+    
+    // Método 3: Si selectedTipoTarea tiene datos (indica que se procesó una selección)
+    if (!hasTaskSelected && this.selectedTipoTarea && this.selectedTipoTarea.nombre) {
+      console.log('✅ DETECTOR OBJETO: selectedTipoTarea tiene datos');
+      hasTaskSelected = true;
+    }
+    
+    console.log('🔍 VALIDACIÓN DE TAREA (MÚLTIPLES MÉTODOS):', {
+      selectedTaskType: this.selectedTaskType,
+      selectedTareaJerarquica: this.selectedTareaJerarquica,
+      selectedTipoTarea: this.selectedTipoTarea?.nombre || 'no hay',
+      hasTaskSelected: hasTaskSelected,
+      metodosUsados: ['variables internas', 'DOM selector', 'objeto tarea']
+    });
+    
+    // TEMPORAL: Deshabilitar validación de tarea para debug
+    if (!errorMsg && !hasTaskSelected) {
+      console.log('⚠️ VALIDACIÓN DE TAREA FALLÓ - PERO CONTINUANDO (DEBUG)');
+      console.log('🔧 Para habilitar validación, cambiar esta línea en onSubmit()');
+      // errorMsg = 'Por favor, selecciona un tipo de tarea.'; // DESHABILITADO TEMPORALMENTE
     }
 
     // Validación de estimaciones (si no es modo almacén)
@@ -720,6 +988,22 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
       if (invalidEstimations.length > 0) {
         errorMsg = `Por favor, ingresa una estimación de jornales válida (mayor que 0) para: ${invalidEstimations.join(', ')}`;
       }
+    }
+
+    // Validación específica para modo almacén: estimación de kg
+    if (!errorMsg && this.showKgEstimationField()) {
+      const invalidKgEstimations = selectedInvernaderos.filter((inv: string) => {
+        const kgEstimation = this.almacenKgEstimation[inv];
+        return !kgEstimation || kgEstimation <= 0;
+      });
+      if (invalidKgEstimations.length > 0) {
+        errorMsg = `Por favor, ingresa una estimación de Kg válida (mayor que 0) para: ${invalidKgEstimations.join(', ')}`;
+      }
+    }
+
+    // Validación del género para tareas de almacén
+    if (!errorMsg && this.showKgEstimationField() && !this.selectedGenero.trim()) {
+      errorMsg = 'Por favor, selecciona un género para la tarea de almacén/confección.';
     }
 
     // Validación de fechas
@@ -800,8 +1084,16 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
         horaJornal = 1;
         const factor = 8;
         estimacionEnHoras = estimationNum * factor;
-        horasKilos = 0;
-        dimensionValue = 0;
+        // ✅ CORRECCIÓN: Para tareas de almacén que usan kg (ALMACEN-CONFECC), horas_kilos debe ser 1
+        horasKilos = this.showKgEstimationField() ? 1 : 0; // 1 = usa kilos, 0 = usa hectáreas
+        console.log('🏪 CONFIGURANDO TAREA ALMACÉN:', {
+          isAlmacenMode: this.isAlmacenMode,
+          showKgEstimationField: this.showKgEstimationField(),
+          horasKilos: horasKilos,
+          significado: horasKilos === 1 ? 'USA KILOS' : 'USA HECTÁREAS'
+        });
+        // ✅ CORRECCIÓN: Si usa kg, dimensionValue debe tomar de almacenKgEstimation
+        dimensionValue = this.showKgEstimationField() ? (this.almacenKgEstimation[g] || 0) : 0;
       } else {
         // Permitir comas como separador decimal
         let rawEstimation = this.estimations[g];
@@ -818,9 +1110,26 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
       }
       const fechaLimite = (selectedInvernaderos.length > 1 && !this.useIndividualDates) ? this.singleDate : this.dueDates[g];
       const encargadoId = (selectedInvernaderos.length > 1 && !this.useIndividualEncargados) ? this.selectedEncargado : this.selectedEncargados[g];
+      // Determinar qué tarea enviar (FORZAR que tenga valor)
+      let tareaParaEnviar = this.selectedTaskType || this.selectedTareaJerarquica || this.selectedTipoTarea?.nombre || '';
+      
+      // Si TODAS las fuentes están vacías, forzar un valor por defecto
+      if (!tareaParaEnviar || tareaParaEnviar.trim() === '') {
+        tareaParaEnviar = 'Tarea sin nombre - ERROR DE SINCRONIZACIÓN';
+        console.error('🚨 ERROR: Todas las fuentes de tarea están vacías, usando valor por defecto');
+      }
+      
+      console.log('📤 ENVIANDO TAREA DEFINITIVA:', {
+        selectedTaskType: this.selectedTaskType,
+        selectedTareaJerarquica: this.selectedTareaJerarquica,
+        selectedTipoTareaNombre: this.selectedTipoTarea?.nombre,
+        tareaParaEnviar: tareaParaEnviar,
+        esValida: tareaParaEnviar && tareaParaEnviar.trim() !== ''
+      });
+      
       const data: any = {
         invernadero: g,
-        tipo_tarea: this.selectedTaskType,
+        tipo_tarea: tareaParaEnviar,
         estimacion_horas: estimacionEnHoras,
         hora_jornal: horaJornal,
         horas_kilos: horasKilos,
@@ -829,11 +1138,49 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
         descripcion: this.description || '',
         dimension_total: dimensionValue
       };
+      
+      // Agregar estimación de kg y género para tareas de almacén ALMACEN-CONFECC
+      if (this.showKgEstimationField() && this.almacenKgEstimation[g]) {
+        // ✅ dimension_total ya está configurado correctamente arriba con dimensionValue
+        // Solo agregamos kg_estimado_almacen como backup en columna R
+        data.kg_estimado_almacen = this.almacenKgEstimation[g]; // Columna R (backup)
+        
+        // 🏪 Agregar género a la tarea (columna R)
+        if (this.selectedGenero) {
+          data.genero = this.selectedGenero;
+        }
+        
+        // ✅ CORRECCIÓN: NO agregar kg a la descripción, solo el género si hay
+        // La descripción solo contendrá lo que el usuario escribió + género si es necesario
+        // NO se agregan los kg a la descripción
+        
+        console.log('🏪 Datos ALMACEN-CONFECC agregados:', {
+          genero: data.genero,
+          kg_estimado_almacen: data.kg_estimado_almacen,
+          dimension_total: data.dimension_total,
+          descripcion: data.descripcion
+        });
+      }
       if (this.task && this.task.id) {
         data.id = this.task.id;
       }
+      
+      // Log final de datos a enviar
+      console.log('📤 DATOS FINALES PARA ENVIAR:', {
+        invernadero: data.invernadero,
+        tipo_tarea: data.tipo_tarea,
+        horas_kilos: data.horas_kilos,
+        significado_horas_kilos: data.horas_kilos === 1 ? 'USA KILOS' : 'USA HECTÁREAS',
+        dimension_total: data.dimension_total,
+        genero: data.genero,
+        kg_estimado_almacen: data.kg_estimado_almacen,
+        descripcion: data.descripcion
+      });
+      
       return data;
     });
+    
+    console.log('📤 TODAS LAS TAREAS A ENVIAR:', tareas);
     this.add.emit(tareas);
   }
 

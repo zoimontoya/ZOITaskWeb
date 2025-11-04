@@ -163,11 +163,80 @@
       <ng-container *ngIf="getSelectedInvernaderos().length > 0">
         <div class="invernadero-block">
           <h4 class="invernadero-block-title">{{ getSelectedInvernaderos()[activeInvernaderoIndex] }}</h4>
-          <!-- Mensaje informativo para modo ALMACÉN -->
-          <div *ngIf="isAlmacenMode" class="almacen-info-message">
-            <p class="info-text">
-              📦 <strong>Modo Almacén:</strong> Esta tarea no requiere especificar dimensiones ni estimaciones.
+
+          
+          <!-- Configuración específica para modo ALMACÉN -->
+          <div *ngIf="isAlmacenMode" class="almacen-config-section">
+            <p class="almacen-info-text">
+              📦 <strong>Modo Almacén:</strong> Configuración específica para gestión de almacenamiento
             </p>
+            
+            <!-- 🏪 Género y kg para tareas ALMACEN-CONFECC -->
+            <div *ngIf="shouldShowGeneroSelector()" class="almacen-kg-estimation">
+              
+              <!-- Selector de Género (como en tareas urgentes) -->
+              <div class="form-group">
+                <label class="kg-label">🏷️ Seleccionar Género *</label>
+                <div class="genre-selector-container">
+                  <div class="genre-dropdown" [class.open]="isGeneroOpen">
+                    <div class="genre-dropdown-header" (click)="toggleGenero()">
+                      <span class="dropdown-text">
+                        <span *ngIf="!selectedGenero">Seleccionar género...</span>
+                        <span *ngIf="selectedGenero">{{ selectedGenero }}</span>
+                      </span>
+                      <span class="dropdown-icon" [class.expanded]="isGeneroOpen">▼</span>
+                    </div>
+                    
+                    <div class="genre-dropdown-content" *ngIf="isGeneroOpen">
+                      <div class="genre-search-container">
+                        <input 
+                          type="text" 
+                          class="genre-search-input"
+                          [(ngModel)]="generoSearch"
+                          name="generoSearch"
+                          placeholder="Buscar género..."
+                          (input)="filterGeneros()">
+                      </div>
+                      <div class="genre-options-list">
+                        <div 
+                          *ngFor="let genero of filteredGeneros" 
+                          class="genre-option"
+                          (click)="selectGenero(genero)"
+                          [class.selected]="selectedGenero === genero">
+                          {{ genero }}
+                        </div>
+                        <div *ngIf="filteredGeneros.length === 0" class="genre-no-results">
+                          No se encontraron géneros
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Estimación de Kg -->
+              <div class="form-group">
+                <label for="almacenKgEstimation" class="kg-label">
+                  ⚖️ Estimación de Kg para Confección *
+                </label>
+                <div class="kg-input-group">
+                  <input 
+                    type="number" 
+                    id="almacenKgEstimation"
+                    [(ngModel)]="almacenKgEstimation[getSelectedInvernaderos()[activeInvernaderoIndex]]"
+                    name="almacenKgEstimacion"
+                    class="kg-input"
+                    placeholder="Ej: 500"
+                    min="0"
+                    step="0.1"
+                    required>
+                  <span class="kg-unit">Kg</span>
+                </div>
+                <p class="kg-help-text">
+                  💡 Esta estimación de género ayudará a planificar el almacenamiento y confección necesarios
+                </p>
+              </div>
+            </div>
           </div>
           <!-- Área de trabajo (ocultar en modo ALMACÉN) -->
           <div *ngIf="!isAlmacenMode" class="working-area-section">

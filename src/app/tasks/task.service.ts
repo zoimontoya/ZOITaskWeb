@@ -19,6 +19,8 @@ export interface Task {
   desarrollo_actual: string;
   dimension_total: string;
   proceso: string;
+  horas_kilos?: number | string; // Columna F: 0=hectáreas, 1=kilos
+  genero?: string; // Columna R: género para tareas ALMACEN-CONFECC
 }
 
 

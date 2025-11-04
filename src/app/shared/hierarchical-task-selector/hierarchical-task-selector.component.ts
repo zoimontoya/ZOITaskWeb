@@ -29,7 +29,14 @@ interface TareaOption {
 export class HierarchicalTaskSelectorComponent implements OnInit, OnChanges {
   @Input() grupoTrabajo: string = '';
   @Input() selectedTarea: string = '';
-  @Output() tareaSelected = new EventEmitter<{nombre: string, jornal_unidad: number}>();
+  @Output() tareaSelected = new EventEmitter<{
+    nombre: string, 
+    jornal_unidad: number, 
+    familia?: string, 
+    tipo?: string, 
+    subtipo?: string,
+    tarea_completa?: any
+  }>();
 
   tiposTarea: TipoTarea[] = [];
   tipos: TareaOption[] = [];
@@ -71,8 +78,17 @@ export class HierarchicalTaskSelectorComponent implements OnInit, OnChanges {
       next: (tiposTarea) => {
         this.tiposTarea = tiposTarea;
         
+        // DEBUG: Mostrar todas las tareas cargadas
+        console.log('🎯 HIERARCHICAL SELECTOR - Tareas cargadas para grupo:', this.grupoTrabajo);
+        console.log('📋 Total tareas:', this.tiposTarea.length);
+        
+        // Buscar específicamente ALMACEN-CONFECC
+        const almacenConfeccTasks = this.tiposTarea.filter(t => t.familia === 'ALMACEN-CONFECC');
+        console.log('🏪 HIERARCHICAL - Tareas ALMACEN-CONFECC:', almacenConfeccTasks);
+        
         // Extraer tipos únicos directamente
         const tiposUnicos = [...new Set(this.tiposTarea.map(t => t.tipo))].filter(t => t);
+        console.log('🎯 Tipos únicos extraídos:', tiposUnicos);
         
         this.tipos = tiposUnicos.map(tipo => {
           const hasSubtareas = this.tiposTarea.some(t => t.tipo === tipo && t.subtipo);
@@ -82,6 +98,8 @@ export class HierarchicalTaskSelectorComponent implements OnInit, OnChanges {
             hasSubtareas
           };
         });
+        
+        console.log('📋 Tipos procesados para dropdown:', this.tipos);
         
         // Inicializar las opciones filtradas
         this.updateFilteredOptions();
@@ -216,6 +234,8 @@ export class HierarchicalTaskSelectorComponent implements OnInit, OnChanges {
   }
 
   selectOption(value: string, label: string): void {
+    console.log('🎯 HIERARCHICAL - Opción seleccionada:', { value, label });
+    
     this.selectedTipo = value;
     this.selectedTaskLabel = label;
     this.searchTerm = '';
@@ -226,31 +246,45 @@ export class HierarchicalTaskSelectorComponent implements OnInit, OnChanges {
   private emitSelection(): void {
     let tareaNombre = '';
     let jornalUnidad = 0;
+    let tareaFound: TipoTarea | undefined;
 
     if (this.selectedTipo) {
       if (this.selectedTipo.includes('|')) {
         // Es un valor combinado (tipo|subtipo)
         const [tipo, subtipo] = this.selectedTipo.split('|');
-        const tareaFound = this.tiposTarea.find(t => 
+        tareaFound = this.tiposTarea.find(t => 
           t.tipo === tipo && 
           t.subtipo === subtipo
         );
-        tareaNombre = tareaFound?.tarea_nombre || '';
-        jornalUnidad = parseFloat(tareaFound?.jornal_unidad.replace(',', '.') || '0') || 0;
       } else {
         // Es un tipo simple sin subtipos
-        const tareaFound = this.tiposTarea.find(t => 
+        tareaFound = this.tiposTarea.find(t => 
           t.tipo === this.selectedTipo && 
           !t.subtipo
         );
-        tareaNombre = tareaFound?.tarea_nombre || '';
-        jornalUnidad = parseFloat(tareaFound?.jornal_unidad.replace(',', '.') || '0') || 0;
+      }
+      
+      if (tareaFound) {
+        tareaNombre = tareaFound.tarea_nombre || '';
+        jornalUnidad = parseFloat(tareaFound.jornal_unidad.replace(',', '.') || '0') || 0;
       }
     }
 
+    console.log('🎯 HIERARCHICAL - Emitiendo selección:', {
+      selectedTipo: this.selectedTipo,
+      tareaFound: tareaFound,
+      tareaNombre: tareaNombre,
+      jornalUnidad: jornalUnidad,
+      familia: tareaFound?.familia
+    });
+
     this.tareaSelected.emit({
       nombre: tareaNombre,
-      jornal_unidad: jornalUnidad
+      jornal_unidad: jornalUnidad,
+      familia: tareaFound?.familia,
+      tipo: tareaFound?.tipo,
+      subtipo: tareaFound?.subtipo,
+      tarea_completa: tareaFound
     });
   }
 

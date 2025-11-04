@@ -615,8 +615,10 @@ import { Chart, registerables } from 'chart.js';
       z-index: 9999;
       display: flex;
       justify-content: center;
-      align-items: center;
+      align-items: flex-start;
       backdrop-filter: blur(5px);
+      overflow-y: auto;
+      padding: 1rem 0;
     }
 
     .analytics-modal-content {
@@ -625,11 +627,12 @@ import { Chart, registerables } from 'chart.js';
       border-radius: 20px;
       width: 90%;
       max-width: 1200px;
-      max-height: 90vh;
-      overflow-y: auto;
+      height: auto;
+      overflow: visible;
       color: white;
       box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
       position: relative;
+      margin: auto;
     }
 
     .analytics-modal-header {
@@ -727,7 +730,7 @@ import { Chart, registerables } from 'chart.js';
       border-radius: 15px;
       backdrop-filter: blur(10px);
       width: 100%;
-      min-height: 400px;
+      height: auto;
     }
 
     .chart-section h4 {
@@ -878,9 +881,24 @@ import { Chart, registerables } from 'chart.js';
     }
 
     @media (max-width: 768px) {
+      .modal-overlay, .analytics-modal {
+        padding: 0.5rem 0;
+        align-items: flex-start;
+      }
+      
+      .modal-content {
+        width: 95%;
+        margin: 0.5rem auto;
+      }
+      
+      .modal-body {
+        padding: 1.5rem;
+      }
+      
       .analytics-modal-content {
         width: 95%;
         padding: 1rem;
+        margin: 0.5rem auto;
       }
       
       .invernadero-checkboxes {
@@ -888,7 +906,8 @@ import { Chart, registerables } from 'chart.js';
       }
       
       .chart-section {
-        min-height: 300px;
+        height: auto;
+        padding: 1rem;
       }
       
       .chart-canvas {
@@ -930,7 +949,7 @@ import { Chart, registerables } from 'chart.js';
       font-style: italic;
     }
 
-    /* Modal Styles */
+    /* Modal Styles - SIN SCROLL INTERNO */
     .modal-overlay {
       position: fixed;
       top: 0;
@@ -940,9 +959,11 @@ import { Chart, registerables } from 'chart.js';
       background: rgba(0, 0, 0, 0.7);
       display: flex;
       justify-content: center;
-      align-items: center;
+      align-items: flex-start;
       z-index: 1000;
       backdrop-filter: blur(5px);
+      overflow-y: auto;
+      padding: 1rem 0;
     }
     
     .modal-content {
@@ -950,9 +971,10 @@ import { Chart, registerables } from 'chart.js';
       border-radius: 20px;
       width: 90%;
       max-width: 600px;
-      max-height: 90vh;
-      overflow-y: auto;
+      height: auto;
+      overflow: visible;
       box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+      margin: auto;
     }
     
     .modal-header {
