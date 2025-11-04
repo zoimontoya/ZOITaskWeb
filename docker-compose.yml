@@ -25,7 +25,7 @@ services:
     build: .
     container_name: zoi-task-frontend
     ports:
-      - "8090:80"  # Puerto 8090 para acceso externo (8080 estaba ocupado)
+      - "0.0.0.0:8090:80"  # Puerto 8090 para acceso externo (8080 estaba ocupado)
     depends_on:
       - backend
     networks:
