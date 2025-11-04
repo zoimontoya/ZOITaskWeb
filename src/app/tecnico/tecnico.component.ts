@@ -910,10 +910,25 @@ import { Chart, registerables } from 'chart.js';
                   <div class="report-field">
                     <strong>⚖️ KG Totales:</strong> {{cogidaReports[activeCogidaReportIndex].kilos}}
                   </div>
-                  <div class="report-field" *ngIf="cogidaReports[activeCogidaReportIndex].intervalokg">
+                  <div class="report-field intervals-table-container" *ngIf="cogidaReports[activeCogidaReportIndex].intervalokg && cogidaReports[activeCogidaReportIndex].kgintervalo">
+                    <strong>🎨 Intervalos de Coloración y KG:</strong>
+                    <div class="intervals-table">
+                      <div class="table-header">
+                        <div class="table-cell header-cell">Intervalo</div>
+                        <div class="table-cell header-cell">KG</div>
+                      </div>
+                      <ng-container *ngFor="let interval of getIntervalTableData(cogidaReports[activeCogidaReportIndex]); let i = index">
+                        <div class="table-row">
+                          <div class="table-cell interval-cell">{{interval.range}}</div>
+                          <div class="table-cell kg-cell">{{interval.kg}}</div>
+                        </div>
+                      </ng-container>
+                    </div>
+                  </div>
+                  <div class="report-field" *ngIf="cogidaReports[activeCogidaReportIndex].intervalokg && !cogidaReports[activeCogidaReportIndex].kgintervalo">
                     <strong>🎨 Intervalos de Coloración:</strong> {{cogidaReports[activeCogidaReportIndex].intervalokg}}
                   </div>
-                  <div class="report-field" *ngIf="cogidaReports[activeCogidaReportIndex].kgintervalo">
+                  <div class="report-field" *ngIf="!cogidaReports[activeCogidaReportIndex].intervalokg && cogidaReports[activeCogidaReportIndex].kgintervalo">
                     <strong>📊 KG por Intervalo:</strong> {{cogidaReports[activeCogidaReportIndex].kgintervalo}}
                   </div>
                   <div class="report-field">
@@ -2698,6 +2713,65 @@ import { Chart, registerables } from 'chart.js';
       color: inherit !important;
     }
 
+    .intervals-table-container {
+      grid-column: 1 / -1;
+    }
+
+    .intervals-table {
+      margin-top: 0.75rem;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .table-header {
+      display: flex;
+      background: #8e6dc9;
+      color: white;
+    }
+
+    .table-row {
+      display: flex;
+      border-bottom: 1px solid #e9ecef;
+      background: white;
+    }
+
+    .table-row:nth-child(even) {
+      background: #f8f9fa;
+    }
+
+    .table-row:hover {
+      background: rgba(142, 109, 201, 0.08);
+    }
+
+    .table-cell {
+      flex: 1;
+      padding: 0.75rem 1rem;
+      text-align: center;
+      border-right: 1px solid #e9ecef;
+    }
+
+    .table-cell:last-child {
+      border-right: none;
+    }
+
+    .header-cell {
+      font-weight: 600;
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .interval-cell {
+      font-weight: 600;
+      color: #8e6dc9;
+    }
+
+    .kg-cell {
+      font-weight: 500;
+      color: #495057;
+    }
+
     .status-yes {
       color: #1565c0;
       font-weight: 600;
@@ -3472,6 +3546,28 @@ export class TecnicoComponent implements OnInit {
     if (index >= 0 && index < this.cogidaReports.length) {
       this.activeCogidaReportIndex = index;
     }
+  }
+
+  // Procesar datos de intervalos para mostrar en tabla
+  getIntervalTableData(report: any): {range: string, kg: string}[] {
+    if (!report.intervalokg || !report.kgintervalo) {
+      return [];
+    }
+    
+    const intervals = report.intervalokg.split(';').map((interval: string) => interval.trim());
+    const kgValues = report.kgintervalo.split(';').map((kg: string) => kg.trim());
+    
+    const tableData: {range: string, kg: string}[] = [];
+    
+    // Combinar intervalos con sus kg correspondientes
+    for (let i = 0; i < Math.max(intervals.length, kgValues.length); i++) {
+      tableData.push({
+        range: intervals[i] || '-',
+        kg: kgValues[i] || '-'
+      });
+    }
+    
+    return tableData;
   }
 
   // ==================== FIN FUNCIONES CONSULTAR INFORMES DE COGIDA ====================
