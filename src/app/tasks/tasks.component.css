@@ -1844,6 +1844,30 @@ ul {
   border-radius: 0.2rem;
 }
 
+/* Estilos para información de trabajadores en tareas con progreso/terminadas */
+.task-workers-info {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background: linear-gradient(135deg, #e7f3ff, #cce7ff);
+  border: 1px solid #b3d9ff;
+  border-radius: 0.5rem;
+  border-left: 4px solid #1565c0;
+}
+
+.task-workers-info .workers-title {
+  color: #1565c0;
+}
+
+.task-workers-info .worker-item {
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(21, 101, 192, 0.2);
+}
+
+.task-workers-info .worker-hours {
+  color: #1565c0;
+  background: rgba(21, 101, 192, 0.1);
+}
+
 /* Modal de tarea urgente restaurado con estilos originales pero ancho corregido */
 .urgent-task-modal {
   max-width: 30rem; /* Mismo ancho que el modal normal */

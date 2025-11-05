@@ -631,6 +631,17 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Información de trabajadores para tareas con progreso o terminadas que tienen horas -->
+                <div *ngIf="!isUrgentTask(task) && (getTaskState(task) === 'Terminada' || getTaskState(task) === 'Recolectando' || (getTaskState(task) && isNumber(getTaskState(task)) && toNumber(getTaskState(task)) > 0)) && hasTaskWorkers(task.id)" class="task-workers-info">
+                    <div class="workers-title">👥 Trabajadores y horas:</div>
+                    <div class="workers-list">
+                        <div *ngFor="let trabajador of getTaskWorkers(task.id)" class="worker-item">
+                            <span class="worker-name">{{ trabajador.nombre }}</span>
+                            <span class="worker-hours">{{ trabajador.horasTotal }}h</span>
+                        </div>
+                    </div>
+                </div>
                 
                 <div *ngIf="isEncargado && !isTaskCompleted(task)" class="task-actions">
                     <button *ngIf="getTaskState(task) === 'No iniciado'" 

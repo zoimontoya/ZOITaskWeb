@@ -851,10 +851,20 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
         this.tiposTarea = Array.from(new Set(this.tasks.map(t => t.tipo_tarea).filter(Boolean)));
         this.encargados = Array.from(new Set(this.tasks.map(t => t.encargado_id).filter(Boolean)));
         
-        // Cargar trabajadores para tareas urgentes
+        // Cargar trabajadores para tareas urgentes y tareas con progreso/terminadas
         this.tasks.forEach(task => {
           if (this.isUrgentTask(task)) {
             this.loadTaskWorkers(task.id);
+          } else {
+            // Cargar trabajadores para tareas con progreso, terminadas o recolectando
+            const taskState = this.getTaskState(task);
+            const shouldLoadWorkers = taskState === 'Terminada' || 
+                                      taskState === 'Recolectando' || 
+                                      (taskState && this.isNumber(taskState) && this.toNumber(taskState) > 0);
+            
+            if (shouldLoadWorkers) {
+              this.loadTaskWorkers(task.id);
+            }
           }
         });
 
@@ -2125,6 +2135,8 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     const workers = this.getTaskWorkers(taskId);
     return workers.length > 0;
   }
+
+
 
   // 📊 Métodos para contar tareas por estado (usar la misma lógica que applyFilters)
   getTaskCountByEstado(estado: string): number {
