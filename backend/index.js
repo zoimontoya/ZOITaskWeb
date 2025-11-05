@@ -1639,7 +1639,7 @@ app.post('/tasks', verifyJWT, async (req, res) => {
 
       const updatedRow = [
         idToUpdate,                                    // A: id
-        `'${req.body.invernadero}`,                    // B: invernadero (prefijo con ' para forzar texto en Excel)
+        req.body.invernadero,                          // B: invernadero
         req.body.tipo_tarea,                           // C: tipo_tarea
         estimacionHoras,                               // D: estimacion_horas (ya calculado en frontend)
         horaJornal,                                    // E: hora_jornal (0=6hrs, 1=8hrs)
@@ -1667,6 +1667,36 @@ app.post('/tasks', verifyJWT, async (req, res) => {
         valueInputOption: 'RAW',
         resource: { values: [updatedRow] }
       });
+
+      // Formatear la celda del invernadero como texto para preservar ceros
+      try {
+        await sheets.spreadsheets.batchUpdate({
+          spreadsheetId: SPREADSHEET_ID,
+          resource: {
+            requests: [{
+              repeatCell: {
+                range: {
+                  sheetId: tareasSheet.properties.sheetId,
+                  startRowIndex: rowIndex,
+                  endRowIndex: rowIndex + 1,
+                  startColumnIndex: 1, // Columna B (invernadero)
+                  endColumnIndex: 2
+                },
+                cell: {
+                  userEnteredFormat: {
+                    numberFormat: {
+                      type: 'TEXT'
+                    }
+                  }
+                },
+                fields: 'userEnteredFormat.numberFormat'
+              }
+            }]
+          }
+        });
+      } catch (err) {
+        console.log('⚠️ No se pudo formatear celda como texto:', err.message);
+      }
       
       console.log('✅ Validación completada - tarea actualizada:', idToUpdate);
         console.log('� === TAREA URGENTE DETECTADA - REGISTRANDO HORAS ===');
@@ -1997,7 +2027,7 @@ app.post('/tasks', verifyJWT, async (req, res) => {
       
       const row = [
         tarea.id,                                    // A: id
-        `'${tarea.invernadero}`,                     // B: invernadero (prefijo con ' para forzar texto en Excel)
+        tarea.invernadero,                           // B: invernadero
         tarea.tipo_tarea,                            // C: tipo_tarea
         estimacionHoras,                             // D: estimacion_horas (ya calculado en frontend)
         horaJornal,                                  // E: hora_jornal (0=SIN cálculos para urgentes, 1=8hrs)
@@ -2060,13 +2090,46 @@ app.post('/tasks', verifyJWT, async (req, res) => {
     
     console.log(`✅ Verificación completada: ${idsToCreate.length} IDs únicos confirmados`);
     
-    await sheets.spreadsheets.values.append({
+    const appendResult = await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_ID,
       range: tareasSheet.properties.title,
       valueInputOption: 'RAW',
       insertDataOption: 'INSERT_ROWS',
       resource: { values: newRows }
     });
+
+    // Formatear las celdas de invernadero como texto para preservar ceros
+    if (newRows.length > 0) {
+      try {
+        const startRow = appendResult.data.updates.updatedRange.match(/(\d+)$/)[1] - newRows.length;
+        await sheets.spreadsheets.batchUpdate({
+          spreadsheetId: SPREADSHEET_ID,
+          resource: {
+            requests: [{
+              repeatCell: {
+                range: {
+                  sheetId: tareasSheet.properties.sheetId,
+                  startRowIndex: parseInt(startRow),
+                  endRowIndex: parseInt(startRow) + newRows.length,
+                  startColumnIndex: 1, // Columna B (invernadero)
+                  endColumnIndex: 2
+                },
+                cell: {
+                  userEnteredFormat: {
+                    numberFormat: {
+                      type: 'TEXT'
+                    }
+                  }
+                },
+                fields: 'userEnteredFormat.numberFormat'
+              }
+            }]
+          }
+        });
+      } catch (err) {
+        console.log('⚠️ No se pudo formatear celdas de invernadero como texto:', err.message);
+      }
+    }
     
     console.log('Tareas creadas:', newRows.map(r => r[0]));
     
@@ -3524,7 +3587,7 @@ app.post('/technician/create-report', verifyJWT, async (req, res) => {
       codigo,
       fechaCreacion,
       nombre_encargado,
-      `'${invernadero}`,  // Prefijo con ' para forzar texto en Excel
+      invernadero,  // Invernadero sin prefijo
       genero,
       estadoPlanta,
       porcentajePlanta,
@@ -3616,7 +3679,7 @@ app.post('/technician/create-manager-report', verifyJWT, async (req, res) => {
       codigo,                                    // A: codigo
       fechaFormateada,                          // B: fecha
       nombre_encargado || 'Desconocido',        // C: nombre_encargado
-      `'${invernadero}`,                        // D: invernadero (prefijo con ' para forzar texto en Excel)
+      invernadero,                              // D: invernadero
       genero,                                   // E: genero
       kgTotales,                               // F: kilos
       intervalokgFormatted,                    // G: intervalokg (0-6;7-10)
