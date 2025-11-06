@@ -2635,9 +2635,17 @@ app.get('/trabajadores-tarea/:taskId', optionalJWT, async (req, res) => {
     
     dataRows.forEach(row => {
       if (row[rankingIndex] && row[rankingIndex].toString() === taskId.toString()) {
+        const horasRaw = row[horasIndex];
+        
+        // Convertir coma decimal a punto decimal para parseFloat
+        let horasStr = horasRaw ? horasRaw.toString().replace(',', '.') : '0';
+        const horasParsed = parseFloat(horasStr) || 0;
+        
+        console.log(`🔍 Valor horas raw: "${horasRaw}" -> normalizado: "${horasStr}" -> parsed: ${horasParsed}`);
+        
         trabajadoresData.push({
           trabajador: row[trabajadorIndex] || '',
-          horas: parseFloat(row[horasIndex]) || 0,
+          horas: horasParsed,
           fecha: row[fechaIndex] || ''
         });
       }
@@ -2654,7 +2662,13 @@ app.get('/trabajadores-tarea/:taskId', optionalJWT, async (req, res) => {
             registros: []
           };
         }
-        trabajadoresAgrupados[registro.trabajador].horasTotal += registro.horas;
+        // Usar precisión decimal para evitar errores de punto flotante
+        const horasAnteriores = trabajadoresAgrupados[registro.trabajador].horasTotal;
+        const horasNuevas = registro.horas;
+        const horasTotal = Math.round((horasAnteriores + horasNuevas) * 100) / 100;
+        trabajadoresAgrupados[registro.trabajador].horasTotal = horasTotal;
+        
+        console.log(`➕ ${registro.trabajador}: ${horasAnteriores} + ${horasNuevas} = ${horasTotal}`);
         trabajadoresAgrupados[registro.trabajador].registros.push({
           horas: registro.horas,
           fecha: registro.fecha

@@ -207,18 +207,13 @@
                 </div>
             </div>
             
-            <!-- Horas trabajadas -->
+            <!-- Horas trabajadas calculadas automáticamente -->
             <div class="form-group">
-                <label class="form-label" for="urgentHoras">Horas trabajadas *</label>
-            <input 
-                type="number" 
-                id="urgentHoras"
-                [(ngModel)]="urgentTask.horas_trabajadas"
-                name="urgentHoras"
-                placeholder="Ej: 4"
-                min="0.5"
-                step="0.5"
-                required>
+                <label class="form-label">Horas totales trabajadas</label>
+                <div class="urgent-hours-calculated">
+                    <span class="calculated-value">{{ getTotalHorasUrgentWorkers() }}h</span>
+                </div>
+                <small class="field-note">*Calculado automáticamente sumando las horas de cada trabajador</small>
         </div>
         
             <!-- Descripción -->
@@ -236,15 +231,15 @@
             <!-- Trabajadores asignados -->
             <div class="form-group">
                 <label class="form-label">Trabajadores que participaron</label>
-                <p class="field-note">Haz clic en "Asignar Trabajadores" para registrar quién trabajó en esta tarea</p>
+                <p class="field-note">Asigna a cada trabajador las horas exactas que trabajó en esta tarea</p>
                 <button 
                     type="button" 
                     class="task-action-btn" 
                     (click)="onOpenWorkersForUrgentTask()">
-                    <span class="icon">👥</span> Asignar Trabajadores
+                    <span class="icon">👥</span> Asignar trabajadores y horas
                 </button>
             <div *ngIf="urgentTaskWorkers.length > 0" class="workers-summary">
-                <small>{{ urgentTaskWorkers.length }} trabajador(es) asignado(s)</small>
+                <small>{{ urgentTaskWorkers.length }} trabajador(es) - {{ getTotalHorasUrgentWorkers() }}h totales</small>
             </div>
         </div>
         
@@ -366,20 +361,14 @@
                 </div>
             </div>
             
-            <!-- Campo para horas reales -->
+            <!-- Campo calculado automáticamente de horas reales -->
             <div class="jornales-reales-section">
-                <label for="jornalesReales">Horas realmente trabajadas <span class="asterisk">*</span>:</label>
-                <input 
-                    type="number" 
-                    id="jornalesReales"
-                    [(ngModel)]="jornalesRealesValue"
-                    min="0.1"
-                    step="0.1"
-                    class="jornales-input"
-                    placeholder="Ingresa las horas trabajadas (obligatorio)"
-                    required>
+                <div class="jornales-calculated">
+                    <span class="calculated-label">Horas totales trabajadas:</span>
+                    <span class="calculated-value">{{ getTotalHorasTrabajadores() }}h</span>
+                </div>
                 <small class="jornales-info">
-                    *Estimación inicial: {{taskToComplete?.estimacion_horas || 0}} jornales
+                    *Calculado automáticamente sumando las horas de cada trabajador
                 </small>
             </div>
 
@@ -390,9 +379,8 @@
                     <button 
                         type="button"
                         class="workers-btn" 
-                        (click)="onOpenWorkersModal()"
-                        [disabled]="jornalesRealesValue <= 0">
-                        👥 Horas trabajadores
+                        (click)="onOpenWorkersModal()">
+                        👥 Asignar trabajadores y horas
                     </button>
                 </div>
                 
@@ -627,7 +615,7 @@
                     <div class="workers-list">
                         <div *ngFor="let trabajador of getTaskWorkers(task.id)" class="worker-item">
                             <span class="worker-name">{{ trabajador.nombre }}</span>
-                            <span class="worker-hours">{{ trabajador.horasTotal }}h</span>
+                            <span class="worker-hours">{{ formatHoras(trabajador.horasTotal) }}h</span>
                         </div>
                     </div>
                 </div>
@@ -638,7 +626,7 @@
                     <div class="workers-list">
                         <div *ngFor="let trabajador of getTaskWorkers(task.id)" class="worker-item">
                             <span class="worker-name">{{ trabajador.nombre }}</span>
-                            <span class="worker-hours">{{ trabajador.horasTotal }}h</span>
+                            <span class="worker-hours">{{ formatHoras(trabajador.horasTotal) }}h</span>
                         </div>
                     </div>
                 </div>
@@ -707,7 +695,7 @@
 <!-- Modal de asignación de trabajadores -->
 <app-asignar-trabajadores
     [showModal]="showWorkersModal"
-    [horasRequeridas]="jornalesRealesValue"
+    [horasRequeridas]="0"
     [trabajadoresAsignados]="trabajadoresAsignados"
     (closeModal)="onCloseWorkersModal()"
     (saveAssignments)="onSaveWorkerAssignments($event)">

@@ -7,10 +7,9 @@
         
         <div class="modal-body">
             <div class="hours-summary">
-                <p><strong>Horas requeridas:</strong> {{horasRequeridas}}</p>
-                <p><strong>Horas asignadas:</strong> {{getTotalHoras()}}</p>
-                <p class="validation-message" [class.valid]="isValid()" [class.invalid]="!isValid()">
-                    {{getValidationMessage()}}
+                <p><strong>Horas totales asignadas:</strong> {{getTotalHoras()}}</p>
+                <p class="info-message">
+                    Asigne a cada trabajador las horas exactas que trabajó en esta tarea
                 </p>
             </div>
 

@@ -157,14 +157,12 @@ export class AsignarTrabajadoresComponent implements OnInit {
   }
 
   isValid(): boolean {
-    return this.getTotalHoras() === this.horasRequeridas && 
-           this.tempAsignados.length > 0 && 
+    return this.tempAsignados.length > 0 && 
            this.tempAsignados.every(ta => ta.horas > 0);
   }
 
   getValidationMessage(): string {
     const totalHoras = this.getTotalHoras();
-    const diferencia = this.horasRequeridas - totalHoras;
     
     if (this.tempAsignados.length === 0) {
       return 'Debe asignar al menos un trabajador';
@@ -175,18 +173,12 @@ export class AsignarTrabajadoresComponent implements OnInit {
       return `${trabajadoresSinHoras.length} trabajador(es) sin horas asignadas`;
     }
     
-    if (diferencia > 0) {
-      return `Faltan ${diferencia} horas por asignar`;
-    } else if (diferencia < 0) {
-      return `Sobran ${Math.abs(diferencia)} horas asignadas`;
-    }
-    
-    return '✅ Las horas cuadran perfectamente';
+    return `✅ ${this.tempAsignados.length} trabajador(es) - ${totalHoras} horas totales`;
   }
 
   onSave(): void {
     if (!this.isValid()) {
-      alert('Las horas asignadas deben coincidir exactamente con las horas requeridas.');
+      alert('Debe asignar al menos un trabajador con horas válidas.');
       return;
     }
 

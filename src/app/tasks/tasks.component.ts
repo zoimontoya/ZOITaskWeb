@@ -274,15 +274,9 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   }
   
   onOpenWorkersForUrgentTask() {
-    // Validar que hay horas especificadas
-    if (this.urgentTask.horas_trabajadas <= 0) {
-      return;
-    }
-    
     // Abrir modal de trabajadores para la tarea urgente
     this.isUrgentTaskWorkersMode = true;
     this.trabajadoresAsignados = [...this.urgentTaskWorkers]; // Copiar los trabajadores actuales
-    this.jornalesRealesValue = this.urgentTask.horas_trabajadas; // Pasar las horas totales
     this.trabajadoresValidados = false; // Resetear validación
     this.showWorkersModal = true;
   }
@@ -465,12 +459,12 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     if (this.isCreatingUrgentTask) return; // Evitar doble envío
 
     // Validaciones básicas
-    if (!this.urgentTask.invernadero.trim() || !this.urgentTask.tipo_tarea.trim() || this.urgentTask.horas_trabajadas <= 0) {
+    if (!this.urgentTask.invernadero.trim() || !this.urgentTask.tipo_tarea.trim()) {
       console.warn('[DEBUG] Falta campo obligatorio. modalMessage:', this.modalMessage);
       setTimeout(() => {
         console.warn('[DEBUG][setTimeout] Intentando mostrar modal de campos obligatorios. modalMessage:', this.modalMessage);
         if (this.modalMessage) {
-          this.modalMessage.show('Debes completar todos los campos obligatorios (invernadero, tipo de tarea y horas trabajadas).', 'Campos requeridos');
+          this.modalMessage.show('Debes completar todos los campos obligatorios (invernadero y tipo de tarea).', 'Campos requeridos');
           console.warn('[DEBUG][setTimeout] show() llamado para campos obligatorios.');
         } else {
           console.error('[DEBUG][setTimeout] modalMessage NO disponible.');
@@ -506,12 +500,14 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
       }, 0);
       return; // Si es una tarea ALMACEN-CONFECC, el género es obligatorio
     }
-    if (!this.urgentTaskWorkers || this.urgentTaskWorkers.length === 0) {
-      console.warn('[DEBUG] No hay trabajadores. modalMessage:', this.modalMessage);
+    // Validar trabajadores asignados con horas
+    const totalHorasUrgent = this.getTotalHorasUrgentWorkers();
+    if (!this.urgentTaskWorkers || this.urgentTaskWorkers.length === 0 || totalHorasUrgent <= 0) {
+      console.warn('[DEBUG] No hay trabajadores con horas. modalMessage:', this.modalMessage);
       setTimeout(() => {
         console.warn('[DEBUG][setTimeout] Intentando mostrar modal de trabajadores. modalMessage:', this.modalMessage);
         if (this.modalMessage) {
-          this.modalMessage.show('Debes asignar al menos un trabajador a la tarea urgente.', 'Campos requeridos');
+          this.modalMessage.show('Debes asignar al menos un trabajador con horas válidas a la tarea urgente.', 'Campos requeridos');
           console.warn('[DEBUG][setTimeout] show() llamado para trabajadores.');
         } else {
           console.error('[DEBUG][setTimeout] modalMessage NO disponible.');
@@ -535,10 +531,10 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     const tareaUrgente: any = {
       invernadero: this.urgentTask.invernadero.trim(),
       tipo_tarea: this.urgentTask.tipo_tarea.trim(),
-      estimacion_horas: this.urgentTask.horas_trabajadas,
+      estimacion_horas: this.getTotalHorasUrgentWorkers(),
       hora_jornal: horaJornalValue,
       horas_kilos: horasKilosValue,
-      jornales_reales: this.urgentTask.horas_trabajadas,
+      jornales_reales: this.getTotalHorasUrgentWorkers(),
       fecha_limite: todayIso,
       encargado_id: this.userId,
       descripcion: this.buildUrgentTaskDescription(),
@@ -559,8 +555,8 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
       tareaUrgente.fecha_inicio = tareaUrgente.fecha_limite;
       tareaUrgente.fecha_fin = tareaUrgente.fecha_limite;
       tareaUrgente.fecha_actualizacion = tareaUrgente.fecha_limite;
-      // Asegurar jornales_reales mantiene las horas indicadas
-      tareaUrgente.jornales_reales = this.urgentTask.horas_trabajadas;
+      // Asegurar jornales_reales mantiene las horas calculadas
+      tareaUrgente.jornales_reales = this.getTotalHorasUrgentWorkers();
     } else {
       tareaUrgente.proceso = 'Por validar';
     }
@@ -1212,9 +1208,10 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
       return;
     }
     this.isProcessing = true;
-    // Validar que se haya ingresado el número de horas reales
-    if (!this.jornalesRealesValue || this.jornalesRealesValue <= 0) {
-      this.showNotificationMessage('Por favor, ingresa el número de horas realmente trabajadas.', 'warning');
+    // Validar que se hayan asignado trabajadores con horas
+    const totalHoras = this.getTotalHorasTrabajadores();
+    if (totalHoras <= 0) {
+      this.showNotificationMessage('Debes asignar trabajadores y sus horas antes de actualizar el progreso.', 'warning');
       this.isProcessing = false;
       return;
     }
@@ -1252,7 +1249,8 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
       console.log(`MODO HECTÁREAS: ${this.progressValue}% = ${hectareasActuales}/${totalHectares} Ha`);
     }
     this.showLoadingOverlay('Actualizando progreso...');
-    this.taskService.updateTaskProgress(this.taskToComplete.id, progressValue, desarrolloValue, this.jornalesRealesValue, this.trabajadoresAsignados, this.name).subscribe({
+    const totalHorasCalculadas = this.getTotalHorasTrabajadores();
+    this.taskService.updateTaskProgress(this.taskToComplete.id, progressValue, desarrolloValue, totalHorasCalculadas, this.trabajadoresAsignados, this.name).subscribe({
       next: () => {
         console.log('Progreso actualizado correctamente');
         this.hideLoadingOverlay();
@@ -1286,9 +1284,10 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     
     this.isProcessing = true;
     
-    // Validar que se haya ingresado el número de horas reales
-    if (!this.jornalesRealesValue || this.jornalesRealesValue <= 0) {
-      this.showNotificationMessage('Por favor, ingresa el número de horas realmente trabajadas para completar la tarea.', 'warning');
+    // Validar que se hayan asignado trabajadores con horas
+    const totalHoras = this.getTotalHorasTrabajadores();
+    if (totalHoras <= 0) {
+      this.showNotificationMessage('Debes asignar trabajadores y sus horas antes de completar la tarea.', 'warning');
       this.isProcessing = false;
       return;
     }
@@ -1324,7 +1323,8 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     this.showLoadingOverlay('Terminando tarea...');
     
     // Completar directamente (actualizar progreso al 100% y completar en una sola operación)
-    this.taskService.completeTaskDirect(this.taskToComplete.id, progressValue, desarrolloValue, this.jornalesRealesValue, this.trabajadoresAsignados, this.name).subscribe({
+    const totalHorasCalculadas = this.getTotalHorasTrabajadores();
+    this.taskService.completeTaskDirect(this.taskToComplete.id, progressValue, desarrolloValue, totalHorasCalculadas, this.trabajadoresAsignados, this.name).subscribe({
         next: () => {
           console.log('Tarea completada correctamente (operación única)');
           this.hideLoadingOverlay();
@@ -1957,10 +1957,6 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
 
   // Métodos para asignación de trabajadores
   onOpenWorkersModal(): void {
-    if (this.jornalesRealesValue <= 0) {
-      this.showNotificationMessage('Primero debe especificar las horas realmente trabajadas.', 'warning');
-      return;
-    }
     this.showWorkersModal = true;
   }
 
@@ -1986,7 +1982,8 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
 
   // Verificar si se pueden actualizar/completar las tareas
   canProceedWithUpdate(): boolean {
-    const basicValidation = this.trabajadoresValidados && this.jornalesRealesValue > 0;
+    const totalHoras = this.getTotalHorasTrabajadores();
+    const basicValidation = this.trabajadoresValidados && totalHoras > 0;
     
     // Si la tarea ya fue actualizada hoy, no se puede actualizar de nuevo
     if (this.taskToComplete && this.isTaskUpdatedToday(this.taskToComplete)) {
@@ -2026,13 +2023,14 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
       return '🚫 Esta tarea ya fue actualizada hoy. Podrá actualizarla mañana.';
     }
     
-    if (this.jornalesRealesValue <= 0) {
-      return 'Especifique las horas trabajadas';
+    const totalHoras = this.getTotalHorasTrabajadores();
+    if (totalHoras <= 0) {
+      return 'Debe asignar trabajadores y sus horas';
     }
     if (!this.trabajadoresValidados) {
-      return 'Debe asignar trabajadores antes de continuar';
+      return 'Debe validar las asignaciones de trabajadores';
     }
-    return `✅ ${this.trabajadoresAsignados.length} trabajador(es) asignado(s)`;
+    return `✅ ${this.trabajadoresAsignados.length} trabajador(es) - ${totalHoras}h totales`;
   }
 
   // Verificar si la tarea ya fue actualizada hoy
@@ -2136,7 +2134,45 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     return workers.length > 0;
   }
 
+  // Calcular horas totales automáticamente sumando las horas de trabajadores asignados
+  getTotalHorasTrabajadores(): number {
+    return this.trabajadoresAsignados.reduce((total, trabajador) => total + (trabajador.horas || 0), 0);
+  }
 
+  // Calcular horas totales para trabajadores de tareas urgentes
+  getTotalHorasUrgentWorkers(): number {
+    return this.urgentTaskWorkers.reduce((total, trabajador) => total + (trabajador.horas || 0), 0);
+  }
+
+  // Formatear horas con 2 decimales exactos sin redondeo
+  formatHoras(horas: any): string {
+    // Convertir a número si es string
+    let horasNum: number;
+    if (typeof horas === 'string') {
+      horasNum = parseFloat(horas);
+      if (isNaN(horasNum)) {
+        return '0,00';
+      }
+    } else if (typeof horas === 'number') {
+      horasNum = horas;
+    } else {
+      return '0,00';
+    }
+    
+    // Convertir a string manteniendo todos los decimales
+    const horasStr = horasNum.toString();
+    
+    // Si tiene punto decimal
+    if (horasStr.includes('.')) {
+      const [entero, decimal] = horasStr.split('.');
+      // Tomar solo los primeros 2 decimales sin redondear
+      const decimalTruncado = (decimal + '00').substring(0, 2);
+      return `${entero},${decimalTruncado}`;
+    } else {
+      // Si es entero, agregar ,00
+      return `${horasStr},00`;
+    }
+  }
 
   // 📊 Métodos para contar tareas por estado (usar la misma lógica que applyFilters)
   getTaskCountByEstado(estado: string): number {
