@@ -157,8 +157,8 @@ export class AsignarTrabajadoresComponent implements OnInit {
   }
 
   isValid(): boolean {
-    return this.tempAsignados.length > 0 && 
-           this.tempAsignados.every(ta => ta.horas > 0);
+    // Permitir guardar trabajadores aunque no tengan horas asignadas
+    return this.tempAsignados.length > 0;
   }
 
   getValidationMessage(): string {
@@ -170,7 +170,7 @@ export class AsignarTrabajadoresComponent implements OnInit {
 
     const trabajadoresSinHoras = this.tempAsignados.filter(ta => ta.horas <= 0);
     if (trabajadoresSinHoras.length > 0) {
-      return `${trabajadoresSinHoras.length} trabajador(es) sin horas asignadas`;
+      return `${this.tempAsignados.length} trabajador(es) - ${trabajadoresSinHoras.length} sin horas`;
     }
     
     return `✅ ${this.tempAsignados.length} trabajador(es) - ${totalHoras} horas totales`;
@@ -178,7 +178,7 @@ export class AsignarTrabajadoresComponent implements OnInit {
 
   onSave(): void {
     if (!this.isValid()) {
-      alert('Debe asignar al menos un trabajador con horas válidas.');
+      alert('Debe asignar al menos un trabajador.');
       return;
     }
 

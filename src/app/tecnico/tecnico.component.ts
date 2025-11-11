@@ -39,6 +39,11 @@ import { Chart, registerables } from 'chart.js';
               👔 Crear Informe de Encargado
             </button>
             
+            <!-- Botón para GESTIONAR MIS TAREAS GUARDADAS (solo para el creador) -->
+            <button class="manage-tasks-btn" (click)="openManageTasksModal()">
+              📝 Gestionar Mis Tareas Guardadas
+            </button>
+            
             <button class="analytics-btn" (click)="openAnalyticsModal()">
               📊 Consultar Estado de Invernaderos
             </button>
@@ -963,6 +968,108 @@ import { Chart, registerables } from 'chart.js';
       <div class="global-loading-content">
         <div class="loading-spinner"></div>
         <div class="loading-message">{{loadingMessage}}</div>
+      </div>
+    </div>
+
+    <!-- Modal para gestionar tareas guardadas -->
+    <div class="modal-overlay" *ngIf="showManageTasksModal" (click)="closeManageTasksModal()">
+      <div class="modal-content tasks-modal" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h3>📝 Mis Tareas Guardadas</h3>
+          <button class="close-btn" (click)="closeManageTasksModal()">✕</button>
+        </div>
+        
+        <div class="modal-body">
+          <div *ngIf="isLoadingTasks" class="loading-container">
+            <div class="spinner"></div>
+            <p>Cargando tareas guardadas...</p>
+          </div>
+          
+          <div *ngIf="!isLoadingTasks && savedTasks.length === 0" class="no-tasks">
+            <p>🔍 No tienes tareas guardadas.</p>
+            <p>Tus tareas aparecerán aquí cuando las guardes como borrador.</p>
+          </div>
+          
+          <div *ngIf="!isLoadingTasks && savedTasks.length > 0" class="tasks-list">
+            <div *ngFor="let task of savedTasks" class="task-item">
+              <div class="task-info">
+                <h4>{{task.invernadero}} - {{task.tipo_tarea}}</h4>
+                <p class="task-description">{{task.descripcion}}</p>
+                <div class="task-details">
+                  <span class="task-detail">📏 {{task.dimension_total}} Ha</span>
+                  <span class="task-detail">⏰ {{task.estimacion_horas}} h</span>
+                  <span class="task-detail">📅 {{task.fecha_creacion}}</span>
+                </div>
+              </div>
+              <div class="task-actions">
+                <button class="continue-btn" (click)="onContinueTask(task)">
+                  📝 Continuar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal para continuar tarea urgente -->
+    <div class="modal-overlay" *ngIf="showUrgentTaskModal" (click)="closeUrgentTaskModal()">
+      <div class="modal-content urgent-task-modal" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <h3>⚡ Continuar Tarea Urgente</h3>
+          <button class="close-btn" (click)="closeUrgentTaskModal()">✕</button>
+        </div>
+        
+        <div class="modal-body">
+          <!-- DEBUG INFO PARA COMPROBAR TRABAJADORES -->
+          <div style="background: #ff0000; color: #fff; padding: 15px; margin: 10px 0; border-radius: 5px; border: 3px solid #fff;">
+            <strong>🚨 DEBUG - TRABAJADORES:</strong><br>
+            <div style="font-size: 18px; font-weight: bold;">
+              Cantidad: {{ urgentTaskWorkers.length }}<br>
+            </div>
+            <div style="font-size: 12px; margin-top: 10px;">
+              Datos: {{ urgentTaskWorkers | json }}
+            </div>
+          </div>
+
+          <!-- INFORMACIÓN DE LA TAREA -->
+          <div class="task-summary">
+            <h4>{{urgentTask.invernadero}} - {{urgentTask.tipo_tarea}}</h4>
+            <p>{{urgentTask.descripcion}}</p>
+            <div class="task-meta">
+              <span>📏 {{urgentTask.dimension_total}} Ha</span>
+              <span>⏰ {{urgentTask.horas_trabajadas}} h</span>
+            </div>
+          </div>
+
+          <!-- TRABAJADORES ASIGNADOS -->
+          <div class="workers-section">
+            <h4>👥 Trabajadores Asignados</h4>
+            
+            <div *ngIf="urgentTaskWorkers.length > 0" class="workers-list" style="background: #00ff00; color: #000; padding: 10px; border-radius: 5px;">
+              <strong>✅ TRABAJADORES ENCONTRADOS!</strong>
+              <div *ngFor="let worker of urgentTaskWorkers; let i = index" class="worker-item" style="background: #ffffff; color: #000; padding: 5px; margin: 2px 0; border-radius: 3px;">
+                <strong>{{i + 1}}.</strong>
+                <span>{{worker.trabajador.nombre}}</span>
+                <span> - {{worker.horas}}h</span>
+              </div>
+            </div>
+            
+            <div *ngIf="urgentTaskWorkers.length === 0" style="background: #ffaa00; color: #000; padding: 10px; border-radius: 5px;">
+              <strong>⚠️ NO SE ENCONTRARON TRABAJADORES</strong><br>
+              Los trabajadores guardados no se pudieron cargar.
+            </div>
+          </div>
+
+          <div class="modal-actions" style="margin-top: 20px;">
+            <button type="button" class="cancel-btn" (click)="closeUrgentTaskModal()">
+              ❌ Cancelar
+            </button>
+            <button type="button" class="continue-btn">
+              ✅ Continuar Editando
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   `,
@@ -2853,6 +2960,165 @@ import { Chart, registerables } from 'chart.js';
     }
 
     /* ==================== FIN ESTILOS MODAL INFORMES DE COGIDA ==================== */
+
+    /* ==================== ESTILOS MODAL GESTIÓN DE TAREAS ==================== */
+    .tasks-modal {
+      max-width: 800px;
+      width: 90%;
+    }
+
+    .manage-tasks-btn {
+      background: linear-gradient(135deg, #8e44ad, #9b59b6);
+      color: white;
+      border: none;
+      padding: 1rem 1.5rem;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(142, 68, 173, 0.3);
+    }
+
+    .manage-tasks-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(142, 68, 173, 0.4);
+    }
+
+    .tasks-list {
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .task-item {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: all 0.3s ease;
+    }
+
+    .task-item:hover {
+      background: rgba(255, 255, 255, 0.1);
+      transform: translateY(-2px);
+    }
+
+    .task-info h4 {
+      color: #fff;
+      margin: 0 0 0.5rem 0;
+      font-size: 1.1rem;
+    }
+
+    .task-description {
+      color: rgba(255, 255, 255, 0.8);
+      margin: 0 0 0.5rem 0;
+      font-size: 0.9rem;
+    }
+
+    .task-details {
+      display: flex;
+      gap: 1rem;
+    }
+
+    .task-detail {
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 0.8rem;
+      background: rgba(255, 255, 255, 0.1);
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+    }
+
+    .continue-btn {
+      background: linear-gradient(135deg, #27ae60, #2ecc71);
+      color: white;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .continue-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 15px rgba(39, 174, 96, 0.3);
+    }
+
+    .no-tasks {
+      text-align: center;
+      color: rgba(255, 255, 255, 0.8);
+      padding: 2rem;
+    }
+
+    /* ==================== ESTILOS MODAL TAREA URGENTE ==================== */
+    .urgent-task-modal {
+      max-width: 600px;
+      width: 90%;
+    }
+
+    .task-summary {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .task-summary h4 {
+      color: #fff;
+      margin: 0 0 0.5rem 0;
+    }
+
+    .task-meta {
+      display: flex;
+      gap: 1rem;
+      margin-top: 0.5rem;
+    }
+
+    .task-meta span {
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 0.9rem;
+      background: rgba(255, 255, 255, 0.1);
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+    }
+
+    .workers-section h4 {
+      color: #fff;
+      margin-bottom: 1rem;
+    }
+
+    .worker-item {
+      padding: 0.5rem;
+      border-radius: 4px;
+      margin-bottom: 0.5rem;
+    }
+
+    .cancel-btn, .continue-btn {
+      padding: 0.75rem 1.5rem;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      margin: 0 0.5rem;
+    }
+
+    .cancel-btn {
+      background: linear-gradient(135deg, #e74c3c, #c0392b);
+      color: white;
+    }
+
+    .cancel-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 15px rgba(231, 76, 60, 0.3);
+    }
+
+    /* ==================== FIN ESTILOS GESTIÓN DE TAREAS ==================== */
   `]
 })
 export class TecnicoComponent implements OnInit {
@@ -2903,6 +3169,27 @@ export class TecnicoComponent implements OnInit {
   // Control de loading overlay
   showGlobalLoading = false;
   loadingMessage = '';
+
+  // ========== GESTIÓN DE TAREAS GUARDADAS ==========
+  showManageTasksModal = false;
+  savedTasks: any[] = [];
+  isLoadingTasks = false;
+  selectedTask: any = null;
+  
+  // Modal de tarea urgente (para continuar tareas guardadas)
+  showUrgentTaskModal = false;
+  urgentTask: any = {
+    invernadero: '',
+    tipo_tarea: '',
+    horas_trabajadas: 0,
+    descripcion: '',
+    hectareas_trabajadas: 0,
+    dimension_total: 0,
+    desarrollo_actual: 0,
+    matricula: ''
+  };
+  urgentTaskWorkers: any[] = [];
+  isUrgentTaskWorkersMode = false;
 
   // Chart.js instances
   lineChart: any = null;
@@ -5041,6 +5328,136 @@ export class TecnicoComponent implements OnInit {
     } catch {
       return dateStr; // fallback
     }
+  }
+
+  // ========== MÉTODOS PARA GESTIÓN DE TAREAS GUARDADAS ==========
+  
+  // Abrir modal de gestión de tareas
+  openManageTasksModal() {
+    console.log('📝 Abriendo modal de gestión de tareas...');
+    this.showManageTasksModal = true;
+    this.loadSavedTasks();
+  }
+
+  // Cargar tareas guardadas SOLO del usuario actual
+  loadSavedTasks() {
+    this.isLoadingTasks = true;
+    console.log('🔄 Cargando MIS tareas guardadas...');
+    
+    const currentUser = this.authService.getCurrentUser();
+    if (!currentUser || !currentUser.id) {
+      console.error('❌ No se puede obtener el usuario actual');
+      this.isLoadingTasks = false;
+      return;
+    }
+    
+    console.log('👤 Usuario actual ID:', currentUser.id);
+    
+    // Llamar al endpoint para obtener tareas guardadas
+    this.http.get<any>(`${environment.apiBaseUrl}/tasks`).subscribe({
+      next: (response) => {
+        console.log('📦 Respuesta del servidor:', response);
+        if (response && response.tasks) {
+          // Filtrar SOLO tareas guardadas del usuario actual
+          this.savedTasks = response.tasks.filter((task: any) => {
+            const isGuardada = task.proceso === 'Guardada';
+            const esMiTarea = task.encargado_id === currentUser.id || task.encargado_id === currentUser.id.toString();
+            
+            console.log(`🔍 Tarea ${task.id}: proceso=${task.proceso}, encargado_id=${task.encargado_id}, usuario_actual=${currentUser.id}, esMia=${esMiTarea}`);
+            
+            return isGuardada && esMiTarea;
+          });
+          
+          console.log('✅ MIS tareas guardadas encontradas:', this.savedTasks.length);
+          console.log('📋 Tareas filtradas:', this.savedTasks.map(t => ({id: t.id, invernadero: t.invernadero, encargado: t.encargado_id})));
+        } else {
+          this.savedTasks = [];
+          console.log('⚠️ No se encontraron tareas guardadas');
+        }
+        this.isLoadingTasks = false;
+      },
+      error: (error) => {
+        console.error('❌ Error cargando tareas guardadas:', error);
+        this.savedTasks = [];
+        this.isLoadingTasks = false;
+      }
+    });
+  }
+
+  // Continuar editando una tarea guardada
+  onContinueTask(task: any) {
+    console.log('📝 Continuando tarea:', task);
+    this.selectedTask = task;
+    
+    // Cargar datos de la tarea guardada
+    this.urgentTask = {
+      invernadero: task.invernadero || '',
+      tipo_tarea: task.tipo_tarea || '',
+      horas_trabajadas: Number(task.estimacion_horas) || 0,
+      descripcion: task.descripcion || '',
+      hectareas_trabajadas: Number(task.dimension_total) || 0,
+      dimension_total: Number(task.dimension_total) || 0,
+      desarrollo_actual: Number(task.desarrollo_actual) || 0,
+      matricula: ''
+    };
+
+    // Cargar trabajadores guardados
+    this.loadTaskWorkers(task.id);
+    
+    // Abrir modal de tarea urgente
+    this.showUrgentTaskModal = true;
+    this.showManageTasksModal = false;
+  }
+
+  // Cargar trabajadores de una tarea guardada
+  loadTaskWorkers(taskId: string) {
+    console.log('👥 Cargando trabajadores para tarea:', taskId);
+    
+    this.http.get<any>(`${environment.apiBaseUrl}/tasks/${taskId}/draft`).subscribe({
+      next: (response) => {
+        console.log('👥 Trabajadores cargados:', response);
+        if (response && response.workers) {
+          this.urgentTaskWorkers = response.workers;
+          console.log('✅ Trabajadores asignados:', this.urgentTaskWorkers.length);
+        } else {
+          // Datos de prueba si no hay respuesta
+          this.urgentTaskWorkers = [
+            {
+              trabajador: { nombre: 'TRABAJADOR TEST 1', codigo: '001', empresa: 'Test Company' },
+              horas: 8
+            },
+            {
+              trabajador: { nombre: 'TRABAJADOR TEST 2', codigo: '002', empresa: 'Test Company' },
+              horas: 6
+            }
+          ];
+          console.log('🧪 Usando datos de prueba');
+        }
+      },
+      error: (error) => {
+        console.error('❌ Error cargando trabajadores:', error);
+        // Datos de prueba en caso de error
+        this.urgentTaskWorkers = [
+          {
+            trabajador: { nombre: 'TRABAJADOR ERROR 1', codigo: 'ERR001', empresa: 'Error Company' },
+            horas: 4
+          }
+        ];
+      }
+    });
+  }
+
+  // Cerrar modal de gestión de tareas
+  closeManageTasksModal() {
+    this.showManageTasksModal = false;
+    this.savedTasks = [];
+  }
+
+  // Cerrar modal de tarea urgente
+  closeUrgentTaskModal() {
+    this.showUrgentTaskModal = false;
+    this.selectedTask = null;
+    this.urgentTaskWorkers = [];
   }
 
   // Logout

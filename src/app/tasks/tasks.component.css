@@ -156,8 +156,9 @@
 }
 .modal-actions {
   display: flex;
-  gap: 1em;
+  gap: 0.8em;
   justify-content: center;
+  flex-wrap: wrap;
 }
 .modal-confirm .task-action-btn {
   min-width: 110px;
@@ -166,8 +167,8 @@
 
 /* Estilos específicos para el modal de completar tarea */
 .complete-modal {
-  min-width: 400px;
-  max-width: 500px;
+  min-width: 450px;
+  max-width: 550px;
   max-height: none;
   overflow: visible;
   margin: auto;
@@ -1051,6 +1052,31 @@ menu button:hover, menu button:active,
   background-color: #229954;
 }
 
+/* Botón para guardar datos como borrador */
+.task-action-btn.save-draft-btn {
+  background-color: #6c757d;
+  color: #fff;
+  border: none;
+  font-size: 0.85em;
+  min-width: 120px;
+}
+
+.task-action-btn.save-draft-btn:hover, .task-action-btn.save-draft-btn:active {
+  background-color: #5a6268;
+}
+
+.task-action-btn.save-draft-btn:disabled {
+  background-color: #adb5bd;
+  color: #dee2e6;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.task-action-btn.save-draft-btn:disabled:hover {
+  background-color: #adb5bd;
+  color: #dee2e6;
+}
+
 .task-action-btn.progress-btn {
   background-color: #3498db;
   color: #fff;
@@ -1171,6 +1197,36 @@ menu button:hover, menu button:active,
   padding: 0.4rem 0;
   color: #e8f5e8;
   border-bottom: 1px solid #4a6741;
+}
+
+/* Lista de trabajadores en modal de tarea urgente */
+.workers-list {
+  margin-top: 0.5rem;
+}
+
+.worker-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 0.85rem;
+}
+
+.worker-item:last-child {
+  border-bottom: none;
+}
+
+.worker-name {
+  color: #2c3e50 !important;
+  flex: 1;
+  font-weight: 500;
+}
+
+.worker-hours {
+  color: #ffd700;
+  font-weight: bold;
+  margin-left: 0.5rem;
 }
 
 .workers-list-summary li:last-child {
@@ -1793,6 +1849,48 @@ ul {
   font-size: 12px;
 }
 
+/* Estilos para información de trabajadores en tareas guardadas */
+.saved-workers-info {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background: linear-gradient(135deg, #f0f8e6, #e8f5e8);
+  border: 1px solid #c3e88d;
+  border-radius: 0.5rem;
+  border-left: 4px solid #4caf50;
+}
+
+.saved-workers-info .workers-title {
+  color: #2e7d32;
+  font-weight: bold;
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.saved-workers-info .worker-item {
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 0.25rem;
+  padding: 0.4rem 0.6rem;
+  margin-bottom: 0.3rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.saved-workers-info .worker-name {
+  color: #2e7d32 !important;
+  font-weight: 500;
+  flex: 1;
+}
+
+.saved-workers-info .worker-hours {
+  color: #4caf50;
+  font-weight: bold;
+  font-size: 0.85rem;
+}
+
 /* Estilos para información de trabajadores en tareas urgentes */
 .urgent-workers-info {
   margin-top: 1rem;
@@ -1829,8 +1927,8 @@ ul {
   border: 1px solid rgba(212, 173, 67, 0.3);
 }
 
-.worker-name {
-  color: #495057;
+.urgent-workers-info .worker-name {
+  color: #495057 !important;
   font-size: 0.85rem;
   font-weight: 500;
 }
@@ -1861,6 +1959,11 @@ ul {
 .task-workers-info .worker-item {
   background: rgba(255, 255, 255, 0.8);
   border: 1px solid rgba(21, 101, 192, 0.2);
+}
+
+.task-workers-info .worker-name {
+  color: #1565c0 !important;
+  font-weight: 500;
 }
 
 .task-workers-info .worker-hours {
@@ -1983,6 +2086,34 @@ ul {
 .validate-btn:active {
   transform: translateY(0);
   box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+}
+
+/* Botón para continuar tareas guardadas */
+.task-action-btn.edit-btn {
+  background: linear-gradient(135deg, #17a2b8, #20c997);
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 0.4rem;
+  font-size: 0.85rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 3px 10px rgba(23, 162, 184, 0.3);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.task-action-btn.edit-btn:hover {
+  background: linear-gradient(135deg, #138496, #17a2b8);
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(23, 162, 184, 0.4);
+}
+
+.task-action-btn.edit-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(23, 162, 184, 0.3);
 }
 
 /* Filtro "Por validar" */
@@ -3895,4 +4026,60 @@ menu button.urgent-task-btn {
     font-weight: 600;
     margin-left: 0.5rem;
   }
+}
+
+/* Estilos para modal urgente limpio */
+.workers-summary h4 {
+  color: #fff;
+  margin: 0 0 0.5rem 0;
+  font-size: 1.1rem;
+}
+
+.workers-summary small {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.9rem;
+}
+
+.worker-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem;
+  margin: 0.25rem 0;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  transition: background 0.2s ease;
+}
+
+.worker-item:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.worker-name {
+  color: #fff;
+  font-weight: 500;
+}
+
+.worker-hours {
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.no-workers-message {
+  text-align: center;
+  padding: 2rem;
+  color: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+}
+
+.no-workers-message p {
+  margin: 0.5rem 0;
+}
+
+.no-workers-message p:first-child {
+  font-weight: 600;
+  color: #fff;
 }

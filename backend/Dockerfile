@@ -10,8 +10,9 @@ COPY package*.json ./
 # Instalar dependencias
 RUN npm ci --only=production && npm cache clean --force
 
-# Copiar el código fuente
+# Copiar el código fuente y credenciales
 COPY index.js ./
+COPY service-account.json ./
 
 # Exponer el puerto
 EXPOSE 3000

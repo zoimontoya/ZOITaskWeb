@@ -34,7 +34,10 @@ export class TaskService {
 
   updateTask(id: string, task: Partial<Task>) {
     // Usar POST para edición, añadiendo action: 'update' y el id como string
-    return this.http.post(this.backendUrl + '/tasks', { ...task, id: String(id), action: 'update' });
+    const payload = { ...task, id: String(id), action: 'update' };
+    console.log('🚀 TaskService.updateTask - Enviando request a:', this.backendUrl + '/tasks');
+    console.log('🚀 TaskService.updateTask - Payload completo:', JSON.stringify(payload, null, 2));
+    return this.http.post(this.backendUrl + '/tasks', payload);
   }
 
   deleteTask(id: string) {

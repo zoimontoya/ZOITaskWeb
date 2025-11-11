@@ -213,4 +213,18 @@ export class TasksService {
     console.log('🌐 TasksService.consultarHorasTarea() - Enviando consulta:', body);
     return this.http.post<any>(`${this.apiUrl}/consultas/horas-tarea`, body);
   }
+
+  // Guardar datos de trabajadores como borrador (estado "Guardada")
+  saveDraftWorkerData(draftData: any): Observable<any> {
+    const url = `${this.apiUrl}/tasks/save-draft`;
+    console.log('🌐 TasksService.saveDraftWorkerData() - URL:', url);
+    console.log('🌐 TasksService.saveDraftWorkerData() - Datos:', draftData);
+    return this.http.post<any>(url, draftData);
+  }
+
+  // Cargar datos de trabajadores guardados como borrador
+  loadDraftWorkerData(taskId: string): Observable<any> {
+    console.log('🌐 TasksService.loadDraftWorkerData() - Cargando borrador para tarea:', taskId);
+    return this.http.get<any>(`${this.apiUrl}/tasks/${taskId}/draft`);
+  }
 }

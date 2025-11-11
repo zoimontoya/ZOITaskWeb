@@ -1,5 +1,5 @@
 <app-newTask *ngIf="isAddingTask" [loggedUser]="loggedUser" (cancel)="onCancelAddTask()" (add)="onAddTask($event)"></app-newTask>
-<app-newTask *ngIf="editingTask" [task]="editingTask" [loggedUser]="loggedUser" (cancel)="onCancelEditTask()" (add)="onEditTask($event)"></app-newTask>
+<app-newTask *ngIf="editingTask && !showUrgentTaskModal" [task]="editingTask" [loggedUser]="loggedUser" (cancel)="onCancelEditTask()" (add)="onEditTask($event)"></app-newTask>
 
 <!-- Modal para Tarea Urgente -->
 <div *ngIf="showUrgentTaskModal" class="modal-overlay" (click)="onUrgentTaskModalOverlayClick($event)">
@@ -236,10 +236,26 @@
                     type="button" 
                     class="task-action-btn" 
                     (click)="onOpenWorkersForUrgentTask()">
-                    <span class="icon">👥</span> Asignar trabajadores y horas
+                    <span class="icon">👥</span> 
+                    <span *ngIf="urgentTaskWorkers.length === 0">Asignar trabajadores y horas</span>
+                    <span *ngIf="urgentTaskWorkers.length > 0">Modificar trabajadores y horas</span>
                 </button>
-            <div *ngIf="urgentTaskWorkers.length > 0" class="workers-summary">
+            <!-- LISTA DE TRABAJADORES GUARDADOS -->
+            <div *ngIf="urgentTaskWorkers && urgentTaskWorkers.length > 0" class="workers-summary">
+                <h4>👥 Trabajadores Asignados</h4>
                 <small>{{ urgentTaskWorkers.length }} trabajador(es) - {{ getTotalHorasUrgentWorkers() }}h totales</small>
+                <div class="workers-list">
+                    <div *ngFor="let worker of urgentTaskWorkers; let i = index" class="worker-item">
+                        <span class="worker-name">{{ worker.trabajador.nombre }}</span>
+                        <span class="worker-hours">{{ formatHoras(worker.horas) }}h</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- MENSAJE SI NO HAY TRABAJADORES -->
+            <div *ngIf="!urgentTaskWorkers || urgentTaskWorkers.length === 0" class="no-workers-message">
+                <p>⚠️ No se encontraron trabajadores guardados para esta tarea.</p>
+                <p>Para asignar trabajadores, usa el botón "Asignar trabajadores y horas".</p>
             </div>
         </div>
         
@@ -247,8 +263,23 @@
                 <button type="button" class="task-action-btn cancel-btn" (click)="onCancelUrgentTask()">
                     <span class="icon">❌</span> Cancelar
                 </button>
-                <button type="submit" class="task-action-btn validate-btn">
-                    <span class="icon">⚡</span> Registrar Tarea
+                <button type="button" 
+                        class="task-action-btn save-draft-btn" 
+                        (click)="onSaveUrgentDraftData()"
+                        [disabled]="!canSaveUrgentDraft() || isUrgentSaving"
+                        title="Guardar tarea como borrador">
+                    <span class="icon">💾</span> 
+                    <span *ngIf="!isUrgentSaving">Guardar datos</span>
+                    <span *ngIf="isUrgentSaving">Guardando...</span>
+                </button>
+                <button type="submit" 
+                        class="task-action-btn validate-btn"
+                        [disabled]="!canCreateUrgentTask() || isCreatingUrgentTask">
+                    <span class="icon">⚡</span> 
+                    <span *ngIf="!isCreatingUrgentTask && !editingTask">Registrar Tarea</span>
+                    <span *ngIf="!isCreatingUrgentTask && editingTask">Actualizar Tarea</span>
+                    <span *ngIf="isCreatingUrgentTask && !editingTask">Creando...</span>
+                    <span *ngIf="isCreatingUrgentTask && editingTask">Actualizando...</span>
                 </button>
             </div>
         </form>
@@ -401,6 +432,15 @@
             </div>
         </div>
         <div class="modal-actions">
+            <!-- Botón para guardar datos parciales sin modificar la tarea principal -->
+            <button 
+                class="task-action-btn save-draft-btn" 
+                (click)="onSaveDraftData()"
+                [disabled]="isProcessing || !canAssignWorkers()"
+                title="Guardar trabajadores sin actualizar la tarea (se recuperará automáticamente)">
+                💾 {{isProcessing ? 'Guardando...' : 'Guardar datos'}}
+            </button>
+            
                 <button 
                     class="task-action-btn update-btn" 
                     (click)="onUpdateProgressOnly()"
@@ -609,6 +649,17 @@
                     </span>
                 </div>
                 
+                <!-- Información de trabajadores para tareas GUARDADAS -->
+                <div *ngIf="getTaskState(task) === 'Guardada' && hasTaskWorkers(task.id)" class="saved-workers-info">
+                    <div class="workers-title">👥 Trabajadores guardados:</div>
+                    <div class="workers-list">
+                        <div *ngFor="let trabajador of getTaskWorkers(task.id)" class="worker-item">
+                            <span class="worker-name">{{ trabajador.nombre }}</span>
+                            <span class="worker-hours">{{ formatHoras(trabajador.horasTotal) }}h</span>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Información de trabajadores para tareas urgentes -->
                 <div *ngIf="isUrgentTask(task) && hasTaskWorkers(task.id)" class="urgent-workers-info">
                     <div class="workers-title">👥 Personal asignado:</div>
@@ -662,6 +713,23 @@
                         <span class="icon">🔒</span> Tarea completada - No disponible para encargados
                     </span>
                 </div>
+                <!-- Botones para CREADOR de la tarea (tareas guardadas) -->
+                <div *ngIf="getTaskState(task) === 'Guardada' && isMyTask(task)" class="task-actions">
+                    <button class="task-action-btn edit-btn" 
+                            (click)="onContinueUrgentDraft(task)">
+                        <span class="icon">📝</span>
+                        Continuar Mi Tarea
+                    </button>
+                    <button class="task-action-btn delete-btn" 
+                            [disabled]="isDeletingTask[task.id]"
+                            (click)="onDeleteMyDraftTask(task)">
+                        <span class="icon" *ngIf="!isDeletingTask[task.id]">🗑️</span>
+                        <span class="icon" *ngIf="isDeletingTask[task.id]">⏳</span>
+                        {{ isDeletingTask[task.id] ? 'Eliminando...' : 'Eliminar Borrador' }}
+                    </button>
+                </div>
+
+                <!-- Botones para SUPERIOR (tareas por validar) -->
                 <div *ngIf="!isEncargado && getTaskState(task) === 'Por validar'" class="task-actions">
                     <button class="task-action-btn validate-btn" 
                             [disabled]="isValidatingTask[task.id]"

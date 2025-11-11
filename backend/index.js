@@ -510,12 +510,13 @@ async function validarHorasAutomaticamente(authClient, taskId, tipoValidacion = 
         });
       }
       
-      if (rowTaskId === taskId && estadoValidacion === 'No validada') {
+      if (rowTaskId === taskId && (estadoValidacion === 'No validada' || estadoValidacion === 'Guardada')) {
         filasAActualizar.push({
           rowIndex: index + 2, // +2 porque slice(1) y las filas son 1-indexed
-          trabajador: row[1]?.toString().trim(),
-          fecha: row[2]?.toString().trim(),
-          horas: parseFloat(row[5]) || 0 // Columna F - horas totales
+          trabajador: row[2]?.toString().trim(), // Columna C - Nombre
+          fecha: row[0]?.toString().trim(),      // Columna A - Fecha
+          horas: parseFloat(row[3]?.replace(',', '.')) || 0, // Columna D - Tiempo
+          estadoAnterior: estadoValidacion
         });
       }
     });
@@ -537,7 +538,13 @@ async function validarHorasAutomaticamente(authClient, taskId, tipoValidacion = 
         }
       });
       
-      console.log(`✅ ${filasAActualizar.length} horas validadas automáticamente para tarea ${taskId}`);
+      // Logging detallado de los cambios
+      const guardadas = filasAActualizar.filter(f => f.estadoAnterior === 'Guardada').length;
+      const noValidadas = filasAActualizar.filter(f => f.estadoAnterior === 'No validada').length;
+      
+      console.log(`✅ ${filasAActualizar.length} horas validadas automáticamente para tarea ${taskId}:`);
+      console.log(`   - ${guardadas} trabajadores "Guardada" → "Validada"`);
+      console.log(`   - ${noValidadas} trabajadores "No validada" → "Validada"`);
       
       // Calcular estadísticas
       const totalHoras = filasAActualizar.reduce((sum, fila) => sum + fila.horas, 0);
@@ -561,8 +568,90 @@ async function validarHorasAutomaticamente(authClient, taskId, tipoValidacion = 
   }
 }
 
+// Función auxiliar para eliminar horas existentes de una tarea en "Horas_PorValidar"
+async function eliminarHorasExistentes(authClient, tareaId) {
+  try {
+    console.log('🗑️ === ELIMINANDO HORAS EXISTENTES ===');
+    console.log('TareaId:', tareaId);
+    
+    const sheets = google.sheets({ version: 'v4', auth: authClient });
+    const spreadsheetMeta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
+    
+    // Buscar la hoja "Horas_PorValidar"
+    const horasSheet = spreadsheetMeta.data.sheets.find(s =>
+      s.properties && s.properties.title === 'Horas_PorValidar'
+    );
+    
+    if (!horasSheet) {
+      console.log('⚠️ No se encontró la hoja "Horas_PorValidar"');
+      return;
+    }
+    
+    // Obtener todos los datos de la hoja
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: 'Horas_PorValidar'
+    });
+    
+    const rows = response.data.values || [];
+    if (rows.length <= 1) {
+      console.log('⚠️ No hay datos en Horas_PorValidar para eliminar');
+      return;
+    }
+    
+    // Encontrar filas que pertenecen a esta tarea Y sean de HOY (columnas "Codigo_Tarea" y "Fecha")
+    const fechaHoy = getCurrentEuropeanDate(); // Formato DD/MM/YYYY
+    console.log(`🔍 Buscando filas con tareaId: "${tareaId}" y fecha: "${fechaHoy}"`);
+    
+    const filasAEliminar = [];
+    for (let i = 1; i < rows.length; i++) { // Empezar desde 1 para saltar headers
+      const codigoTarea = String(rows[i][4] || ''); // Columna E (índice 4) - Codigo_Tarea
+      const fechaRegistro = String(rows[i][0] || ''); // Columna A (índice 0) - Fecha
+      
+      // SOLO eliminar si coincide la tarea Y es del día de hoy
+      if (codigoTarea === String(tareaId) && fechaRegistro === fechaHoy) {
+        filasAEliminar.push(i + 1); // +1 porque las filas en Sheets empiezan en 1
+        console.log(`🗑️ Marcada para eliminación: Fila ${i + 1}, Fecha: ${fechaRegistro}, Tarea: ${codigoTarea}`);
+      } else if (codigoTarea === String(tareaId) && fechaRegistro !== fechaHoy) {
+        console.log(`⏭️ Preservada: Fila ${i + 1}, Fecha: ${fechaRegistro} (día anterior), Tarea: ${codigoTarea}`);
+      }
+    }
+    
+    console.log(`🗑️ Encontradas ${filasAEliminar.length} filas de HOY para eliminar de tarea ${tareaId}:`, filasAEliminar);
+    
+    // Eliminar filas de abajo hacia arriba para evitar cambios de índice
+    for (let i = filasAEliminar.length - 1; i >= 0; i--) {
+      const rowIndex = filasAEliminar[i] - 1; // -1 porque el API usa índices base 0
+      
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId: SPREADSHEET_ID,
+        resource: {
+          requests: [{
+            deleteDimension: {
+              range: {
+                sheetId: horasSheet.properties.sheetId,
+                dimension: 'ROWS',
+                startIndex: rowIndex,
+                endIndex: rowIndex + 1
+              }
+            }
+          }]
+        }
+      });
+      
+      console.log(`✅ Eliminada fila ${filasAEliminar[i]} de Horas_PorValidar`);
+    }
+    
+    console.log(`✅ Eliminadas ${filasAEliminar.length} filas de HOY de la tarea ${tareaId} (preservadas las de días anteriores)`);
+    
+  } catch (error) {
+    console.error('❌ Error eliminando horas existentes:', error);
+    throw error;
+  }
+}
+
 // Función auxiliar para registrar horas trabajadas en la hoja "Horas_PorValidar"
-async function registrarHorasTrabajadas(authClient, trabajadoresAsignados, encargadoNombre, fechaActualizacion, tareaId, esTareaUrgente = false, esSuperior = false) {
+async function registrarHorasTrabajadas(authClient, trabajadoresAsignados, encargadoNombre, fechaActualizacion, tareaId, esTareaUrgente = false, esSuperior = false, esDraft = false) {
   try {
     console.log('🔍 === REGISTRANDO HORAS TRABAJADAS ===');
     console.log('TareaId recibido:', tareaId);
@@ -570,6 +659,7 @@ async function registrarHorasTrabajadas(authClient, trabajadoresAsignados, encar
     console.log('Encargado:', encargadoNombre);
     console.log('Fecha:', fechaActualizacion);
     console.log('Es tarea urgente (SIN cálculos):', esTareaUrgente);
+    console.log('Es draft (estado Guardada):', esDraft);
     
     const sheets = google.sheets({ version: 'v4', auth: authClient });
     
@@ -583,6 +673,29 @@ async function registrarHorasTrabajadas(authClient, trabajadoresAsignados, encar
       console.log('⚠️ No se encontró la hoja "Horas_PorValidar"');
       return;
     }
+    
+    // Verificar trabajadores ya guardados para esta tarea
+    const horasExistentesResult = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${horasSheet.properties.title}!A:G`
+    });
+    
+    const horasExistentesRows = horasExistentesResult.data.values || [];
+    const trabajadoresYaGuardados = new Set();
+    
+    // Buscar trabajadores ya guardados de esta tarea
+    horasExistentesRows.slice(1).forEach(row => {
+      const rowTaskId = row[4]?.toString().trim(); // Columna E - Task ID
+      const rowEstado = row[6]?.toString().trim();  // Columna G - Estado
+      const rowNombre = row[2]?.toString().trim();  // Columna C - Nombre
+      
+      if (rowTaskId === String(tareaId) && rowEstado === 'Guardada') {
+        trabajadoresYaGuardados.add(rowNombre);
+        console.log(`📋 Trabajador ya guardado: "${rowNombre}"`);
+      }
+    });
+    
+    console.log(`📊 Trabajadores ya guardados para tarea ${tareaId}: ${trabajadoresYaGuardados.size}`);
     
     // Obtener datos de trabajadores para conseguir las empresas
     const trabajadoresResponse = await sheets.spreadsheets.values.get({
@@ -612,6 +725,14 @@ async function registrarHorasTrabajadas(authClient, trabajadoresAsignados, encar
     const filasAInsertar = [];
     
     trabajadoresAsignados.forEach(trabajadorAsignado => {
+      const nombreTrabajador = trabajadorAsignado.trabajador.nombre;
+      
+      // Saltar si el trabajador ya está guardado (se convertirá a "Validada" automáticamente)
+      if (trabajadoresYaGuardados.has(nombreTrabajador)) {
+        console.log(`⏭️ SALTANDO "${nombreTrabajador}" (ya está guardado, se validará automáticamente)`);
+        return;
+      }
+      
       const trabajadorData = trabajadoresMap[trabajadorAsignado.trabajador.codigo] || {};
       
       const rankingValue = tareaId ? String(tareaId) : '';
@@ -627,7 +748,11 @@ async function registrarHorasTrabajadas(authClient, trabajadoresAsignados, encar
       
       // Determinar el estado de validación (columna G)
       let estadoValidacion;
-      if (esTareaUrgente) {
+      if (esDraft) {
+        // Si es un draft, siempre usar estado "Guardada"
+        estadoValidacion = "Guardada";
+        console.log(`📝 DRAFT - Horas guardadas para validación posterior`);
+      } else if (esTareaUrgente) {
         // Si es tarea urgente de un superior, ya está validada
         // Si es tarea urgente de un encargado, no está validada aún
         if (esSuperior) {
@@ -652,12 +777,12 @@ async function registrarHorasTrabajadas(authClient, trabajadoresAsignados, encar
         estadoValidacion                      // G: Estado de validación
       ];
       
-      console.log('Fila a insertar:', filaAInsertar);
+      console.log(`➕ AGREGANDO NUEVO trabajador "${nombreTrabajador}":`, filaAInsertar);
       filasAInsertar.push(filaAInsertar);
     });
     
     if (filasAInsertar.length === 0) {
-      console.log('No hay trabajadores asignados para registrar');
+      console.log(`ℹ️ No hay trabajadores nuevos que agregar (${trabajadoresYaGuardados.size} ya estaban guardados)`);
       return;
     }
     
@@ -1546,11 +1671,21 @@ app.post('/tasks', verifyJWT, async (req, res) => {
     console.log('✅ POST /tasks - Usuario autenticado:', req.user?.userId);
     console.log('📦 Datos recibidos:', JSON.stringify(req.body, null, 2));
     
+    // 🔍 DEBUG: Verificar condiciones de UPDATE
+    console.log('🔍 === VERIFICANDO CONDICIONES UPDATE ===');
+    console.log('  - req.body existe?', !!req.body);
+    console.log('  - req.body.action:', req.body?.action);
+    console.log('  - req.body.action === "update"?', req.body?.action === 'update');
+    console.log('  - req.body.id:', req.body?.id);
+    console.log('  - req.body.id existe?', !!req.body?.id);
+    console.log('  - Condición completa:', !!(req.body && req.body.action === 'update' && req.body.id));
+    
     const auth = getGoogleAuth();
     const sheets = google.sheets({ version: 'v4', auth });
 
     // UPDATE (edit task)
     if (req.body && req.body.action === 'update' && req.body.id) {
+      console.log('🎯 === ENTRANDO A SECCIÓN UPDATE ===');
       const idToUpdate = String(req.body.id);
       const spreadsheetMeta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
       const tareasSheet = spreadsheetMeta.data.sheets.find(s =>
@@ -1703,6 +1838,31 @@ app.post('/tasks', verifyJWT, async (req, res) => {
         console.log('�📝 Registrando horas para tarea urgente validada (SIN cálculos de división)');
         console.log('🚨 Es tarea urgente - NO se harán cálculos de 6h/8h');
 
+      // Actualizar trabajadores asignados si los hay
+      console.log('🔍 VERIFICANDO TRABAJADORES ASIGNADOS:');
+      console.log('  - trabajadores_asignados existe?', !!req.body.trabajadores_asignados);
+      console.log('  - trabajadores_asignados es array?', Array.isArray(req.body.trabajadores_asignados));
+      console.log('  - trabajadores_asignados.length:', req.body.trabajadores_asignados?.length);
+      console.log('  - trabajadores_asignados data:', JSON.stringify(req.body.trabajadores_asignados, null, 2));
+      
+      if (req.body.trabajadores_asignados && req.body.trabajadores_asignados.length > 0) {
+        console.log('🔄 Actualizando trabajadores asignados para tarea:', idToUpdate);
+        
+        // Primero eliminar las horas existentes de esta tarea en Horas_PorValidar
+        await eliminarHorasExistentes(auth, idToUpdate);
+        
+        // Luego registrar las nuevas horas
+        const encargadoNombre = req.body.nombre_superior || 'Encargado';
+        const fechaActual = new Date().toLocaleDateString('es-ES', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit'
+        });
+        
+        await registrarHorasTrabajadas(auth, req.body.trabajadores_asignados, encargadoNombre, fechaActual, idToUpdate, false);
+        console.log('✅ Trabajadores actualizados para tarea:', idToUpdate);
+      }
+
       console.log('✅ Validación completada - tarea actualizada:', idToUpdate);
       return res.json({ result: 'success', updated: idToUpdate });
     }
@@ -1839,7 +1999,20 @@ app.post('/tasks', verifyJWT, async (req, res) => {
       // Registrar horas trabajadas si hay trabajadores asignados
       if (req.body.trabajadores_asignados && req.body.trabajadores_asignados.length > 0) {
         const encargadoNombre = req.body.encargado_nombre || 'Encargado'; // Obtener el nombre del encargado que actualiza
-        await registrarHorasTrabajadas(auth, req.body.trabajadores_asignados, encargadoNombre, fechaActual, idToUpdate, false);
+        
+        console.log('🔄 === ACTUALIZANDO PROGRESO CON TRABAJADORES ===');
+        console.log('PASO 1: Eliminar horas existentes de la tarea');
+        // PRIMERO: Eliminar horas existentes como si fuera "guardar datos"
+        await eliminarHorasExistentes(auth, idToUpdate);
+        
+        console.log('PASO 2: Registrar horas nuevas como "Guardada"');
+        // SEGUNDO: Registrar horas nuevas como "Guardada" (esDraft = true)
+        await registrarHorasTrabajadas(auth, req.body.trabajadores_asignados, encargadoNombre, fechaActual, idToUpdate, false, false, true);
+        
+        console.log('PASO 3: Validar automáticamente horas guardadas');
+        // TERCERO: Validar automáticamente las horas que acabamos de guardar
+        const validacionResult = await validarHorasAutomaticamente(auth, idToUpdate, 'actualizar-progreso');
+        console.log('✅ Resultado validación automática:', validacionResult);
       }
 
       console.log('Progreso actualizado para tarea:', idToUpdate, 'porcentaje:', req.body.progreso, 'hectáreas:', req.body.desarrollo_actual, 'jornales_reales:', req.body.jornales_reales, 'fecha_actualizacion:', fechaActual);
@@ -1953,6 +2126,9 @@ app.post('/tasks', verifyJWT, async (req, res) => {
     }
 
     // CREATE (default: batch create)
+    console.log('🏗️ === ENTRANDO A SECCIÓN CREATE ===');
+    console.log('🔍 Body completo:', JSON.stringify(req.body, null, 2));
+    
     const tareas = req.body.tareas;
     if (!Array.isArray(tareas) || tareas.length === 0) {
       console.log('No hay tareas para crear. Body recibido:', req.body);
@@ -2013,11 +2189,18 @@ app.post('/tasks', verifyJWT, async (req, res) => {
       const esTareaUrgente = tarea.es_tarea_urgente === true;
       const jornalesReales = esTareaUrgente ? estimacionHoras : 0; // Para urgentes: usar horas directas
       
+      // Detectar si es un draft (tanto para tareas normales como urgentes)
+      const esDraft = tarea.isDraft === true;
+      
       if (esTareaUrgente) {
         console.log(`🚨 TAREA URGENTE DETECTADA - nombre_superior: "${tarea.nombre_superior}", hora_jornal: 0`);
         console.log(`📊 Jornales reales = estimacion_horas: ${estimacionHoras} (SIN cálculos)`);
       } else {
         console.log(`📊 TAREA NORMAL - jornales_reales inicia en 0`);
+      }
+      
+      if (esDraft) {
+        console.log(`📝 DRAFT DETECTADO - La tarea se guardará con estado "Guardada" para validación posterior`);
       }
       
       console.log(`🚀 PREPARANDO FILA PARA GOOGLE SHEETS - tarea ID: ${tarea.id}`);
@@ -2041,7 +2224,7 @@ app.post('/tasks', verifyJWT, async (req, res) => {
         '',                                          // M: fecha_fin (vacía al crear)
         esTareaUrgente ? parseFloat((parseFloat(tarea.desarrollo_actual || dimensionTotalSeleccionada) || 0).toFixed(3)) : 0, // N: desarrollo_actual (para urgentes = dimension_total)
         parseFloat((parseFloat(dimensionTotalSeleccionada) || 0).toFixed(3)), // O: dimension_total (máximo 3 decimales)
-        tarea.proceso || 'No iniciado',              // P: proceso (respeta valor del frontend)
+        esDraft ? 'Guardada' : (tarea.proceso || 'No iniciado'),  // P: proceso (Guardada para drafts, respeta valor del frontend para otros)
         '',                                          // Q: fecha_actualizacion (vacía al crear, se llenará al actualizar)
         tarea.genero || ''                           // R: genero (nuevo campo para tareas ALMACEN-CONFECC)
       ];
@@ -2137,17 +2320,22 @@ app.post('/tasks', verifyJWT, async (req, res) => {
     for (let i = 0; i < tareas.length; i++) {
       const tarea = tareas[i];
       const horaJornal = Number(tarea.hora_jornal) || 0;
-      const esTareaUrgente = tarea.nombre_superior && horaJornal === 0;
+      const esTareaUrgente = tarea.es_tarea_urgente === true || (tarea.nombre_superior && horaJornal === 0);
+      const esDraft = tarea.isDraft === true;
       
-      if (esTareaUrgente && tarea.trabajadores_asignados && tarea.trabajadores_asignados.length > 0) {
+      // Registrar trabajadores si es tarea urgente O si es un draft con trabajadores
+      if ((esTareaUrgente || esDraft) && tarea.trabajadores_asignados && tarea.trabajadores_asignados.length > 0) {
         const tareaId = newRows[i][0]; // ID de la tarea recién creada
         const encargadoNombre = tarea.encargado_nombre || tarea.nombre_superior || 'Encargado';
         const fechaActual = new Date().toLocaleDateString('es-ES');
         
-        console.log(`🔥 === REGISTRANDO TRABAJADORES PARA TAREA URGENTE ${tareaId} ===`);
+        const tipoOperacion = esDraft ? 'DRAFT' : 'TAREA URGENTE';
+        console.log(`🔥 === REGISTRANDO TRABAJADORES PARA ${tipoOperacion} ${tareaId} ===`);
         console.log('👥 Trabajadores recibidos:', JSON.stringify(tarea.trabajadores_asignados, null, 2));
         console.log('👤 Encargado:', encargadoNombre);
         console.log('📅 Fecha:', fechaActual);
+        console.log('📝 Es draft:', esDraft);
+        console.log('🚨 Es tarea urgente:', esTareaUrgente);
         
         await registrarHorasTrabajadas(
           auth, 
@@ -2155,11 +2343,12 @@ app.post('/tasks', verifyJWT, async (req, res) => {
           encargadoNombre, 
           fechaActual, 
           tareaId, 
-          true, // es tarea urgente
-          tarea.es_superior || false // es superior - AÑADIDO
+          esTareaUrgente, // es tarea urgente
+          tarea.es_superior || false, // es superior
+          esDraft // nuevo parámetro para identificar drafts
         );
         
-        console.log(`✅ Trabajadores registrados para tarea urgente ${tareaId}`);
+        console.log(`✅ Trabajadores registrados para ${tipoOperacion} ${tareaId}`);
       }
     }
     
@@ -2389,7 +2578,15 @@ app.post('/tasks/:id/complete-direct', verifyJWT, async (req, res) => {
     // PASO 3: Registrar horas trabajadas UNA SOLA VEZ
     if (req.body.trabajadores_asignados && req.body.trabajadores_asignados.length > 0) {
       const encargadoNombre = req.body.encargado_nombre || 'Encargado';
-      await registrarHorasTrabajadas(auth, req.body.trabajadores_asignados, encargadoNombre, fechaActual, taskId, false);
+      
+      console.log('🔄 === COMPLETANDO TAREA CON TRABAJADORES ===');
+      console.log('PASO 3.1: Eliminar horas existentes de la tarea');
+      // PRIMERO: Eliminar horas existentes como si fuera "guardar datos"
+      await eliminarHorasExistentes(auth, taskId);
+      
+      console.log('PASO 3.2: Registrar horas nuevas como "Guardada"');
+      // SEGUNDO: Registrar horas nuevas como "Guardada" (esDraft = true)
+      await registrarHorasTrabajadas(auth, req.body.trabajadores_asignados, encargadoNombre, fechaActual, taskId, false, false, true);
     }
     
     // 🔄 FUSIÓN: Validar automáticamente las horas al completar directamente
@@ -2484,7 +2681,15 @@ app.post('/tasks/:id/complete', verifyJWT, async (req, res) => {
     // Registrar horas trabajadas si hay trabajadores asignados al completar
     if (req.body.trabajadores_asignados && req.body.trabajadores_asignados.length > 0) {
       const encargadoNombre = req.body.encargado_nombre || 'Encargado'; // Obtener el nombre del encargado que completa la tarea
-      await registrarHorasTrabajadas(auth, req.body.trabajadores_asignados, encargadoNombre, fechaActual, taskId, false);
+      
+      console.log('🔄 === COMPLETANDO TAREA ESTÁNDAR CON TRABAJADORES ===');
+      console.log('PASO 1: Eliminar horas existentes de la tarea');
+      // PRIMERO: Eliminar horas existentes como si fuera "guardar datos"
+      await eliminarHorasExistentes(auth, taskId);
+      
+      console.log('PASO 2: Registrar horas nuevas como "Guardada"');
+      // SEGUNDO: Registrar horas nuevas como "Guardada" (esDraft = true)
+      await registrarHorasTrabajadas(auth, req.body.trabajadores_asignados, encargadoNombre, fechaActual, taskId, false, false, true);
     }
     
     // 🔄 FUSIÓN: Validar automáticamente las horas al completar la tarea
@@ -2633,20 +2838,32 @@ app.get('/trabajadores-tarea/:taskId', optionalJWT, async (req, res) => {
     const taskId = req.params.taskId;
     const trabajadoresData = [];
     
-    dataRows.forEach(row => {
+    // Obtener fecha actual en formato DD/MM/YYYY (europeo)
+    const fechaHoy = getCurrentEuropeanDate();
+    console.log('📅 Filtrando trabajadores SOLO para fecha de hoy:', fechaHoy);
+    
+    dataRows.forEach((row, index) => {
       if (row[rankingIndex] && row[rankingIndex].toString() === taskId.toString()) {
+        const fechaRegistro = row[fechaIndex] || '';
+        
+        // 🔍 FILTRO: Solo incluir registros de HOY
+        if (fechaRegistro !== fechaHoy) {
+          console.log(`⏭️ Saltando registro ${index + 2}: Fecha ${fechaRegistro} ≠ ${fechaHoy}`);
+          return; // Saltar este registro
+        }
+        
         const horasRaw = row[horasIndex];
         
         // Convertir coma decimal a punto decimal para parseFloat
         let horasStr = horasRaw ? horasRaw.toString().replace(',', '.') : '0';
         const horasParsed = parseFloat(horasStr) || 0;
         
-        console.log(`🔍 Valor horas raw: "${horasRaw}" -> normalizado: "${horasStr}" -> parsed: ${horasParsed}`);
+        console.log(`✅ Registro ${index + 2} incluido: Trabajador: "${row[trabajadorIndex]}", Horas: ${horasParsed}, Fecha: ${fechaRegistro}`);
         
         trabajadoresData.push({
           trabajador: row[trabajadorIndex] || '',
           horas: horasParsed,
-          fecha: row[fechaIndex] || ''
+          fecha: fechaRegistro
         });
       }
     });
@@ -2680,12 +2897,113 @@ app.get('/trabajadores-tarea/:taskId', optionalJWT, async (req, res) => {
     const resultado = Object.values(trabajadoresAgrupados)
       .sort((a, b) => b.horasTotal - a.horasTotal);
     
-    console.log(`✅ Encontrados ${resultado.length} trabajadores para tarea ${taskId}`);
+    console.log(`✅ Encontrados ${resultado.length} trabajadores para tarea ${taskId} en fecha ${fechaHoy}`);
+    console.log('📋 Trabajadores de hoy:', resultado.map(t => `${t.nombre}: ${t.horasTotal}h`).join(', '));
     res.json(resultado);
     
   } catch (error) {
     console.error('❌ Error obteniendo trabajadores de tarea:', error);
     res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// 🔄 Endpoint para actualizar tareas urgentes guardadas (drafts)
+app.post('/tasks/:id/update-draft', verifyJWT, async (req, res) => {
+  console.log('🎯 ENDPOINT /tasks/:id/update-draft ALCANZADO');
+  console.log('📋 Task ID recibido:', req.params.id);
+  console.log('📦 Body recibido:', JSON.stringify(req.body, null, 2));
+  
+  try {
+    const taskId = req.params.id;
+    
+    if (!taskId) {
+      return res.status(400).json({ success: false, error: 'ID de tarea requerido' });
+    }
+    
+    const auth = getGoogleAuth();
+    const sheets = google.sheets({ version: 'v4', auth });
+    
+    // Buscar la hoja de tareas
+    const spreadsheetMeta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
+    const tareasSheet = spreadsheetMeta.data.sheets.find(s =>
+      s.properties && (s.properties.title === 'Tareas' || s.properties.title === 'tareas')
+    );
+    
+    if (!tareasSheet) {
+      return res.status(500).json({ error: 'No se encontró la hoja "Tareas" en el spreadsheet.' });
+    }
+    
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: tareasSheet.properties.title,
+    });
+    
+    const rows = response.data.values || [];
+    const rowIndex = rows.findIndex((row, idx) => idx > 0 && String(row[0]) === String(taskId));
+    
+    if (rowIndex === -1) {
+      return res.status(404).json({ error: 'Tarea no encontrada' });
+    }
+    
+    console.log(`🔄 Actualizando tarea urgente guardada: ${taskId}`);
+    
+    // Construir fila actualizada preservando el ID y estructura
+    const updatedRow = [
+      taskId,                                        // A: id (preservar)
+      req.body.invernadero,                          // B: invernadero
+      req.body.tipo_tarea,                           // C: tipo_tarea
+      req.body.estimacion_horas,                     // D: estimacion_horas
+      0,                                             // E: hora_jornal (siempre 0 para urgentes) 
+      0,                                             // F: horas_kilos (siempre 0 para urgentes)
+      req.body.estimacion_horas,                     // G: jornales_reales (igual a estimacion)
+      getCurrentEuropeanDate(),                      // H: fecha_limite
+      req.body.encargado_id || rows[rowIndex][8],    // I: encargado_id (preservar si no se envía)
+      req.body.descripcion,                          // J: descripcion
+      req.body.nombre_superior || rows[rowIndex][10], // K: nombre_superior (preservar si no se envía)
+      rows[rowIndex][11] || getCurrentEuropeanDate(), // L: fecha_inicio (preservar o usar actual)
+      '',                                            // M: fecha_fin (vacío para drafts)
+      req.body.desarrollo_actual,                    // N: desarrollo_actual
+      req.body.dimension_total,                      // O: dimension_total
+      req.body.proceso,                              // P: proceso ('Guardada' o 'Por validar')
+      getCurrentEuropeanDate(),                      // Q: fecha_actualizacion
+      req.body.genero || ''                          // R: genero
+    ];
+    
+    // Actualizar la fila en la hoja de tareas
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${tareasSheet.properties.title}!A${rowIndex + 1}:R${rowIndex + 1}`,
+      valueInputOption: 'RAW',
+      resource: { values: [updatedRow] }
+    });
+    
+    console.log('✅ Tarea actualizada en hoja Tareas');
+    
+    // Actualizar trabajadores en Horas_PorValidar
+    if (req.body.trabajadores_asignados && req.body.trabajadores_asignados.length > 0) {
+      console.log('🔄 Actualizando trabajadores asignados...');
+      
+      // Eliminar horas existentes
+      await eliminarHorasExistentes(auth, taskId);
+      
+      // Registrar nuevas horas
+      const encargadoNombre = req.body.encargado_nombre || 'Encargado';
+      const fechaActual = getCurrentEuropeanDate();
+      
+      await registrarHorasTrabajadas(auth, req.body.trabajadores_asignados, encargadoNombre, fechaActual, taskId, true, true, true);
+      console.log('✅ Trabajadores actualizados en Horas_PorValidar');
+    }
+    
+    console.log(`✅ Tarea urgente actualizada completamente: ${taskId}`);
+    res.json({ 
+      success: true, 
+      message: 'Tarea urgente actualizada correctamente',
+      taskId: taskId 
+    });
+    
+  } catch (error) {
+    console.error('❌ Error actualizando tarea urgente:', error);
+    res.status(500).json({ success: false, error: 'Error interno del servidor' });
   }
 });
 
@@ -3260,6 +3578,306 @@ app.get('/tipos-tarea', verifyJWT, async (req, res) => {
   } catch (error) {
     console.error('❌ Error obteniendo tipos de tarea:', error);
     res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// ===============================================
+// ENDPOINTS PARA GUARDAR/CARGAR DATOS BORRADOR
+// ===============================================
+
+// Guardar datos de trabajadores como borrador
+app.post('/tasks/save-draft', verifyJWT, async (req, res) => {
+  try {
+    console.log('💾 Guardando datos como borrador:', req.body);
+    
+    const { taskId, trabajadores, encargado, totalHoras, fecha } = req.body;
+    
+    if (!taskId || !trabajadores || trabajadores.length === 0) {
+      return res.status(400).json({ success: false, error: 'Datos insuficientes para guardar borrador' });
+    }
+
+    const auth = new google.auth.GoogleAuth({
+      keyFile: './service-account.json',
+      scopes: ['https://www.googleapis.com/auth/spreadsheets']
+    });
+
+    const sheets = google.sheets({ version: 'v4', auth });
+    
+    // Buscar la hoja dinámicamente como hacen otras funciones
+    const spreadsheetMeta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
+    const horasSheet = spreadsheetMeta.data.sheets.find(s =>
+      s.properties && (s.properties.title === 'Horas_PorValidar' || s.properties.title === 'horas_porvalidar')
+    );
+    
+    if (!horasSheet) {
+      return res.status(404).json({ success: false, error: 'No se encontró la hoja Horas_PorValidar' });
+    }
+    
+    // Obtener datos existentes para verificar si ya hay un borrador
+    const result = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: horasSheet.properties.title, // Usar solo el nombre de la hoja
+    });
+
+    const rows = result.data.values || [];
+    const headers = rows[0] || [];
+    
+    // Buscar índices de columnas (formato correcto basado en estructura real)
+    console.log('📋 Headers encontrados:', headers);
+    
+    const fechaIndex = 0;        // A: Fecha 
+    const grupoIndex = 1;        // B: Grupo
+    const nombreIndex = 2;       // C: Nombre
+    const tiempoIndex = 3;       // D: Tiempo  
+    const rankingIndex = 4;      // E: Ranking
+    const empresaIndex = 5;      // F: Empresa
+    const porValidarIndex = 6;   // G: Por_Validar
+    
+    console.log('📋 Índices usados:', {fechaIndex, grupoIndex, nombreIndex, tiempoIndex, rankingIndex, empresaIndex, porValidarIndex});
+
+    // Las columnas están en posiciones fijas, no necesitamos validarlas por nombre
+
+    // Convertir fecha a formato europeo para la búsqueda
+    const fechaHoy = formatDateToEuropean(fecha);
+    console.log(`🔍 Fecha de hoy formateada: "${fechaHoy}"`);
+    
+    // PASO 1: Crear mapa de trabajadores de mi nueva lista
+    const nuevaLista = new Map();
+    trabajadores.forEach(t => {
+      nuevaLista.set(t.trabajador.nombre, t);
+    });
+    console.log(`� MI NUEVA LISTA: [${Array.from(nuevaLista.keys()).join(', ')}]`);
+    
+    // PASO 2: Encontrar trabajadores que YA están en la hoja para esta tarea
+    const dataRows = rows.slice(1);
+    const trabajadoresEnHoja = new Map(); // nombre -> fila completa
+    let rowsOtrasTareas = [headers]; // Filas de otras tareas que mantenemos
+    
+    console.log(`🔍 REVISANDO HOJA: ${dataRows.length} filas`);
+    
+    for (let i = 0; i < dataRows.length; i++) {
+      const row = dataRows[i];
+      const rowFecha = row[fechaIndex];
+      const rowTaskId = row[rankingIndex];
+      const rowStatus = row[porValidarIndex];
+      const rowNombre = row[nombreIndex];
+      
+      // Si NO es de esta tarea/fecha/estado, mantenerla
+      if (rowFecha !== fechaHoy || rowTaskId !== taskId || rowStatus !== 'Guardada') {
+        rowsOtrasTareas.push(row);
+        continue;
+      }
+      
+      // Es de esta tarea: guardar para comparar
+      trabajadoresEnHoja.set(rowNombre, row);
+      console.log(`🔍 En hoja: "${rowNombre}" con ${row[tiempoIndex]} horas`);
+    }
+    
+    console.log(`� TRABAJADORES EN HOJA ACTUALMENTE: [${Array.from(trabajadoresEnHoja.keys()).join(', ')}]`);
+    
+    // PASO 3: Comparar y procesar
+    let eliminados = 0, actualizados = 0, agregados = 0;
+    const filasFinales = [...rowsOtrasTareas];
+    
+    // Procesar trabajadores de mi nueva lista
+    for (const [nombre, trabajadorNuevo] of nuevaLista) {
+      if (trabajadoresEnHoja.has(nombre)) {
+        // Ya existe: actualizar horas
+        const filaExistente = trabajadoresEnHoja.get(nombre);
+        const horas = trabajadorNuevo.horas || 0;
+        const horasFormateadas = horas.toString().replace('.', ',');
+        
+        filaExistente[tiempoIndex] = horasFormateadas;
+        filasFinales.push(filaExistente);
+        actualizados++;
+        console.log(`🔄 ACTUALIZANDO "${nombre}": nuevas horas ${horasFormateadas}`);
+      } else {
+        // No existe: agregar nuevo
+        const horas = trabajadorNuevo.horas || 0;
+        const horasFormateadas = horas.toString().replace('.', ',');
+        
+        const nuevaFila = [
+          fechaHoy,                                    // A: Fecha
+          encargado,                                   // B: Grupo 
+          trabajadorNuevo.trabajador.nombre,           // C: Nombre
+          horasFormateadas,                           // D: Tiempo
+          taskId,                                     // E: Ranking
+          trabajadorNuevo.trabajador.empresa || '',   // F: Empresa 
+          'Guardada'                                  // G: Estado
+        ];
+        
+        filasFinales.push(nuevaFila);
+        agregados++;
+        console.log(`➕ AGREGANDO "${nombre}" con ${horasFormateadas} horas`);
+      }
+    }
+    
+    // Contar eliminados (los que estaban en hoja pero no en nueva lista)
+    for (const nombre of trabajadoresEnHoja.keys()) {
+      if (!nuevaLista.has(nombre)) {
+        eliminados++;
+        console.log(`❌ ELIMINANDO "${nombre}" (no está en nueva lista)`);
+      }
+    }
+    
+    console.log(`📊 RESULTADO: ${eliminados} eliminados, ${actualizados} actualizados, ${agregados} agregados`);
+    
+    // Agregar filas vacías para limpiar posibles restos
+    const filasVacias = Array(20).fill([]).map(() => ['', '', '', '', '', '', '']);
+    const rowsToKeep = [...filasFinales, ...filasVacias];
+
+    // Usar batchUpdate para reemplazar todo el rango de una vez
+    console.log(`📤 ENVIANDO A GOOGLE SHEETS:`);
+    console.log(`📤 Total filas finales: ${rowsToKeep.length} (incluye headers + otras tareas + mi lista actualizada)`);
+    console.log(`📤 Trabajadores procesados: ${trabajadores.length}`);
+    
+    // Calcular rango suficiente para todas las filas + margen para limpieza
+    const totalFilas = Math.max(rowsToKeep.length, 100);
+    const rangeCompleto = `${horasSheet.properties.title}!A1:G${totalFilas}`;
+    
+    await sheets.spreadsheets.values.batchUpdate({
+      spreadsheetId: SPREADSHEET_ID,
+      resource: {
+        valueInputOption: 'RAW',
+        data: [{
+          range: rangeCompleto,
+          values: rowsToKeep
+        }]
+      }
+    });
+
+    console.log(`✅ Datos guardados como borrador para tarea ${taskId} con ${trabajadores.length} trabajadores`);
+    res.json({ success: true, message: 'Datos guardados correctamente' });
+
+  } catch (error) {
+    console.error('❌ Error guardando borrador:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Cargar datos de trabajadores guardados como borrador
+app.get('/tasks/:id/draft', async (req, res) => {
+  try {
+    const taskId = req.params.id;
+    console.log('📂 Cargando borrador para tarea:', taskId);
+
+    const auth = new google.auth.GoogleAuth({
+      keyFile: './service-account.json',
+      scopes: ['https://www.googleapis.com/auth/spreadsheets']
+    });
+
+    const sheets = google.sheets({ version: 'v4', auth });
+    
+    // Buscar la hoja igual que otras funciones
+    const spreadsheetMeta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
+    const horasSheet = spreadsheetMeta.data.sheets.find(s =>
+      s.properties && (s.properties.title === 'Horas_PorValidar' || s.properties.title === 'horas_porvalidar')
+    );
+    
+    if (!horasSheet) {
+      return res.status(404).json({ error: 'No se encontró la hoja de Horas_PorValidar' });
+    }
+
+    const result = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: horasSheet.properties.title, // Usar solo el nombre de la hoja como otras funciones
+    });
+
+    const rows = result.data.values || [];
+    if (rows.length === 0) {
+      return res.json({ trabajadores: [] });
+    }
+
+    const headers = rows[0];
+    const dataRows = rows.slice(1);
+
+    const fechaIndex = headers.indexOf('Fecha');
+    const rankingIndex = headers.indexOf('Ranking');
+    const nombreIndex = headers.indexOf('Nombre');
+    const tiempoIndex = headers.indexOf('Tiempo');
+    const empresaIndex = headers.indexOf('Empresa');
+    const grupoIndex = headers.indexOf('Grupo');
+    const porValidarIndex = headers.indexOf('Por_Validar');
+
+    if (rankingIndex === -1 || nombreIndex === -1 || tiempoIndex === -1 || porValidarIndex === -1) {
+      return res.json({ trabajadores: [] });
+    }
+
+    // Buscar registros con este taskId y estado "Guardada"
+    const trabajadoresGuardados = [];
+    
+    console.log(`🔍 Buscando taskId: "${taskId}" (tipo: ${typeof taskId})`);
+    console.log(`🔍 Total filas en hoja: ${dataRows.length}`);
+    
+    // Primero obtener datos de trabajadores para mapear nombres a códigos
+    const trabajadoresResponse = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: 'Trabajadores',
+      valueRenderOption: 'FORMATTED_VALUE'
+    });
+    
+    const trabajadoresRows = trabajadoresResponse.data.values || [];
+    const trabajadoresMap = {};
+    
+    if (trabajadoresRows.length > 1) {
+      const trabajadoresHeaders = trabajadoresRows[0];
+      const rankingIdx = trabajadoresHeaders.findIndex(h => h && h.toLowerCase().includes('ranking'));
+      const nombreIdx = trabajadoresHeaders.findIndex(h => h && h.toLowerCase().includes('nombre'));
+      const empresaIdx = trabajadoresHeaders.findIndex(h => h && h.toLowerCase().includes('empresa'));
+      
+      console.log(`📋 Headers de Trabajadores: ${trabajadoresHeaders.join(', ')}`);
+      console.log(`📋 Índices: Ranking=${rankingIdx}, Nombre=${nombreIdx}, Empresa=${empresaIdx}`);
+      
+      trabajadoresRows.slice(1).forEach(row => {
+        if (row[nombreIdx]) {
+          trabajadoresMap[row[nombreIdx]] = {
+            codigo: row[rankingIdx] || '',
+            empresa: row[empresaIdx] || ''
+          };
+          console.log(`👤 Mapeado: "${row[nombreIdx]}" → Código: "${row[rankingIdx]}"`);
+        }
+      });
+    }
+    
+    console.log(`👥 Mapa de trabajadores cargado: ${Object.keys(trabajadoresMap).length} trabajadores`);
+    
+    for (const row of dataRows) {
+      const rowTaskId = row[rankingIndex];
+      const rowStatus = row[porValidarIndex];
+      const rowNombre = row[nombreIndex];
+      
+      console.log(`🔍 Fila: Ranking="${rowTaskId}" (tipo: ${typeof rowTaskId}), Estado="${rowStatus}", Nombre="${rowNombre}"`);
+      
+      // Comparar como strings para evitar problemas de tipos
+      if (String(rowTaskId) === String(taskId) && rowStatus === 'Guardada') {
+        const horasStr = (row[tiempoIndex] || '0').toString().replace(',', '.');
+        const horas = parseFloat(horasStr) || 0;
+        
+        const trabajadorInfo = trabajadoresMap[rowNombre] || {};
+        
+        console.log(`✅ MATCH encontrado: "${rowNombre}" con ${horas} horas, código: "${trabajadorInfo.codigo}"`);
+        
+        trabajadoresGuardados.push({
+          trabajador: {
+            nombre: rowNombre || '',
+            codigo: trabajadorInfo.codigo || '',
+            empresa: trabajadorInfo.empresa || row[empresaIndex] || ''
+          },
+          horas: horas
+        });
+      }
+    }
+
+    console.log(`📂 Encontrados ${trabajadoresGuardados.length} trabajadores guardados para tarea ${taskId}`);
+    
+    res.json({ 
+      trabajadores: trabajadoresGuardados,
+      fecha: trabajadoresGuardados.length > 0 ? dataRows.find(row => row[rankingIndex] === taskId)?.[fechaIndex] : null
+    });
+
+  } catch (error) {
+    console.error('❌ Error cargando borrador:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
