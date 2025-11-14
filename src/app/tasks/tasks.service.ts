@@ -227,4 +227,18 @@ export class TasksService {
     console.log('🌐 TasksService.loadDraftWorkerData() - Cargando borrador para tarea:', taskId);
     return this.http.get<any>(`${this.apiUrl}/tasks/${taskId}/draft`);
   }
+
+  // Enviar tarea urgente para validación (cambiar horas de "Guardadas" a "No validada")
+  submitUrgentTaskForValidation(taskId: string, totalHoras: number, trabajadoresAsignados: any[], encargadoNombre: string): Observable<any> {
+    const url = `${this.apiUrl}/tasks/${taskId}/submit-urgent`;
+    const data = {
+      totalHoras: totalHoras,
+      trabajadores_asignados: trabajadoresAsignados,
+      encargado_nombre: encargadoNombre
+    };
+    
+    console.log('🚨 TasksService.submitUrgentTaskForValidation() - URL:', url);
+    console.log('🚨 TasksService.submitUrgentTaskForValidation() - Datos:', data);
+    return this.http.post<any>(url, data);
+  }
 }

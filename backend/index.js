@@ -2621,6 +2621,121 @@ app.post('/tasks/:id/complete-direct', verifyJWT, async (req, res) => {
   }
 });
 
+// Endpoint para enviar tarea urgente para validación (cambiar horas de "Guardadas" a "No validada")
+app.post('/tasks/:id/submit-urgent', verifyJWT, async (req, res) => {
+  console.log('🚨 ENDPOINT /tasks/:id/submit-urgent ALCANZADO');
+  console.log('📋 Task ID recibido:', req.params.id);
+  console.log('📦 Body recibido:', JSON.stringify(req.body, null, 2));
+  
+  try {
+    const taskId = req.params.id;
+    
+    if (!taskId) {
+      return res.status(400).json({ success: false, error: 'ID de tarea requerido' });
+    }
+    
+    console.log('✅ POST /tasks/:id/submit-urgent - Usuario:', req.user?.userId, 'Tarea:', taskId);
+    const auth = getGoogleAuth();
+    const sheets = google.sheets({ version: 'v4', auth });
+    
+    console.log('=== ENVIANDO TAREA URGENTE PARA VALIDACIÓN ===');
+    console.log('Task ID:', taskId);
+    console.log('Datos recibidos:', req.body);
+    
+    // Buscar la hoja de tareas
+    const spreadsheetMeta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
+    const tareasSheet = spreadsheetMeta.data.sheets.find(s =>
+      s.properties && (s.properties.title === 'Tareas' || s.properties.title === 'tareas')
+    );
+    
+    if (!tareasSheet) {
+      return res.status(500).json({ error: 'No se encontró la hoja "Tareas" en el spreadsheet.' });
+    }
+    
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: tareasSheet.properties.title,
+    });
+    
+    const rows = response.data.values || [];
+    const rowIndex = rows.findIndex((row, idx) => idx > 0 && String(row[0]) === String(taskId));
+    
+    if (rowIndex === -1) {
+      return res.status(404).json({ error: 'Tarea no encontrada' });
+    }
+    
+    const currentRow = rows[rowIndex];
+    const fechaActual = new Date().toLocaleDateString('es-ES');
+    
+    // Asegurar que el array tenga suficientes elementos
+    while (currentRow.length < 18) {
+      currentRow.push('');
+    }
+    
+    // PASO 1: Cambiar estado de la tarea a "Por validar"
+    currentRow[15] = 'Por validar'; // proceso (columna P)
+    currentRow[16] = fechaActual; // fecha_actualizacion (columna Q)
+    
+    // Actualizar la tarea
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${tareasSheet.properties.title}!A${rowIndex + 1}:R${rowIndex + 1}`,
+      valueInputOption: 'RAW',
+      resource: { values: [currentRow] }
+    });
+    
+    console.log('✅ Tarea actualizada a estado "Por validar"');
+    
+    // PASO 2: Manejar las horas existentes
+    if (req.body.trabajadores_asignados && req.body.trabajadores_asignados.length > 0) {
+      const encargadoNombre = req.body.encargado_nombre || 'Encargado';
+      
+      console.log('🔄 === PROCESANDO HORAS PARA VALIDACIÓN ===');
+      console.log('PASO 2.1: Eliminar horas existentes de la tarea');
+      
+      // ELIMINAR horas existentes (igual que tareas normales)
+      await eliminarHorasExistentes(auth, taskId);
+      
+      console.log('PASO 2.2: Registrar horas como "No validada" para que el superior las valide');
+      
+      // REGISTRAR horas como "No validada" (urgente + no superior = No validada)
+      await registrarHorasTrabajadas(
+        auth, 
+        req.body.trabajadores_asignados, 
+        encargadoNombre, 
+        fechaActual, 
+        taskId, 
+        true,  // esTareaUrgente = true
+        false, // esSuperior = false (para que quede "No validada")
+        false  // esDraft = false (no es borrador)
+      );
+      
+      console.log('✅ Horas registradas como "No validada" para validación del superior');
+    }
+    
+    // Invalidar caché relacionado
+    if (cacheService) {
+      cacheService.invalidatePattern('tasks');
+      cacheService.invalidatePattern(`trabajadores-tarea:${taskId}`);
+      console.log('🔄 Cache invalidado después de enviar tarea urgente');
+    }
+    
+    const respuesta = {
+      result: 'success',
+      message: 'Tarea urgente enviada para validación correctamente',
+      taskId: taskId,
+      estado: 'Por validar',
+      horasEstado: 'No validada'
+    };
+    
+    console.log('✅ Tarea urgente enviada para validación:', respuesta);
+    res.json(respuesta);
+  } catch (err) {
+    console.error('Error enviando tarea urgente para validación:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Endpoint para terminar una tarea (encargado)
 app.post('/tasks/:id/complete', verifyJWT, async (req, res) => {
   try {

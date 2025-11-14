@@ -275,11 +275,11 @@
                 <button type="submit" 
                         class="task-action-btn validate-btn"
                         [disabled]="!canCreateUrgentTask() || isCreatingUrgentTask">
-                    <span class="icon">⚡</span> 
-                    <span *ngIf="!isCreatingUrgentTask && !editingTask">Registrar Tarea</span>
-                    <span *ngIf="!isCreatingUrgentTask && editingTask">Actualizar Tarea</span>
-                    <span *ngIf="isCreatingUrgentTask && !editingTask">Creando...</span>
-                    <span *ngIf="isCreatingUrgentTask && editingTask">Actualizando...</span>
+                    <span class="icon">📤</span> 
+                    <span *ngIf="!isCreatingUrgentTask && !editingTask">Enviar tarea</span>
+                    <span *ngIf="!isCreatingUrgentTask && editingTask">Enviar tarea</span>
+                    <span *ngIf="isCreatingUrgentTask && !editingTask">Enviando...</span>
+                    <span *ngIf="isCreatingUrgentTask && editingTask">Enviando...</span>
                 </button>
             </div>
         </form>
@@ -660,8 +660,19 @@
                     </div>
                 </div>
 
+                <!-- Información de trabajadores para tareas "Por validar" -->
+                <div *ngIf="getTaskState(task) === 'Por validar' && hasTaskWorkers(task.id)" class="validation-workers-info">
+                    <div class="workers-title">👥 Trabajadores pendientes de validación:</div>
+                    <div class="workers-list">
+                        <div *ngFor="let trabajador of getTaskWorkers(task.id)" class="worker-item">
+                            <span class="worker-name">{{ trabajador.nombre }}</span>
+                            <span class="worker-hours">{{ formatHoras(trabajador.horasTotal) }}h</span>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Información de trabajadores para tareas urgentes -->
-                <div *ngIf="isUrgentTask(task) && hasTaskWorkers(task.id)" class="urgent-workers-info">
+                <div *ngIf="isUrgentTask(task) && getTaskState(task) !== 'Por validar' && hasTaskWorkers(task.id)" class="urgent-workers-info">
                     <div class="workers-title">👥 Personal asignado:</div>
                     <div class="workers-list">
                         <div *ngFor="let trabajador of getTaskWorkers(task.id)" class="worker-item">

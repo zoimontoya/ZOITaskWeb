@@ -465,154 +465,169 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     console.log('🎯 === onSubmitUrgentTask INICIADO ===');
     console.log('🔍 editingTask existe?', !!this.editingTask);
     console.log('🔍 editingTask.id:', this.editingTask?.id);
-    console.log('🔍 editingTask completo:', this.editingTask);
 
-    // Determinar si estamos creando o actualizando
+    // NUEVA METODOLOGÍA: Usar sistema estándar para enviar tarea
     if (this.editingTask) {
-      console.log('✅ LLAMANDO A updateUrgentDraft() - Modo ACTUALIZACIÓN');
-      this.updateUrgentDraft();
+      console.log('✅ MODO ACTUALIZACIÓN - Enviando tarea guardada para validación');
+      this.submitUrgentTaskForValidation(true); // true = es actualización
       return;
     }
 
-    console.log('🆕 MODO CREACIÓN - No hay editingTask');
+    console.log('🆕 MODO CREACIÓN - Enviando nueva tarea para validación');
+    this.submitUrgentTaskForValidation(false); // false = es creación
+  }
 
-    // Validaciones básicas para creación nueva
-    if (!this.urgentTask.invernadero.trim() || !this.urgentTask.tipo_tarea.trim()) {
-      console.warn('[DEBUG] Falta campo obligatorio. modalMessage:', this.modalMessage);
-      setTimeout(() => {
-        console.warn('[DEBUG][setTimeout] Intentando mostrar modal de campos obligatorios. modalMessage:', this.modalMessage);
-        if (this.modalMessage) {
-          this.modalMessage.show('Debes completar todos los campos obligatorios (invernadero y tipo de tarea).', 'Campos requeridos');
-          console.warn('[DEBUG][setTimeout] show() llamado para campos obligatorios.');
-        } else {
-          console.error('[DEBUG][setTimeout] modalMessage NO disponible.');
-        }
-      }, 0);
-      return;
+  // NUEVO MÉTODO: Enviar tarea urgente para validación usando metodología estándar
+  submitUrgentTaskForValidation(isUpdate: boolean): void {
+    console.log(`📤 === submitUrgentTaskForValidation (${isUpdate ? 'UPDATE' : 'CREATE'}) ===`);
+
+    // Validaciones básicas (solo para creación nueva)
+    if (!isUpdate) {
+      if (!this.urgentTask.invernadero.trim() || !this.urgentTask.tipo_tarea.trim()) {
+        this.showNotificationMessage('Debes completar todos los campos obligatorios (invernadero y tipo de tarea).', 'warning');
+        return;
+      }
+      
+      if (!this.urgentTask.hectareas_trabajadas || this.urgentTask.hectareas_trabajadas <= 0) {
+        this.showNotificationMessage('Debes indicar una cantidad de hectáreas trabajadas mayor a 0.', 'warning');
+        return;
+      }
+      
+      if (this.shouldShowGeneroSelector() && !this.selectedGenero.trim()) {
+        this.showNotificationMessage('Debes seleccionar un género para tareas de confección.', 'warning');
+        return;
+      }
     }
-    // Validar que las hectáreas trabajadas sean mayores a 0
-    if (!this.urgentTask.hectareas_trabajadas || this.urgentTask.hectareas_trabajadas <= 0) {
-      console.warn('[DEBUG] hectáreas <= 0. modalMessage:', this.modalMessage);
-      setTimeout(() => {
-        console.warn('[DEBUG][setTimeout] Intentando mostrar modal de hectáreas. modalMessage:', this.modalMessage);
-        if (this.modalMessage) {
-          this.modalMessage.show('Debes indicar una cantidad de hectáreas trabajadas mayor a 0.', 'Campos requeridos');
-          console.warn('[DEBUG][setTimeout] show() llamado para hectáreas.');
-        } else {
-          console.error('[DEBUG][setTimeout] modalMessage NO disponible.');
-        }
-      }, 0);
-      return;
-    }
-    // 🏪 Validación específica para tareas de confección
-    if (this.shouldShowGeneroSelector() && !this.selectedGenero.trim()) {
-      console.warn('[DEBUG] Falta género. modalMessage:', this.modalMessage);
-      setTimeout(() => {
-        console.warn('[DEBUG][setTimeout] Intentando mostrar modal de género. modalMessage:', this.modalMessage);
-        if (this.modalMessage) {
-          this.modalMessage.show('Debes seleccionar un género para tareas de confección.', 'Campos requeridos');
-          console.warn('[DEBUG][setTimeout] show() llamado para género.');
-        } else {
-          console.error('[DEBUG][setTimeout] modalMessage NO disponible.');
-        }
-      }, 0);
-      return; // Si es una tarea ALMACEN-CONFECC, el género es obligatorio
-    }
+
     // Validar trabajadores asignados con horas
     const totalHorasUrgent = this.getTotalHorasUrgentWorkers();
     if (!this.urgentTaskWorkers || this.urgentTaskWorkers.length === 0 || totalHorasUrgent <= 0) {
-      console.warn('[DEBUG] No hay trabajadores con horas. modalMessage:', this.modalMessage);
-      setTimeout(() => {
-        console.warn('[DEBUG][setTimeout] Intentando mostrar modal de trabajadores. modalMessage:', this.modalMessage);
-        if (this.modalMessage) {
-          this.modalMessage.show('Debes asignar al menos un trabajador con horas válidas a la tarea urgente.', 'Campos requeridos');
-          console.warn('[DEBUG][setTimeout] show() llamado para trabajadores.');
-        } else {
-          console.error('[DEBUG][setTimeout] modalMessage NO disponible.');
-        }
-      }, 0);
+      this.showNotificationMessage('Debes asignar al menos un trabajador con horas válidas a la tarea urgente.', 'warning');
       return;
     }
+
     this.isCreatingUrgentTask = true;
-    this.showLoadingOverlay('Creando tarea urgente...');
+    this.showLoadingOverlay(isUpdate ? 'Enviando tarea para validación...' : 'Creando tarea urgente...');
 
-    // Crear tarea urgente. Si el creador es SUPERIOR, marcarla directamente como Terminada
-    const encargadoNombre = this.loggedUser?.nombre_completo || this.name || this.userId || '';
-    const isSuperior = !this.isEncargado;
-    const todayIso = new Date().toISOString().split('T')[0];
-    const fechaActualizacion = new Date().toLocaleDateString('es-ES');
-    // Hora jornal especial para "Manten. Vehículos"
-    const horaJornalValue = this.urgentTask.tipo_tarea === 'Manten. Vehículos' ? 1 : 0;
-    // Horas_kilos especial para "Recolectar" (para usar modo kilos en lugar de hectáreas)
-    const horasKilosValue = this.urgentTask.tipo_tarea === 'Recolectar' ? 1 : 0;
-
-    const tareaUrgente: any = {
-      invernadero: this.urgentTask.invernadero.trim(),
-      tipo_tarea: this.urgentTask.tipo_tarea.trim(),
-      estimacion_horas: this.getTotalHorasUrgentWorkers(),
-      hora_jornal: horaJornalValue,
-      horas_kilos: horasKilosValue,
-      jornales_reales: this.getTotalHorasUrgentWorkers(),
-      fecha_limite: todayIso,
+    // Preparar datos para envío final (estado "Por validar")
+    const urgentTaskData = {
+      tipo_tarea: this.urgentTask.tipo_tarea,
+      invernadero: this.urgentTask.invernadero,
+      estimacion_horas: totalHorasUrgent,
+      dimension_total: this.urgentTask.hectareas_trabajadas,
+      desarrollo_actual: this.urgentTask.hectareas_trabajadas,
+      descripcion: this.urgentTask.descripcion,
+      fecha_limite: new Date().toISOString().split('T')[0],
+      
+      // CRÍTICO: Estado "Por validar" para finalizar la tarea
+      proceso: 'Por validar',
+      
+      // Datos del encargado
       encargado_id: this.userId,
-      descripcion: this.buildUrgentTaskDescription(),
-      nombre_superior: encargadoNombre,
-      desarrollo_actual: this.urgentTask.tipo_tarea === 'Manten. Vehículos' ? String(this.urgentTask.matricula) : this.urgentTask.desarrollo_actual.toString(),
-      dimension_total: this.urgentTask.tipo_tarea === 'Manten. Vehículos' ? String(this.urgentTask.matricula) : this.urgentTask.dimension_total.toString(),
-      // Datos para registro directo en hoja "Horas"
-      trabajadores_asignados: this.urgentTaskWorkers,
-      encargado_nombre: encargadoNombre,
+      nombre_superior: this.name,
+      
+      // Flags para identificar tipo de tarea
       es_tarea_urgente: true,
-      es_superior: isSuperior // AÑADIDO - para saber si auto-validar horas
+      // CRÍTICO: Para "Enviar tarea" TAMBIÉN usar es_superior: false para que aparezca "No validada" (no auto-validada)
+      es_superior: false,
+      hora_jornal: 0,
+      horas_kilos: 0,
+      
+      // Trabajadores finales
+      trabajadores_asignados: this.urgentTaskWorkers,
+      
+      // Género si es necesario
+      genero: this.selectedGenero || ''
     };
 
-    if (isSuperior) {
-      // Marcar como terminada y rellenar fechas automáticamente
-      tareaUrgente.proceso = 'Terminada';
-      // Cuando lo valida un superior, las fechas deben coincidir con la fecha límite
-      tareaUrgente.fecha_inicio = tareaUrgente.fecha_limite;
-      tareaUrgente.fecha_fin = tareaUrgente.fecha_limite;
-      tareaUrgente.fecha_actualizacion = tareaUrgente.fecha_limite;
-      // Asegurar jornales_reales mantiene las horas calculadas
-      tareaUrgente.jornales_reales = this.getTotalHorasUrgentWorkers();
+    if (isUpdate && this.editingTask && this.editingTask.id) {
+      // ACTUALIZAR: Usar metodología de tareas normales - enviar horas para validación
+      console.log('📤 Enviando tarea urgente para validación (metodología correcta):', this.editingTask.id);
+      
+      this.taskService.submitUrgentTaskForValidation(
+        this.editingTask.id, 
+        totalHorasUrgent, 
+        this.urgentTaskWorkers, 
+        this.name || this.userId
+      ).subscribe({
+        next: (response: any) => {
+          console.log('✅ Tarea urgente enviada para validación:', response);
+          this.handleSubmitSuccess('Tarea urgente enviada para validación correctamente');
+        },
+        error: (error: any) => {
+          console.error('❌ Error enviando tarea urgente:', error);
+          this.handleSubmitError('Error al enviar la tarea urgente para validación');
+        }
+      });
     } else {
-      tareaUrgente.proceso = 'Por validar';
-    }
-
-    console.log('Creando tarea urgente:', tareaUrgente);
-
-    this.taskService.addTask([tareaUrgente], this.loggedUser?.nombre_completo || this.userId).subscribe({
-      next: () => {
-        this.isCreatingUrgentTask = false;
-        this.hideLoadingOverlay();
-        this.showUrgentTaskModal = false;
-
-        // Si hay trabajadores asignados, registrarlos
-        if (this.urgentTaskWorkers.length > 0) {
-          // Aquí registrarías las horas de los trabajadores
-          console.log('Trabajadores para tarea urgente:', this.urgentTaskWorkers);
-        }
-
-        this.resetUrgentTask();
-        this.loadTasks();
-      },
-      error: (err) => {
-        this.isCreatingUrgentTask = false;
-        this.hideLoadingOverlay();
-        if (err.status === 200) {
-          // Manejar respuesta exitosa que viene como error
-          this.showUrgentTaskModal = false;
-          this.resetUrgentTask();
-          this.loadTasks();
-        } else {
-          console.error('Error creando tarea urgente:', err);
-          if (this.modalMessage) {
-            this.modalMessage.show('Error al crear la tarea urgente', 'Error');
-            this.cdr.detectChanges();
+      // CREAR: Primero crear la tarea, luego enviar para validación
+      console.log('🆕 Creando nueva tarea urgente y enviando para validación');
+      
+      // PASO 1: Crear la tarea básica
+      this.taskService.addTask([urgentTaskData]).subscribe({
+        next: (response: any) => {
+          console.log('✅ Tarea urgente creada:', response);
+          
+          let newTaskId = null;
+          if (response && response.length > 0 && response[0].id) {
+            newTaskId = response[0].id;
+          } else if (response && response.id) {
+            newTaskId = response.id;
           }
+          
+          if (!newTaskId) {
+            console.error('❌ No se pudo obtener el ID de la tarea creada');
+            this.handleSubmitError('Error: No se pudo obtener el ID de la tarea creada');
+            return;
+          }
+          
+          // PASO 2: Enviar para validación usando el ID obtenido
+          console.log('📤 Enviando tarea recién creada para validación:', newTaskId);
+          
+          this.taskService.submitUrgentTaskForValidation(
+            newTaskId, 
+            totalHorasUrgent, 
+            this.urgentTaskWorkers, 
+            this.name || this.userId
+          ).subscribe({
+            next: (submitResponse: any) => {
+              console.log('✅ Tarea urgente creada y enviada para validación:', submitResponse);
+              this.handleSubmitSuccess('Tarea urgente creada y enviada para validación correctamente');
+            },
+            error: (submitError: any) => {
+              console.error('❌ Error enviando tarea urgente para validación:', submitError);
+              this.handleSubmitError('Tarea creada pero error al enviar para validación');
+            }
+          });
+        },
+        error: (error: any) => {
+          console.error('❌ Error creando tarea urgente:', error);
+          this.handleSubmitError('Error al crear la tarea urgente');
         }
-      }
-    });
+      });
+    }
+  }
+  
+  // Método auxiliar para manejar éxito al enviar
+  private handleSubmitSuccess(message: string): void {
+    this.isCreatingUrgentTask = false;
+    this.hideLoadingOverlay();
+    
+    // Resetear formulario y cerrar modal
+    this.resetUrgentTask();
+    this.showUrgentTaskModal = false;
+    
+    // Recargar tareas para mostrar cambios
+    this.loadTasks();
+    
+    this.showNotificationMessage(message, 'success');
+  }
+  
+  // Método auxiliar para manejar errores al enviar
+  private handleSubmitError(message: string): void {
+    this.isCreatingUrgentTask = false;
+    this.hideLoadingOverlay();
+    this.showNotificationMessage(message, 'error');
   }
 
   // Método para actualizar una tarea guardada (draft)
@@ -970,22 +985,29 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
         this.tiposTarea = Array.from(new Set(this.tasks.map(t => t.tipo_tarea).filter(Boolean)));
         this.encargados = Array.from(new Set(this.tasks.map(t => t.encargado_id).filter(Boolean)));
         
-        // Cargar trabajadores para tareas urgentes y tareas con progreso/terminadas
+        // DEBUG: Cargar trabajadores para TODAS las tareas (temporalmente para debug)
+        console.log('🔍 === DEBUGGING CARGA DE TRABAJADORES ===');
+        console.log('📋 Total de tareas cargadas:', this.tasks.length);
+        
         this.tasks.forEach(task => {
-          if (this.isUrgentTask(task)) {
-            this.loadTaskWorkers(task.id);
-          } else {
-            // Cargar trabajadores para tareas con progreso, terminadas o recolectando
-            const taskState = this.getTaskState(task);
-            const shouldLoadWorkers = taskState === 'Terminada' || 
-                                      taskState === 'Recolectando' || 
-                                      (taskState && this.isNumber(taskState) && this.toNumber(taskState) > 0);
-            
-            if (shouldLoadWorkers) {
-              this.loadTaskWorkers(task.id);
-            }
-          }
+          const taskState = this.getTaskState(task);
+          const isUrgent = this.isUrgentTask(task);
+          
+          console.log(`🔍 Tarea ${task.id}: estado="${taskState}", urgente=${isUrgent}, invernadero="${task.invernadero}"`);
+          
+          // TEMPORAL: Cargar trabajadores para TODAS las tareas para debug
+          console.log(`👥 FORZANDO carga de trabajadores para tarea ${task.id}`);
+          this.loadTaskWorkers(task.id);
         });
+        
+        // Verificar el mapa después de 2 segundos
+        setTimeout(() => {
+          console.log('🔍 === VERIFICANDO TASKWORKERSMAP DESPUÉS DE 2s ===');
+          console.log('� Tareas con trabajadores cargados:');
+          this.taskWorkersMap.forEach((workers, taskId) => {
+            console.log(`  - Tarea ${taskId}: ${workers.length} trabajadores`);
+          });
+        }, 2000);
 
         // Cargar nombres de encargados para supervisores
         if (!this.isEncargado) {
@@ -2311,7 +2333,7 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
 
   // Verificar si se puede guardar tarea urgente como borrador (solo requiere trabajadores, no horas)
   canSaveUrgentDraft(): boolean {
-    return this.urgentTaskWorkers.length > 0;
+    return this.urgentTaskWorkers && this.urgentTaskWorkers.length > 0;
   }
 
   // Verificar si la tarea urgente puede ser creada (requiere horas válidas)
@@ -2456,24 +2478,37 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   // ===== MÉTODOS PARA TRABAJADORES DE TAREAS URGENTES =====
   
   loadTaskWorkers(taskId: string): void {
+    console.log(`🔍 loadTaskWorkers INICIADO para tarea ${taskId}`);
+    
     if (this.taskWorkersMap.has(taskId)) {
+      console.log(`⚠️ Tarea ${taskId} ya está en el mapa, saltando carga`);
       return; // Ya cargado
     }
 
     // Marcar como cargando para evitar múltiples llamadas
     this.taskWorkersMap.set(taskId, []);
+    console.log(`📝 Tarea ${taskId} marcada como cargando en el mapa`);
 
     // Buscar la tarea para determinar si es guardada
     const task = this.tasks.find(t => t.id === taskId);
     const isGuardada = task && this.getTaskState(task) === 'Guardada';
     
+    console.log(`🔍 Tarea ${taskId} encontrada:`, !!task);
+    if (task) {
+      console.log(`🔍 Estado de la tarea: "${this.getTaskState(task)}", es guardada: ${isGuardada}`);
+    }
+    
     if (isGuardada) {
       console.log('📂 Cargando trabajadores de tarea GUARDADA:', taskId);
+      const url = `${environment.apiBaseUrl}/tasks/${taskId}/draft`;
+      console.log('🌐 URL de draft:', url);
+      
       // Para tareas guardadas, usar el endpoint de draft
-      this.http.get<any>(`${environment.apiBaseUrl}/tasks/${taskId}/draft`).subscribe({
+      this.http.get<any>(url).subscribe({
         next: (response) => {
+          console.log('📥 Respuesta de draft recibida:', response);
           const trabajadores = response.trabajadores || [];
-          console.log('✅ Trabajadores guardados cargados:', trabajadores.length);
+          console.log('✅ Trabajadores guardados cargados:', trabajadores.length, trabajadores);
           
           // Transformar formato para que sea compatible con la vista
           const trabajadoresTransformados = trabajadores.map((t: any) => ({
@@ -2483,21 +2518,61 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
             empresa: t.trabajador.empresa
           }));
           
+          console.log('🔄 Trabajadores transformados:', trabajadoresTransformados);
           this.taskWorkersMap.set(taskId, trabajadoresTransformados);
+          console.log('💾 Tarea guardada en mapa. Total en mapa:', this.taskWorkersMap.size);
           this.cdr.detectChanges(); // Forzar actualización de la vista
         },
         error: (err) => {
-          console.error('Error cargando trabajadores de tarea guardada:', err);
+          console.error('❌ Error cargando trabajadores de tarea guardada:', err);
           this.taskWorkersMap.set(taskId, []);
           this.cdr.detectChanges();
         }
       });
     } else {
       console.log('📋 Cargando trabajadores de tarea NORMAL:', taskId);
-      // Para tareas normales, usar el endpoint original
-      this.http.get<any[]>(`${environment.apiBaseUrl}/trabajadores-tarea/${taskId}`).subscribe({
+      
+      // Verificar si es tarea urgente para filtrar por fecha actual
+      const isTaskUrgent = task && this.isUrgentTask(task);
+      const today = new Date().toISOString().split('T')[0];
+      
+      let endpoint = `${environment.apiBaseUrl}/trabajadores-tarea/${taskId}`;
+      
+      if (isTaskUrgent) {
+        // Para tareas urgentes, añadir filtro de fecha actual
+        endpoint += `?fecha=${today}`;
+        console.log('⚡ Tarea urgente detectada, filtrando por fecha:', today);
+      }
+      
+      this.http.get<any[]>(endpoint).subscribe({
         next: (trabajadores) => {
-          this.taskWorkersMap.set(taskId, trabajadores);
+          console.log(`📥 Respuesta de trabajadores recibida para tarea ${isTaskUrgent ? 'URGENTE' : 'NORMAL'}:`, trabajadores);
+          console.log(`✅ Total trabajadores cargados: ${trabajadores.length}`);
+          
+          let trabajadoresFiltrados = trabajadores;
+          
+          // Si es tarea urgente y el backend no filtró por fecha, filtrar en frontend
+          if (isTaskUrgent && trabajadores.length > 0) {
+            // Verificar si los trabajadores tienen fecha y filtrar por hoy
+            trabajadoresFiltrados = trabajadores.filter(trabajador => {
+              if (trabajador.fecha) {
+                const fechaTrabajador = trabajador.fecha.split('T')[0]; // Obtener solo la parte de fecha
+                const esHoy = fechaTrabajador === today;
+                if (!esHoy) {
+                  console.log(`🗓️ Filtrando trabajador ${trabajador.nombre}: fecha ${fechaTrabajador} !== hoy ${today}`);
+                }
+                return esHoy;
+              }
+              // Si no tiene fecha, asumir que es de hoy (fallback)
+              return true;
+            });
+            
+            console.log(`🎯 Tarea urgente: ${trabajadores.length} → ${trabajadoresFiltrados.length} trabajadores (solo hoy)`);
+          }
+          
+          console.log('🔄 Trabajadores filtrados finales:', trabajadoresFiltrados);
+          this.taskWorkersMap.set(taskId, trabajadoresFiltrados);
+          console.log('💾 Tarea guardada en mapa. Total en mapa:', this.taskWorkersMap.size);
           this.cdr.detectChanges(); // Forzar actualización de la vista
         },
         error: (err) => {
@@ -2667,93 +2742,261 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     console.log('🔵 === onSaveUrgentDraftData INICIADO ===');
     console.log('🔍 editingTask existe?', !!this.editingTask);
     console.log('🔍 editingTask.id:', this.editingTask?.id);
+    console.log('🔍 urgentTaskWorkers:', this.urgentTaskWorkers);
+    console.log('🔍 urgentTaskWorkers.length:', this.urgentTaskWorkers?.length);
+    console.log('🔍 isUrgentSaving:', this.isUrgentSaving);
     
     if (this.isUrgentSaving) {
       console.log('❌ Ya se está guardando');
       return;
     }
 
-    // DETERMINAR SI ESTAMOS EDITANDO O CREANDO (igual que onSubmitUrgentTask)
-    if (this.editingTask) {
-      console.log('✅ MODO ACTUALIZACIÓN - Llamando a updateUrgentDraft()');
-      this.updateUrgentDraft();
-      return;
-    }
-
-    console.log('🆕 MODO CREACIÓN - Creando nueva tarea guardada');
-    
-    // Validar que hay trabajadores asignados (no requiere horas para draft)
+    // Verificar que hay trabajadores antes de continuar
     if (!this.urgentTaskWorkers || this.urgentTaskWorkers.length === 0) {
+      console.log('❌ No hay trabajadores asignados');
       this.showNotificationMessage('Debe asignar al menos un trabajador antes de guardar.', 'warning');
       return;
     }
-    
-    const totalHoras = this.getTotalHorasUrgentWorkers();
-    
-    console.log('🔄 Iniciando guardado de tarea urgente como borrador...');
-    this.isUrgentSaving = true;
-    this.showLoadingOverlay('Guardando tarea urgente...');
-    
-    // Crear datos de tarea urgente con estado "Guardada"
-    const urgentTaskData = {
-      // Datos básicos de la tarea
-      tipo_tarea: this.urgentTask.tipo_tarea,
-      invernadero: this.urgentTask.invernadero,
-      hectareas_trabajadas: this.urgentTask.hectareas_trabajadas,
-      descripcion: this.urgentTask.descripcion,
-      fecha_limite: new Date().toISOString().split('T')[0], // Fecha actual como límite
-      
-      // Datos del encargado
-      encargado: this.userId,
-      encargado_id: this.userId, // Campo requerido para backend
-      encargado_nombre: this.name,
-      nombre_superior: this.name, // Campo requerido para identificar superior
-      
-      // Campos requeridos para tareas urgentes
-      es_tarea_urgente: true,
-      es_superior: true,
-      estimacion_horas: totalHoras || 0,
-      hora_jornal: 0, // Para tareas urgentes siempre es 0
-      horas_kilos: 0, // 0 = Hectáreas
-      dimension_total: this.urgentTask.hectareas_trabajadas || 0,
-      desarrollo_actual: this.urgentTask.hectareas_trabajadas || 0,
-      
-      // Estado especial para borrador
-      proceso: 'Guardada', // Estado que irá en columna P
-      
-      // Trabajadores asignados
-      trabajadores_asignados: this.urgentTaskWorkers,
-      
-      // Metadatos
-      isDraft: true,
-      totalHoras: totalHoras
-    };
-    
-    console.log('📤 Enviando tarea urgente borrador:', urgentTaskData);
-    
-    // Usar el endpoint de crear tarea pero con estado "Guardada"
-    this.taskService.addTask([urgentTaskData], this.loggedUser?.nombre_completo || this.userId).subscribe({
-      next: (response: any) => {
-        console.log('✅ Tarea urgente guardada:', response);
-        this.isUrgentSaving = false;
-        this.hideLoadingOverlay();
-        
-        // Resetear formulario
-        this.resetUrgentTask();
-        this.showUrgentTaskModal = false;
-        
-        // Recargar tareas para mostrar la nueva tarea guardada
-        this.loadTasks();
-        
-        this.showNotificationMessage('Tarea urgente guardada correctamente. Aparecerá en "Por Validar" hasta que sea validada por un superior.', 'success');
-      },
-      error: (error: any) => {
-        console.error('❌ Error guardando tarea urgente:', error);
-        this.isUrgentSaving = false;
-        this.hideLoadingOverlay();
-        this.showNotificationMessage('Error al guardar la tarea urgente. Inténtalo de nuevo.', 'error');
+
+    // NUEVA METODOLOGÍA: Usar sistema estándar de tareas igual que planificadas
+    if (this.editingTask) {
+      console.log('✅ MODO ACTUALIZACIÓN - Usando metodología estándar');
+      try {
+        this.saveUrgentTaskData(true); // true = es actualización
+      } catch (error) {
+        console.error('❌ Error en saveUrgentTaskData (actualización):', error);
       }
-    });
+      return;
+    }
+
+    console.log('🆕 MODO CREACIÓN - Usando metodología estándar');
+    try {
+      this.saveUrgentTaskData(false); // false = es creación
+    } catch (error) {
+      console.error('❌ Error en saveUrgentTaskData (creación):', error);
+    }
+  }
+
+  // MÉTODO CORREGIDO: Usar save-draft que SÍ funciona para horas como "Guardadas"
+  saveUrgentTaskData(isUpdate: boolean): void {
+    try {
+      console.log(`💾 === saveUrgentTaskData (${isUpdate ? 'UPDATE' : 'CREATE'}) INICIADO ===`);
+      
+      // Validar que hay trabajadores asignados
+      if (!this.urgentTaskWorkers || this.urgentTaskWorkers.length === 0) {
+        console.log('❌ No hay trabajadores asignados');
+        this.showNotificationMessage('Debe asignar al menos un trabajador antes de guardar.', 'warning');
+        return;
+      }
+      
+      const totalHoras = this.getTotalHorasUrgentWorkers();
+      console.log('💾 Total horas calculadas:', totalHoras);
+      
+      this.isUrgentSaving = true;
+      this.showLoadingOverlay('Guardando datos...');
+
+      if (isUpdate && this.editingTask && this.editingTask.id) {
+        // ACTUALIZACIÓN: Usar save-draft que SÍ guarda como "Guardadas"
+        console.log('💾 ACTUALIZACIÓN - Usando save-draft para taskId:', this.editingTask.id);
+        
+        const draftData = {
+          taskId: this.editingTask.id,
+          trabajadores: this.urgentTaskWorkers.map(tw => ({
+            trabajador: {
+              codigo: tw.trabajador?.codigo || '',
+              nombre: tw.trabajador?.nombre || '',
+              empresa: tw.trabajador?.empresa || ''
+            },
+            horas: tw.horas || 0
+          })),
+          encargado: this.name || this.userId,
+          totalHoras: totalHoras,
+          fecha: new Date().toISOString().split('T')[0],
+          isDraft: true
+        };
+        
+        console.log('📤 Enviando save-draft:', draftData);
+        
+        this.taskService.saveDraftWorkerData(draftData).subscribe({
+          next: (response) => {
+            console.log('✅ save-draft exitoso:', response);
+            this.isUrgentSaving = false;
+            this.hideLoadingOverlay();
+            this.showNotificationMessage('Datos guardados correctamente como "Guardadas". Se recuperarán automáticamente cuando vuelvas a esta tarea.', 'success');
+          },
+          error: (error: any) => {
+            console.error('❌ Error en save-draft:', error);
+            this.isUrgentSaving = false;
+            this.hideLoadingOverlay();
+            this.showNotificationMessage('Error al guardar los datos como borrador', 'error');
+          }
+        });
+        
+      } else {
+        // CREACIÓN: Primero crear tarea SIN trabajadores, luego usar save-draft
+        console.log('🆕 CREACIÓN - Crear tarea primero, luego usar save-draft');
+        
+        // Validaciones básicas
+        if (!this.urgentTask.invernadero?.trim() || !this.urgentTask.tipo_tarea?.trim()) {
+          this.isUrgentSaving = false;
+          this.hideLoadingOverlay();
+          this.showNotificationMessage('Debes completar invernadero y tipo de tarea.', 'warning');
+          return;
+        }
+        
+        if (!this.urgentTask.hectareas_trabajadas || this.urgentTask.hectareas_trabajadas <= 0) {
+          this.isUrgentSaving = false;
+          this.hideLoadingOverlay();
+          this.showNotificationMessage('Debes indicar hectáreas trabajadas mayor a 0.', 'warning');
+          return;
+        }
+        
+        // PASO 1: Crear tarea SIN trabajadores para obtener ID
+        const urgentTaskData = {
+          tipo_tarea: this.urgentTask.tipo_tarea,
+          invernadero: this.urgentTask.invernadero,
+          estimacion_horas: totalHoras,
+          dimension_total: this.urgentTask.hectareas_trabajadas,
+          desarrollo_actual: this.urgentTask.hectareas_trabajadas,
+          descripcion: this.urgentTask.descripcion || '',
+          fecha_limite: new Date().toISOString().split('T')[0],
+          proceso: 'Guardada',
+          encargado_id: this.userId,
+          nombre_superior: this.name || this.userId,
+          es_tarea_urgente: true,
+          // CRÍTICO: Para "Guardar datos" SIEMPRE es_superior: false para evitar auto-validación
+          es_superior: false,
+          hora_jornal: this.urgentTask.tipo_tarea === 'Manten. Vehículos' ? 1 : 0,
+          horas_kilos: this.urgentTask.tipo_tarea === 'Recolectar' ? 1 : 0,
+          // NO enviar trabajadores aquí
+          genero: this.selectedGenero || ''
+        };
+
+        console.log('📤 PASO 1 - Creando tarea sin trabajadores:', urgentTaskData);
+        
+        this.taskService.addTask([urgentTaskData], this.name || this.userId).subscribe({
+          next: (response: any) => {
+            console.log('✅ PASO 1 - Tarea creada - Respuesta completa:', JSON.stringify(response, null, 2));
+            
+            // Extraer el ID de la tarea creada
+            let newTaskId = null;
+            
+            // Intentar diferentes formas de extraer el ID
+            if (response && response.result === 'success' && response.ids && response.ids.length > 0) {
+              newTaskId = response.ids[0];
+              console.log('📋 ID extraído de response.ids[0]:', newTaskId);
+            } else if (response && response.length > 0 && response[0].id) {
+              newTaskId = response[0].id;
+              console.log('📋 ID extraído de response[0].id:', newTaskId);
+            } else if (response && response.id) {
+              newTaskId = response.id;
+              console.log('📋 ID extraído de response.id:', newTaskId);
+            }
+            
+            console.log('🔍 newTaskId final:', newTaskId, 'tipo:', typeof newTaskId);
+            
+            if (!newTaskId) {
+              console.error('❌ No se pudo obtener el ID de la tarea creada');
+              console.error('❌ Estructura de respuesta:', response);
+              this.isUrgentSaving = false;
+              this.hideLoadingOverlay();
+              this.showNotificationMessage('Error: No se pudo obtener el ID de la tarea creada', 'error');
+              return;
+            }
+            
+            console.log('📤 PASO 2 - Usando save-draft con taskId:', newTaskId);
+            
+            // PASO 2: Usar save-draft con el taskId válido
+            const draftData = {
+              taskId: newTaskId,
+              trabajadores: this.urgentTaskWorkers.map(tw => ({
+                trabajador: {
+                  codigo: tw.trabajador?.codigo || '',
+                  nombre: tw.trabajador?.nombre || '',
+                  empresa: tw.trabajador?.empresa || ''
+                },
+                horas: tw.horas || 0
+              })),
+              encargado: this.name || this.userId,
+              totalHoras: totalHoras,
+              fecha: new Date().toISOString().split('T')[0],
+              isDraft: true
+            };
+            
+            console.log('📤 PASO 2 - Enviando save-draft:', draftData);
+            
+            this.taskService.saveDraftWorkerData(draftData).subscribe({
+              next: (draftResponse) => {
+                console.log('✅ PASO 2 - save-draft exitoso:', draftResponse);
+                this.isUrgentSaving = false;
+                this.hideLoadingOverlay();
+                
+                // Actualizar editingTask para futuras operaciones
+                this.editingTask = {
+                  id: newTaskId,
+                  ...urgentTaskData
+                } as any;
+                
+                this.showNotificationMessage('Tarea urgente guardada correctamente. Las horas aparecen como "Guardadas".', 'success');
+                
+                // Recargar tareas
+                this.loadTasks();
+              },
+              error: (draftError: any) => {
+                console.error('❌ PASO 2 - Error en save-draft:', draftError);
+                this.isUrgentSaving = false;
+                this.hideLoadingOverlay();
+                this.showNotificationMessage('Tarea creada pero error al guardar trabajadores como borrador', 'error');
+              }
+            });
+          },
+          error: (error: any) => {
+            console.error('❌ PASO 1 - Error creando tarea:', error);
+            this.isUrgentSaving = false;
+            this.hideLoadingOverlay();
+            this.showNotificationMessage('Error al crear la tarea urgente', 'error');
+          }
+        });
+      }
+      
+    } catch (error) {
+      console.error('❌ Error general en saveUrgentTaskData:', error);
+      this.isUrgentSaving = false;
+      this.hideLoadingOverlay();
+      this.showNotificationMessage('Error inesperado al guardar', 'error');
+    }
+  }
+  
+  // Método auxiliar para manejar éxito al guardar
+  private handleSaveSuccess(message: string): void {
+    this.isUrgentSaving = false;
+    this.hideLoadingOverlay();
+    
+    // Actualizar taskWorkersMap para mostrar trabajadores en la ficha
+    if (this.editingTask && this.urgentTaskWorkers.length > 0) {
+      const mappedWorkers = this.urgentTaskWorkers.map((tw: any) => ({
+        nombre: tw.trabajador.nombre,
+        horasTotal: tw.horas,
+        codigo: tw.trabajador.codigo
+      }));
+      this.taskWorkersMap.set(this.editingTask.id, mappedWorkers);
+    }
+    
+    // Resetear formulario y cerrar modal
+    this.resetUrgentTask();
+    this.showUrgentTaskModal = false;
+    
+    // Recargar tareas para mostrar cambios
+    this.loadTasks();
+    
+    this.showNotificationMessage(message, 'success');
+  }
+  
+  // Método auxiliar para manejar errores al guardar
+  private handleSaveError(message: string): void {
+    this.isUrgentSaving = false;
+    this.hideLoadingOverlay();
+    this.showNotificationMessage(message, 'error');
   }
 
   // Formatear horas con 2 decimales exactos sin redondeo
