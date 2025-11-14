@@ -528,8 +528,8 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
       
       // Flags para identificar tipo de tarea
       es_tarea_urgente: true,
-      // CRÍTICO: Para "Enviar tarea" TAMBIÉN usar es_superior: false para que aparezca "No validada" (no auto-validada)
-      es_superior: false,
+      // CRÍTICO: Para "Enviar tarea" usar el rol real del usuario (superior auto-valida, encargado no)
+      es_superior: !this.isEncargado,
       hora_jornal: 0,
       horas_kilos: 0,
       
@@ -548,7 +548,8 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
         this.editingTask.id, 
         totalHorasUrgent, 
         this.urgentTaskWorkers, 
-        this.name || this.userId
+        this.name || this.userId,
+        !this.isEncargado // es_superior
       ).subscribe({
         next: (response: any) => {
           console.log('✅ Tarea urgente enviada para validación:', response);
@@ -588,7 +589,8 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
             newTaskId, 
             totalHorasUrgent, 
             this.urgentTaskWorkers, 
-            this.name || this.userId
+            this.name || this.userId,
+            !this.isEncargado // es_superior
           ).subscribe({
             next: (submitResponse: any) => {
               console.log('✅ Tarea urgente creada y enviada para validación:', submitResponse);

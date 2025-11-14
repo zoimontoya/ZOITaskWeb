@@ -2672,9 +2672,22 @@ app.post('/tasks/:id/submit-urgent', verifyJWT, async (req, res) => {
       currentRow.push('');
     }
     
-    // PASO 1: Cambiar estado de la tarea a "Por validar"
-    currentRow[15] = 'Por validar'; // proceso (columna P)
+    // PASO 1: Determinar estado final según rol del usuario
+    const esSuperior = req.body.es_superior || false;
+    const estadoFinal = esSuperior ? 'Terminada' : 'Por validar';
+    
+    console.log('👤 Usuario es superior:', esSuperior);
+    console.log('📋 Estado final de la tarea:', estadoFinal);
+    
+    currentRow[15] = estadoFinal; // proceso (columna P)
     currentRow[16] = fechaActual; // fecha_actualizacion (columna Q)
+    
+    // Si es superior (Terminada), también rellenar fecha_inicio y fecha_fin
+    if (esSuperior) {
+      currentRow[11] = fechaActual; // fecha_inicio (columna L)
+      currentRow[12] = fechaActual; // fecha_fin (columna M)
+      console.log('✅ Tarea de superior: rellenando fechas de inicio y fin');
+    }
     
     // Actualizar la tarea
     await sheets.spreadsheets.values.update({
@@ -2684,7 +2697,7 @@ app.post('/tasks/:id/submit-urgent', verifyJWT, async (req, res) => {
       resource: { values: [currentRow] }
     });
     
-    console.log('✅ Tarea actualizada a estado "Por validar"');
+    console.log(`✅ Tarea actualizada a estado "${estadoFinal}"`);
     
     // PASO 2: Manejar las horas existentes
     if (req.body.trabajadores_asignados && req.body.trabajadores_asignados.length > 0) {
@@ -2696,9 +2709,18 @@ app.post('/tasks/:id/submit-urgent', verifyJWT, async (req, res) => {
       // ELIMINAR horas existentes (igual que tareas normales)
       await eliminarHorasExistentes(auth, taskId);
       
-      console.log('PASO 2.2: Registrar horas como "No validada" para que el superior las valide');
+      console.log('PASO 2.2: Registrar horas según rol del usuario');
       
-      // REGISTRAR horas como "No validada" (urgente + no superior = No validada)
+      // Obtener el rol del usuario desde el cuerpo de la petición
+      const esSuperior = req.body.es_superior || false;
+      console.log('👤 Usuario es superior (recibido):', esSuperior);
+      console.log('🔍 Todos los flags recibidos:', {
+        es_tarea_urgente: req.body.es_tarea_urgente,
+        es_superior: req.body.es_superior,
+        esSuperior_calculado: esSuperior
+      });
+      
+      // REGISTRAR horas según rol (superior = Validada, encargado = No validada)
       await registrarHorasTrabajadas(
         auth, 
         req.body.trabajadores_asignados, 
@@ -2706,7 +2728,7 @@ app.post('/tasks/:id/submit-urgent', verifyJWT, async (req, res) => {
         fechaActual, 
         taskId, 
         true,  // esTareaUrgente = true
-        false, // esSuperior = false (para que quede "No validada")
+        esSuperior, // esSuperior = según rol del usuario
         false  // esDraft = false (no es borrador)
       );
       

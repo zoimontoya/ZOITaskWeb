@@ -229,12 +229,13 @@ export class TasksService {
   }
 
   // Enviar tarea urgente para validación (cambiar horas de "Guardadas" a "No validada")
-  submitUrgentTaskForValidation(taskId: string, totalHoras: number, trabajadoresAsignados: any[], encargadoNombre: string): Observable<any> {
+  submitUrgentTaskForValidation(taskId: string, totalHoras: number, trabajadoresAsignados: any[], encargadoNombre: string, esSuperior: boolean): Observable<any> {
     const url = `${this.apiUrl}/tasks/${taskId}/submit-urgent`;
     const data = {
       totalHoras: totalHoras,
       trabajadores_asignados: trabajadoresAsignados,
-      encargado_nombre: encargadoNombre
+      encargado_nombre: encargadoNombre,
+      es_superior: esSuperior
     };
     
     console.log('🚨 TasksService.submitUrgentTaskForValidation() - URL:', url);
