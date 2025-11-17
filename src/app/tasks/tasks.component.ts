@@ -615,6 +615,9 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     this.isCreatingUrgentTask = false;
     this.hideLoadingOverlay();
     
+    // Guardar el ID de la tarea actual para recargar después
+    const currentTaskId = this.editingTask?.id;
+    
     // Resetear formulario y cerrar modal
     this.resetUrgentTask();
     this.showUrgentTaskModal = false;
@@ -622,7 +625,89 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     // Recargar tareas para mostrar cambios
     this.loadTasks();
     
+    // Si había una tarea específica, forzar recarga de sus trabajadores después de un pequeño delay
+    if (currentTaskId) {
+      setTimeout(() => {
+        this.reloadTaskData(currentTaskId);
+      }, 1000);
+    }
+    
     this.showNotificationMessage(message, 'success');
+  }
+  
+  // Método para recargar datos específicos de una tarea
+  private reloadTaskData(taskId: string): void {
+    console.log(`🔄 Recargando datos específicos de la tarea ${taskId}`);
+    
+    // Limpiar cache de trabajadores para esta tarea
+    this.taskWorkersMap.delete(taskId);
+    
+    // Invalidar cache del backend haciendo una petición específica
+    this.invalidateBackendCache(taskId);
+    
+    // Usar Promise.all para recargar en paralelo
+    const reloadPromises = [
+      // Recargar trabajadores
+      new Promise<void>((resolve) => {
+        this.loadTaskWorkers(taskId);
+        setTimeout(resolve, 500); // Dar tiempo para que se complete
+      }),
+      
+      // Recargar datos básicos de la tarea
+      this.taskService.getTasks().toPromise().then(tasks => {
+        if (tasks) {
+          const updatedTask = tasks.find(t => String(t.id) === String(taskId));
+          if (updatedTask) {
+            // Actualizar la tarea en el array local con conversión correcta
+            const index = this.tasks.findIndex(t => String(t.id) === String(taskId));
+            if (index !== -1) {
+              // Aplicar la misma lógica de conversión que en loadTasks()
+              const horaJornal = Number(updatedTask.hora_jornal) || 0;
+              const horasTotales = Number(updatedTask.estimacion_horas) || 0;
+              const esTareaUrgente = this.isUrgentTask(updatedTask);
+              
+              let estimacionParaMostrar;
+              if (esTareaUrgente) {
+                estimacionParaMostrar = horasTotales;
+              } else {
+                const factorConversion = horaJornal === 1 ? 8 : 6;
+                estimacionParaMostrar = horasTotales / factorConversion;
+              }
+              
+              this.tasks[index] = {
+                ...updatedTask,
+                estimacion_horas: estimacionParaMostrar,
+                id: String(updatedTask.id)
+              };
+              console.log(`✅ Tarea ${taskId} actualizada en el array local`);
+            }
+          }
+        }
+      }).catch(error => {
+        console.error(`❌ Error recargando datos de tarea ${taskId}:`, error);
+      })
+    ];
+    
+    Promise.all(reloadPromises).then(() => {
+      console.log(`✅ Recarga completa de tarea ${taskId} finalizada`);
+    });
+  }
+  
+  // Método para invalidar cache del backend
+  private invalidateBackendCache(taskId: string): void {
+    // Hacer una petición GET con un timestamp para forzar invalidación de cache
+    const timestamp = Date.now();
+    const invalidateUrl = `${environment.apiBaseUrl}/tasks/${taskId}/workers?_t=${timestamp}`;
+    
+    this.http.get(invalidateUrl).subscribe({
+      next: () => {
+        console.log(`🗑️ Cache backend invalidado para tarea ${taskId}`);
+      },
+      error: () => {
+        // No importa si falla, es solo para invalidar cache
+        console.log(`🗑️ Cache backend invalidación intentada para tarea ${taskId}`);
+      }
+    });
   }
   
   // Método auxiliar para manejar errores al enviar
@@ -1404,6 +1489,10 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
       next: () => {
         console.log('Progreso actualizado correctamente');
         this.hideLoadingOverlay();
+        
+        // Guardar el ID de la tarea antes de limpiar
+        const updatedTaskId = this.taskToComplete?.id;
+        
         this.showCompleteModal = false;
         this.taskToComplete = null;
         this.progressValue = 0;
@@ -1413,6 +1502,13 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
         this.loadTasks();
         this.isProcessing = false;
         this.showNotificationMessage('Progreso actualizado correctamente', 'success');
+        
+        // Recargar datos específicos de la tarea actualizada
+        if (updatedTaskId) {
+          setTimeout(() => {
+            this.reloadTaskData(updatedTaskId);
+          }, 1000);
+        }
       },
       error: (err: any) => {
         console.error('Error al actualizar progreso:', err);
@@ -1478,6 +1574,10 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
         next: () => {
           console.log('Tarea completada correctamente (operación única)');
           this.hideLoadingOverlay();
+          
+          // Guardar el ID de la tarea antes de limpiar
+          const completedTaskId = this.taskToComplete?.id;
+          
           this.showCompleteModal = false;
           this.taskToComplete = null;
           this.progressValue = 0;
@@ -1487,6 +1587,13 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
           this.loadTasks(); // Recargar para ver cambios
           this.isProcessing = false;
           this.showNotificationMessage('Tarea completada correctamente', 'success');
+          
+          // Recargar datos específicos de la tarea completada
+          if (completedTaskId) {
+            setTimeout(() => {
+              this.reloadTaskData(completedTaskId);
+            }, 1000);
+          }
         },
         error: (err: any) => {
           console.error('Error al completar tarea:', err);
@@ -2368,6 +2475,35 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   isTaskCompleted(task: Task): boolean {
     return this.getTaskState(task) === 'Terminada';
   }
+  
+  // Verificar si una tarea puede editarse/eliminarse por un superior
+  canSuperiorEditTask(task: Task): boolean {
+    const estado = this.getTaskState(task);
+    const isCompleted = this.isTaskCompleted(task);
+    const isUrgent = this.isUrgentTask(task);
+    
+    // Si la tarea está completada, no puede editarse
+    if (isCompleted) {
+      return false;
+    }
+    
+    // Si es una tarea urgente terminada, no puede editarse
+    if (isUrgent && estado === 'Terminada') {
+      return false;
+    }
+    
+    // Si está en "Por validar", no puede editarse (tiene sus propios botones)
+    if (estado === 'Por validar') {
+      return false;
+    }
+    
+    // Si está "Guardada", no puede editarse (tiene sus propios botones de "Mi Tarea")
+    if (estado === 'Guardada') {
+      return false;
+    }
+    
+    return true;
+  }
 
   // Verificar si es tarea urgente: detectar por características únicas
   isUrgentTask(task: Task): boolean {
@@ -2825,6 +2961,13 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
             this.isUrgentSaving = false;
             this.hideLoadingOverlay();
             this.showNotificationMessage('Datos guardados correctamente como "Guardadas". Se recuperarán automáticamente cuando vuelvas a esta tarea.', 'success');
+            
+            // Recargar datos específicos de la tarea actualizada
+            if (this.editingTask?.id) {
+              setTimeout(() => {
+                this.reloadTaskData(this.editingTask!.id);
+              }, 1000);
+            }
           },
           error: (error: any) => {
             console.error('❌ Error en save-draft:', error);
@@ -2941,8 +3084,13 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
                 
                 this.showNotificationMessage('Tarea urgente guardada correctamente. Las horas aparecen como "Guardadas".', 'success');
                 
-                // Recargar tareas
+                // Recargar tareas y datos específicos
                 this.loadTasks();
+                
+                // Forzar recarga específica después de un delay
+                setTimeout(() => {
+                  this.reloadTaskData(newTaskId);
+                }, 1000);
               },
               error: (draftError: any) => {
                 console.error('❌ PASO 2 - Error en save-draft:', draftError);
@@ -3143,10 +3291,20 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
           this.showNotificationMessage('Tarea validada exitosamente. Ahora aparece como terminada.', 'success');
         }
         
+        // Guardar el ID de la tarea antes de limpiar
+        const validatedTaskId = this.taskToValidate?.id;
+        
         this.isValidatingTask[this.taskToValidate?.id || ''] = false;
         this.hideLoadingOverlay();
         this.loadTasks();
         this.onCancelValidation();
+        
+        // Recargar datos específicos de la tarea validada
+        if (validatedTaskId) {
+          setTimeout(() => {
+            this.reloadTaskData(validatedTaskId);
+          }, 1000);
+        }
       },
       error: (err) => {
         this.isValidatingTask[this.taskToValidate?.id || ''] = false;
