@@ -10,12 +10,32 @@
       (selectionChange)="onInvernaderoSelectionChange($event)">
     </app-invernadero-selector>
     
-    <!-- Selector jerárquico de tareas -->
+    <!-- Selector jerárquico de tareas (ahora con multi-selección) -->
     <app-hierarchical-task-selector
+      #hierarchicalTaskSelector
       [grupoTrabajo]="grupoTrabajo"
-      [selectedTarea]="task?.tipo_tarea || selectedTareaJerarquica"
-      (tareaSelected)="onTareaJerarquicaSelected($event)">
+      [selectedTarea]="selectedTareaJerarquica || task?.tipo_tarea"
+      [selectedTareas]="selectedTareas"
+      [enableMultiSelection]="true"
+      (tareaSelected)="onTareaJerarquicaSelected($event)"
+      (tareasSelectedMultiple)="onTareasMultipleSelected($event)">
     </app-hierarchical-task-selector>
+
+    <!-- Resumen de tareas seleccionadas -->
+    <div *ngIf="hasSelectedTareas()" class="selected-tasks-summary">
+      <div class="summary-header">
+        <strong>📋 Tareas seleccionadas: {{ selectedTareas.length }}</strong>
+        <button type="button" class="clear-all-btn" (click)="clearAllTareas()">
+          🗑️ Limpiar todo
+        </button>
+      </div>
+      <div class="selected-tasks-list">
+        <span *ngFor="let tarea of selectedTareas" class="selected-task-tag">
+          {{ tarea }}
+          <button type="button" class="remove-task-btn" (click)="removeTareaFromSelection(tarea)">✕</button>
+        </span>
+      </div>
+    </div>
     
     <!-- Información de jornal_unidad (ocultar en modo ALMACÉN) -->
     <div *ngIf="selectedTaskJornalUnidad > 0 && !isAlmacenMode" class="jornal-info">
@@ -164,7 +184,8 @@
         <div class="invernadero-block">
           <h4 class="invernadero-block-title">{{ getSelectedInvernaderos()[activeInvernaderoIndex] }}</h4>
 
-          
+
+
           <!-- Configuración específica para modo ALMACÉN -->
           <div *ngIf="isAlmacenMode" class="almacen-config-section">
             <p class="almacen-info-text">
@@ -292,8 +313,8 @@
               </div>
             </div>
           </div>
-          <!-- Estimación de jornales por invernadero (ocultar en modo ALMACÉN) -->
-          <div *ngIf="!isAlmacenMode" class="jornal-estimation-section">
+          <!-- Estimación de jornales por invernadero (ocultar en modo ALMACÉN y cuando hay multitareas) -->
+          <div *ngIf="!isAlmacenMode && (!hasConfiguredTareas() || task)" class="jornal-estimation-section">
             <label [for]="'estimation_' + getSelectedInvernaderos()[activeInvernaderoIndex]">Estimación jornales *</label>
             <input 
               type="number" 
@@ -312,8 +333,127 @@
               </small>
             </div>
           </div>
-          <!-- Fecha por invernadero (cuando el toggle individual está ON O es el único invernadero) -->
-          <div class="date-section" [style.display]="(useIndividualDates || getSelectedInvernaderos().length === 1) ? 'block' : 'none'">
+
+          <!-- NUEVO: Sub-carrusel de tareas (siempre cuando hay tareas seleccionadas) -->
+          <div *ngIf="hasSelectedTareas()" class="tarea-sub-carousel">
+            <div class="tarea-carousel-header">
+              <h5>🎯 Configurar Tareas para {{ getSelectedInvernaderos()[activeInvernaderoIndex] }}</h5>
+              <p class="tarea-count">
+                {{ getTareasForInvernadero(getSelectedInvernaderos()[activeInvernaderoIndex]).length }} tareas configuradas
+              </p>
+            </div>
+
+            <!-- Pills/tabuladores de tareas -->
+            <div class="tarea-tabs">
+              <button 
+                type="button"
+                *ngFor="let tarea of getTareasForInvernadero(getSelectedInvernaderos()[activeInvernaderoIndex]); let idx = index"
+                [class.active]="isActiveTarea(getSelectedInvernaderos()[activeInvernaderoIndex], idx)"
+                (click)="setActiveTarea(getSelectedInvernaderos()[activeInvernaderoIndex], idx)"
+                class="tarea-tab">
+                {{ tarea }}
+                <button 
+                  type="button" 
+                  class="remove-tarea-btn"
+                  (click)="removeTareaFromInvernadero(getSelectedInvernaderos()[activeInvernaderoIndex], tarea); $event.stopPropagation()">
+                  ✕
+                </button>
+              </button>
+            </div>
+
+            <!-- Navegación del sub-carrusel -->
+            <div class="tarea-carousel-nav">
+              <button 
+                type="button" 
+                (click)="prevTarea(getSelectedInvernaderos()[activeInvernaderoIndex])" 
+                [disabled]="activeTareaIndex[getSelectedInvernaderos()[activeInvernaderoIndex]] === 0">
+                ◀
+              </button>
+              <span class="tarea-index">
+                {{ (activeTareaIndex[getSelectedInvernaderos()[activeInvernaderoIndex]] || 0) + 1 }} / 
+                {{ getTareasForInvernadero(getSelectedInvernaderos()[activeInvernaderoIndex]).length }}
+              </span>
+              <button 
+                type="button" 
+                (click)="nextTarea(getSelectedInvernaderos()[activeInvernaderoIndex])" 
+                [disabled]="(activeTareaIndex[getSelectedInvernaderos()[activeInvernaderoIndex]] || 0) === getTareasForInvernadero(getSelectedInvernaderos()[activeInvernaderoIndex]).length - 1">
+                ▶
+              </button>
+            </div>
+
+            <!-- Título de la tarea activa -->
+            <div class="active-tarea-title">
+              <h6>📋 {{ getActiveTareaSafe(getSelectedInvernaderos()[activeInvernaderoIndex]) }}</h6>
+            </div>
+
+            <!-- NUEVO: Configuración específica para la tarea activa -->
+            <div *ngIf="getActiveTareaSafe(getSelectedInvernaderos()[activeInvernaderoIndex])" class="tarea-config-section">
+              <div class="task-config-form">
+                
+                <!-- Estimación de jornales para esta tarea específica -->
+                <div class="form-group">
+                  <label class="config-label">⏱️ Estimación jornales *</label>
+                  <input 
+                    type="number" 
+                    [(ngModel)]="getTaskConfigSafe(getSelectedInvernaderos()[activeInvernaderoIndex], getActiveTareaSafe(getSelectedInvernaderos()[activeInvernaderoIndex])).jornales"
+                    (ngModelChange)="updateTaskConfig(getSelectedInvernaderos()[activeInvernaderoIndex], getActiveTareaSafe(getSelectedInvernaderos()[activeInvernaderoIndex]), { jornales: $event })"
+                    [name]="'jornales_' + getSelectedInvernaderos()[activeInvernaderoIndex] + '_' + getActiveTareaSafe(getSelectedInvernaderos()[activeInvernaderoIndex])"
+                    min="0.1" 
+                    step="0.1" 
+                    required 
+                    placeholder="Ej: 5,5"
+                    class="config-input" />
+                  <!-- Recomendación de jornales por hectárea -->
+                  <div *ngIf="selectedTaskJornalUnidad > 0 && (workingAreas[getSelectedInvernaderos()[activeInvernaderoIndex]] || 0) > 0" class="jornal-recommendation">
+                    <small class="recommendation-text">
+                      💡 Recomendado: {{ selectedTaskJornalUnidad.toFixed(2).replace('.', ',') }} × {{ getCurrentAreaDisplay(getSelectedInvernaderos()[activeInvernaderoIndex]) }}Ha = 
+                      <strong>{{ getCalculatedJornales(getSelectedInvernaderos()[activeInvernaderoIndex]) }} jornales</strong>
+                    </small>
+                  </div>
+                </div>
+
+                <!-- Fecha límite para esta tarea específica (solo si es caso simple O está en modo individual) -->
+                <div *ngIf="(getSelectedInvernaderos().length === 1 && selectedTareas.length === 1) || useIndividualDates" class="form-group">
+                  <label class="config-label">📅 Fecha límite *</label>
+                  <input 
+                    type="date" 
+                    [(ngModel)]="getTaskConfigSafe(getSelectedInvernaderos()[activeInvernaderoIndex], getActiveTareaSafe(getSelectedInvernaderos()[activeInvernaderoIndex])).fechaLimite"
+                    (ngModelChange)="updateTaskConfig(getSelectedInvernaderos()[activeInvernaderoIndex], getActiveTareaSafe(getSelectedInvernaderos()[activeInvernaderoIndex]), { fechaLimite: $event })"
+                    [name]="'fecha_' + getSelectedInvernaderos()[activeInvernaderoIndex] + '_' + getActiveTareaSafe(getSelectedInvernaderos()[activeInvernaderoIndex])"
+                    required 
+                    class="config-input" />
+                </div>
+
+                <!-- Encargado para esta tarea específica (solo si es caso simple O está en modo individual) -->
+                <div *ngIf="(getSelectedInvernaderos().length === 1 && selectedTareas.length === 1) || useIndividualEncargados" class="form-group">
+                  <label class="config-label">👤 Encargado *</label>
+                  <app-searchable-dropdown
+                    [label]="''"
+                    [options]="encargadoOptions"
+                    [selectedValue]="getTaskConfigSafe(getSelectedInvernaderos()[activeInvernaderoIndex], getActiveTareaSafe(getSelectedInvernaderos()[activeInvernaderoIndex])).encargado"
+                    (selectionChange)="updateTaskConfig(getSelectedInvernaderos()[activeInvernaderoIndex], getActiveTareaSafe(getSelectedInvernaderos()[activeInvernaderoIndex]), { encargado: $event })"
+                    placeholder="Selecciona un encargado"
+                    searchPlaceholder="Buscar encargado..."
+                    [required]="true">
+                  </app-searchable-dropdown>
+                </div>
+
+                <!-- Estimación de horas (calculado automáticamente) -->
+                <div class="form-group">
+                  <div class="hours-display">
+                    <span class="hours-label">🕐 Estimación horas:</span>
+                    <span class="hours-value">
+                      {{ (getTaskConfigSafe(getSelectedInvernaderos()[activeInvernaderoIndex], getActiveTareaSafe(getSelectedInvernaderos()[activeInvernaderoIndex])).jornales * (useEightHourJornal ? 8 : 6)).toFixed(1) }} horas
+                    </span>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          </div>
+
+          <!-- Fecha por invernadero (cuando el toggle individual está ON O es el único invernadero Y no hay multitareas) -->
+          <div class="date-section" [style.display]="(useIndividualDates || getSelectedInvernaderos().length === 1) && !hasSelectedTareas() ? 'block' : 'none'">
             <label [for]="'date_' + getSelectedInvernaderos()[activeInvernaderoIndex]">Fecha límite *</label>
             <input 
               type="date" 
@@ -323,8 +463,8 @@
               required 
               class="date-input" />
           </div>
-          <!-- Encargado por invernadero (cuando el toggle individual está ON O es el único invernadero) -->
-          <div *ngIf="useIndividualEncargados || getSelectedInvernaderos().length === 1" class="encargado-section">
+          <!-- Encargado por invernadero (cuando el toggle individual está ON O es el único invernadero Y no hay multitareas) -->
+          <div *ngIf="(useIndividualEncargados || getSelectedInvernaderos().length === 1) && !hasSelectedTareas()" class="encargado-section">
             <app-searchable-dropdown
               [label]="getSelectedInvernaderos().length === 1 ? 'Encargado' : 'Encargado para ' + getSelectedInvernaderos()[activeInvernaderoIndex]"
               [options]="encargadoOptions"
@@ -349,9 +489,49 @@
         placeholder="Descripción opcional de la tarea..."
         [required]="false"></textarea>
     </p>
+    <!-- NUEVO: Resumen de creación -->
+    <div *ngIf="hasConfiguredTareas() && getSelectedInvernaderos().length > 0" class="creation-summary">
+      <div class="summary-info">
+        <span class="summary-icon">📊</span>
+        <span class="summary-text">Se crearán {{ getCreationSummary() }}</span>
+      </div>
+      <div class="summary-details">
+        <small>
+          {{ getTotalConfiguredTasks() }} tarea{{ getTotalConfiguredTasks() > 1 ? 's' : '' }} configurada{{ getTotalConfiguredTasks() > 1 ? 's' : '' }} × 
+          {{ getSelectedInvernaderos().length }} invernadero{{ getSelectedInvernaderos().length > 1 ? 's' : '' }}
+        </small>
+      </div>
+    </div>
+
+    <!-- DEBUG: Estado del botón -->
+    <div *ngIf="hasConfiguredTareas()" style="background: #f0f0f0; padding: 10px; margin: 10px 0; border-radius: 5px; font-size: 12px;">
+      <div style="font-weight: bold; color: #333;">🔍 Estado de validación:</div>
+      <div [ngStyle]="{'color': isFormReadyForSubmission() ? 'green' : 'red', 'font-weight': 'bold'}">
+        {{ isFormReadyForSubmission() ? '✅ Formulario VÁLIDO' : '❌ Formulario INVÁLIDO' }}
+      </div>
+      <div style="margin-top: 5px;">
+        <div>📋 Tareas: {{ selectedTareas.length }}</div>
+        <div>🏠 Invernaderos: {{ getSelectedInvernaderos().length }}</div>
+        <div>📅 Fechas individuales: {{ useIndividualDates ? 'SÍ' : 'NO' }}</div>
+        <div>👤 Encargados individuales: {{ useIndividualEncargados ? 'SÍ' : 'NO' }}</div>
+        <div style="margin-top: 5px; color: #666;">
+          <small>Haz clic en 'Debug Detallado' para más información</small>
+        </div>
+      </div>
+    </div>
+
     <p class="actions">
       <button type="button" (click)="onCancel()">Cancelar</button>
-      <button type="submit">{{ task ? 'Guardar cambios' : 'Crear' }}</button>
+      <!-- DEBUG: Botón temporal para investigar problemas -->
+      <button type="button" (click)="debugTaskSelection()" style="background-color: orange; color: white; margin: 0 5px; font-size: 12px;">
+        🔍 Debug Detallado
+      </button>
+      <button 
+        type="submit" 
+        [disabled]="hasConfiguredTareas() && !isFormReadyForSubmission()"
+        [class.ready]="hasConfiguredTareas() && isFormReadyForSubmission()">
+        {{ task ? 'Guardar cambios' : (hasConfiguredTareas() ? 'Crear Tareas' : 'Crear') }}
+      </button>
     </p>
   </form>
 </dialog>

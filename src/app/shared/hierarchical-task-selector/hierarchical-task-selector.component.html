@@ -1,5 +1,5 @@
 <div class="hierarchical-task-selector">
-  <h4>Seleccionar Tarea</h4>
+  <h4>{{ enableMultiSelection ? 'Seleccionar Tareas (múltiple)' : 'Seleccionar Tarea' }}</h4>
   
   <!-- Selector de Tipo con buscador -->
   <div class="selector-group">
@@ -14,8 +14,21 @@
           (input)="onSearchChange()"
           (focus)="openDropdown()"
           (blur)="closeDropdownDelayed()"
-          [placeholder]="selectedTaskLabel || 'Buscar tipo de tarea...'"
+          [placeholder]="enableMultiSelection ? 
+            (selectedTareas.length > 0 ? selectedTareas.length + ' tareas seleccionadas' : 'Buscar tipos de tarea...') : 
+            (selectedTaskLabel || 'Buscar tipo de tarea...')"
           autocomplete="off">
+        
+        <!-- Botón cerrar en modo multi-selección -->
+        <button 
+          *ngIf="enableMultiSelection && isDropdownOpen"
+          type="button"
+          class="close-dropdown-btn"
+          (mousedown)="closeDropdown(); $event.preventDefault()"
+          title="Cerrar selector">
+          ✕
+        </button>
+        
         <span class="dropdown-arrow" [class.rotated]="isDropdownOpen">▼</span>
       </div>
       
@@ -33,8 +46,12 @@
             <div 
               *ngIf="!option.hasSubtareas" 
               class="dropdown-option"
+              [class.selected]="enableMultiSelection && isTaskSelected(option.label)"
               (mousedown)="selectOption(option.value, option.label)"
               [class.highlighted]="highlightedIndex === option.index">
+              <span *ngIf="enableMultiSelection" class="checkbox-indicator">
+                {{ isTaskSelected(option.label) ? '☑️' : '☐' }}
+              </span>
               {{ option.label }}
             </div>
             
@@ -47,8 +64,12 @@
             <div 
               *ngFor="let subtipo of option.subtipos" 
               class="dropdown-option subtipo"
+              [class.selected]="enableMultiSelection && isTaskSelected(subtipo.label)"
               (mousedown)="selectOption(subtipo.fullValue, subtipo.label)"
               [class.highlighted]="highlightedIndex === subtipo.index">
+              <span *ngIf="enableMultiSelection" class="checkbox-indicator">
+                {{ isTaskSelected(subtipo.label) ? '☑️' : '☐' }}
+              </span>
               {{ subtipo.label }}
             </div>
           </ng-container>
@@ -57,8 +78,8 @@
     </div>
   </div>
 
-  <!-- Mostrar tarea seleccionada -->
-  <div class="selected-task" *ngIf="selectedTaskLabel">
+  <!-- Mostrar tarea seleccionada (modo simple) -->
+  <div class="selected-task" *ngIf="!enableMultiSelection && selectedTaskLabel">
     <strong>Tarea seleccionada:</strong> {{ selectedTaskLabel }}
   </div>
 

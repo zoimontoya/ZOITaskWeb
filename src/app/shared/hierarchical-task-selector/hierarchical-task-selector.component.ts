@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, OnInit, OnChanges, SimpleChanges } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnInit, OnChanges, SimpleChanges, HostListener, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -29,6 +29,8 @@ interface TareaOption {
 export class HierarchicalTaskSelectorComponent implements OnInit, OnChanges {
   @Input() grupoTrabajo: string = '';
   @Input() selectedTarea: string = '';
+  @Input() selectedTareas: string[] = []; // NUEVO: Para multi-selección
+  @Input() enableMultiSelection: boolean = false; // NUEVO: Habilitar multi-selección
   @Output() tareaSelected = new EventEmitter<{
     nombre: string, 
     jornal_unidad: number, 
@@ -37,6 +39,7 @@ export class HierarchicalTaskSelectorComponent implements OnInit, OnChanges {
     subtipo?: string,
     tarea_completa?: any
   }>();
+  @Output() tareasSelectedMultiple = new EventEmitter<string[]>(); // NUEVO: Para multi-selección
 
   tiposTarea: TipoTarea[] = [];
   tipos: TareaOption[] = [];
@@ -53,7 +56,7 @@ export class HierarchicalTaskSelectorComponent implements OnInit, OnChanges {
   closeTimeout: any;
   private apiUrl = environment.apiBaseUrl;
 
-  constructor(private http: HttpClient) { }
+  constructor(private http: HttpClient, private elementRef: ElementRef) { }
 
   ngOnInit(): void {
     if (this.grupoTrabajo) {
@@ -70,6 +73,11 @@ export class HierarchicalTaskSelectorComponent implements OnInit, OnChanges {
     // Manejar cambios en selectedTarea (para modo edición)
     if (changes['selectedTarea'] && this.selectedTarea && this.tiposTarea.length > 0) {
       this.setInitialSelection();
+    }
+
+    // NUEVO: Manejar cambios en selectedTareas (para multi-selección)
+    if (changes['selectedTareas'] && this.enableMultiSelection) {
+      console.log('🔄 Tareas actualizadas externamente:', this.selectedTareas);
     }
   }
 
@@ -228,19 +236,80 @@ export class HierarchicalTaskSelectorComponent implements OnInit, OnChanges {
   }
 
   closeDropdownDelayed(): void {
+    // En modo multi-selección, no cerrar automáticamente con blur
+    if (this.enableMultiSelection) {
+      return;
+    }
+    
     this.closeTimeout = setTimeout(() => {
       this.isDropdownOpen = false;
     }, 150);
   }
 
-  selectOption(value: string, label: string): void {
-    console.log('🎯 HIERARCHICAL - Opción seleccionada:', { value, label });
-    
-    this.selectedTipo = value;
-    this.selectedTaskLabel = label;
-    this.searchTerm = '';
+  // NUEVO: Cerrar dropdown manualmente (para el botón X)
+  closeDropdown(): void {
     this.isDropdownOpen = false;
-    this.onTipoChange();
+    if (this.closeTimeout) {
+      clearTimeout(this.closeTimeout);
+    }
+  }
+
+  // NUEVO: Detectar clicks fuera del componente para cerrar en modo multi-selección
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: Event): void {
+    if (this.enableMultiSelection && this.isDropdownOpen) {
+      const clickedElement = event.target as HTMLElement;
+      const isClickInside = this.elementRef.nativeElement.contains(clickedElement);
+      
+      if (!isClickInside) {
+        console.log('👆 Click fuera del selector, cerrando dropdown');
+        this.closeDropdown();
+      }
+    }
+  }
+
+  selectOption(value: string, label: string): void {
+    console.log('🎯 HIERARCHICAL - Opción seleccionada:', { value, label, enableMultiSelection: this.enableMultiSelection });
+    
+    if (this.enableMultiSelection) {
+      // Modo multi-selección: agregar/remover de la lista
+      this.toggleTaskSelection(value, label);
+      // NO cerrar el dropdown en modo multi-selección
+    } else {
+      // Modo simple: selección única
+      this.selectedTipo = value;
+      this.selectedTaskLabel = label;
+      this.searchTerm = '';
+      this.isDropdownOpen = false;
+      this.onTipoChange();
+    }
+  }
+
+  // NUEVO: Método para manejar selección múltiple
+  private toggleTaskSelection(value: string, label: string): void {
+    const index = this.selectedTareas.indexOf(label);
+    
+    if (index > -1) {
+      // Ya está seleccionada, remover
+      this.selectedTareas.splice(index, 1);
+    } else {
+      // No está seleccionada, agregar
+      this.selectedTareas.push(label);
+    }
+
+    console.log('🎯 HIERARCHICAL - Tareas seleccionadas:', this.selectedTareas);
+    this.tareasSelectedMultiple.emit([...this.selectedTareas]);
+    
+    // Mantener el dropdown abierto para más selecciones
+    this.isDropdownOpen = true;
+    // Limpiar búsqueda para mostrar todas las opciones de nuevo
+    this.searchTerm = '';
+    this.updateFilteredOptions();
+  }
+
+  // NUEVO: Verificar si una tarea está seleccionada
+  isTaskSelected(label: string): boolean {
+    return this.selectedTareas.includes(label);
   }
 
   private emitSelection(): void {

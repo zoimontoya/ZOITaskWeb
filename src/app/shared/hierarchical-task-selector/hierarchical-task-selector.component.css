@@ -180,6 +180,64 @@
   color: #856404;
 }
 
+/* Estilos para multi-selección */
+.dropdown-option.selected {
+  background-color: #e8f5e8 !important;
+  border-left: 4px solid #28a745;
+  font-weight: 600;
+}
+
+.dropdown-option.selected:hover {
+  background-color: #d4edda !important;
+}
+
+.checkbox-indicator {
+  margin-right: 8px;
+  font-size: 14px;
+  display: inline-block;
+  width: 18px;
+}
+
+.dropdown-option {
+  display: flex;
+  align-items: center;
+}
+
+.dropdown-option.subtipo.selected {
+  background-color: #e8f5e8 !important;
+  border-left: 4px solid #28a745;
+}
+
+/* Botón de cerrar dropdown */
+.close-dropdown-btn {
+  position: absolute;
+  right: 25px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  transition: all 0.2s ease;
+}
+
+.close-dropdown-btn:hover {
+  background: #c82333;
+  transform: translateY(-50%) scale(1.1);
+}
+
+.dropdown-input-container {
+  position: relative;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .hierarchical-task-selector {
@@ -193,6 +251,10 @@
   
   .selector {
     padding: 10px 12px;
+    font-size: 16px; /* Mejor para móviles */
+  }
+  
+  .checkbox-indicator {
     font-size: 16px; /* Mejor para móviles */
   }
 }

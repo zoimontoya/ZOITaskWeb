@@ -13,6 +13,13 @@ import { HierarchicalTaskSelectorComponent } from '../../shared/hierarchical-tas
 import { ModalMessageComponent } from '../../shared/modal-message.component';
 import { environment } from '../../../environments/environment';
 
+// NUEVO: Interfaz para configuración de tarea por invernadero
+interface TaskConfig {
+  jornales: number;
+  fechaLimite: string;
+  encargado: string;
+  estimacionHoras: number;
+}
 
 @Component({
   selector: 'app-newTask',
@@ -51,14 +58,288 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
     return this.activeInvernaderoIndex === idx;
   }
 
+  // NUEVO: Métodos para manejar múltiples tareas
+  onTareaSelectionChange(tareas: string[]) {
+    console.log('🎯 Tareas seleccionadas:', tareas);
+    this.selectedTareas = [...tareas];
+    this.updateInvernaderoTareasConfig();
+  }
+
+  // NUEVO: Actualizar configuración cuando cambian tareas o invernaderos
+  updateInvernaderoTareasConfig() {
+    const invernaderos = this.getSelectedInvernaderos();
+    const newConfig: { [invernadero: string]: { [tarea: string]: TaskConfig } } = {};
+
+    invernaderos.forEach(inv => {
+      newConfig[inv] = {};
+      
+      // Si ya existía configuración para este invernadero, preservar solo las tareas existentes
+      if (this.invernaderoTareasConfig[inv]) {
+        // Preservar tareas existentes (las que no han sido eliminadas específicamente)
+        Object.keys(this.invernaderoTareasConfig[inv]).forEach(tarea => {
+          if (this.selectedTareas.includes(tarea)) {
+            newConfig[inv][tarea] = this.invernaderoTareasConfig[inv][tarea];
+          }
+        });
+        
+        // Solo agregar nuevas tareas que no existían antes
+        this.selectedTareas.forEach(tarea => {
+          if (!this.invernaderoTareasConfig[inv][tarea]) {
+            newConfig[inv][tarea] = {
+              jornales: 0,
+              fechaLimite: this.singleDate,
+              encargado: this.selectedEncargado,
+              estimacionHoras: 0
+            };
+          }
+        });
+      } else {
+        // Nuevo invernadero, crear todas las tareas
+        this.selectedTareas.forEach(tarea => {
+          newConfig[inv][tarea] = {
+            jornales: 0,
+            fechaLimite: this.singleDate,
+            encargado: this.selectedEncargado,
+            estimacionHoras: 0
+          };
+        });
+      }
+
+      // Inicializar índice activo para este invernadero
+      if (!this.activeTareaIndex[inv]) {
+        this.activeTareaIndex[inv] = 0;
+      }
+    });
+
+    this.invernaderoTareasConfig = newConfig;
+    console.log('📝 Configuración actualizada:', this.invernaderoTareasConfig);
+  }
+
+  // NUEVO: Métodos para navegación del sub-carrusel de tareas
+  setActiveTarea(invernadero: string, tareaIndex: number) {
+    if (tareaIndex >= 0 && tareaIndex < this.selectedTareas.length) {
+      this.activeTareaIndex[invernadero] = tareaIndex;
+    }
+  }
+
+  prevTarea(invernadero: string) {
+    if (this.activeTareaIndex[invernadero] > 0) {
+      this.activeTareaIndex[invernadero]--;
+    }
+  }
+
+  nextTarea(invernadero: string) {
+    const maxIndex = this.selectedTareas.length - 1;
+    if (this.activeTareaIndex[invernadero] < maxIndex) {
+      this.activeTareaIndex[invernadero]++;
+    }
+  }
+
+  isActiveTarea(invernadero: string, tareaIndex: number): boolean {
+    return this.activeTareaIndex[invernadero] === tareaIndex;
+  }
+
+  // NUEVO: Eliminar tarea específica de un invernadero
+  removeTareaFromInvernadero(invernadero: string, tarea: string) {
+    console.log(`🗑️ ELIMINANDO tarea "${tarea}" del invernadero "${invernadero}"`);
+    console.log('Estado ANTES:', JSON.stringify(this.invernaderoTareasConfig[invernadero], null, 2));
+    
+    if (this.invernaderoTareasConfig[invernadero]) {
+      delete this.invernaderoTareasConfig[invernadero][tarea];
+      
+      // Ajustar índice activo si es necesario
+      const tareasRestantes = Object.keys(this.invernaderoTareasConfig[invernadero]);
+      if (this.activeTareaIndex[invernadero] >= tareasRestantes.length) {
+        this.activeTareaIndex[invernadero] = Math.max(0, tareasRestantes.length - 1);
+      }
+      
+      console.log('Estado DESPUÉS:', JSON.stringify(this.invernaderoTareasConfig[invernadero], null, 2));
+      console.log('Tareas restantes:', tareasRestantes);
+    }
+  }
+
+  // NUEVO: Obtener tareas activas para un invernadero
+  getTareasForInvernadero(invernadero: string): string[] {
+    return Object.keys(this.invernaderoTareasConfig[invernadero] || {});
+  }
+
+  // NUEVO: Obtener configuración de tarea específica
+  getTaskConfig(invernadero: string, tarea: string): TaskConfig | null {
+    if (!this.invernaderoTareasConfig[invernadero] || !this.invernaderoTareasConfig[invernadero][tarea]) {
+      return null;
+    }
+    return this.invernaderoTareasConfig[invernadero][tarea];
+  }
+
+  // NUEVO: Obtener configuración de tarea específica con valores por defecto
+  getTaskConfigSafe(invernadero: string, tarea: string): TaskConfig {
+    const config = this.getTaskConfig(invernadero, tarea);
+    if (config) {
+      return config;
+    }
+    
+    // Crear configuración por defecto si no existe
+    const defaultConfig: TaskConfig = {
+      jornales: 0,
+      fechaLimite: this.singleDate,
+      encargado: this.selectedEncargado,
+      estimacionHoras: 0
+    };
+    
+    // Guardar la configuración por defecto
+    if (!this.invernaderoTareasConfig[invernadero]) {
+      this.invernaderoTareasConfig[invernadero] = {};
+    }
+    this.invernaderoTareasConfig[invernadero][tarea] = defaultConfig;
+    
+    return defaultConfig;
+  }
+
+  // NUEVO: Actualizar configuración de tarea específica
+  updateTaskConfig(invernadero: string, tarea: string, config: Partial<TaskConfig>) {
+    if (this.invernaderoTareasConfig[invernadero]?.[tarea]) {
+      Object.assign(this.invernaderoTareasConfig[invernadero][tarea], config);
+    }
+  }
+
+  // NUEVO: Obtener lista de todas las tareas disponibles para selección múltiple
+  getAvailableTasks(): string[] {
+    if (!this.taskTypes || this.taskTypes.length === 0) {
+      return [];
+    }
+    
+    // Extraer nombres únicos de todas las tareas disponibles
+    return this.taskTypes.map((task: any) => task.nombre || task.tipo).filter(Boolean);
+  }
+
+  // NUEVO: Verificar si una tarea específica está seleccionada
+  isTareaSelected(tarea: string): boolean {
+    return this.selectedTareas.includes(tarea);
+  }
+
+  // NUEVO: Manejar selección múltiple desde el selector jerárquico
+  onTareasMultipleSelected(tareas: string[]) {
+    console.log('🎯 Tareas múltiples seleccionadas:', tareas);
+    this.selectedTareas = [...tareas];
+    this.updateInvernaderoTareasConfig();
+  }
+
+  // NUEVO: Remover una tarea específica de la selección
+  removeTareaFromSelection(tarea: string) {
+    const index = this.selectedTareas.indexOf(tarea);
+    if (index > -1) {
+      this.selectedTareas.splice(index, 1);
+      this.updateInvernaderoTareasConfig();
+      console.log('🗑️ Tarea removida:', tarea, 'Restantes:', this.selectedTareas);
+    }
+  }
+
+  // NUEVO: Toggle selección de una tarea individual (mantener para compatibilidad)
+  toggleTareaSelection(tarea: string) {
+    const index = this.selectedTareas.indexOf(tarea);
+    if (index > -1) {
+      // Remover tarea
+      this.selectedTareas.splice(index, 1);
+    } else {
+      // Agregar tarea
+      this.selectedTareas.push(tarea);
+    }
+    
+    this.updateInvernaderoTareasConfig();
+    console.log('🎯 Tareas actualizadas:', this.selectedTareas);
+  }
+
+  // NUEVO: Obtener tarea activa para un invernadero específico
+  getActiveTareaForInvernadero(invernadero: string): string | null {
+    const tareas = this.getTareasForInvernadero(invernadero);
+    const activeIndex = this.activeTareaIndex[invernadero] || 0;
+    
+    if (tareas.length > 0 && activeIndex < tareas.length) {
+      return tareas[activeIndex];
+    }
+    
+    return null;
+  }
+
+  // NUEVO: Obtener tarea activa de forma segura (nunca null)
+  getActiveTareaSafe(invernadero: string): string {
+    const tarea = this.getActiveTareaForInvernadero(invernadero);
+    return tarea || '';
+  }
+
+  // NUEVO: Verificar si hay tareas seleccionadas
+  hasSelectedTareas(): boolean {
+    return this.selectedTareas.length > 0;
+  }
+  
+  // NUEVO: Verificar si hay tareas realmente configuradas (no solo seleccionadas)
+  hasConfiguredTareas(): boolean {
+    // Si estamos editando, NO tenemos tareas configuradas (modo tradicional)
+    if (this.task) {
+      console.log('📝 MODO EDICIÓN: hasConfiguredTareas = false');
+      return false;
+    }
+    
+    const selectedInvernaderos = this.getSelectedInvernaderos();
+    const hasConfig = selectedInvernaderos.some(inv => this.getTareasForInvernadero(inv).length > 0);
+    
+    console.log('📊 DEBUG hasConfiguredTareas:', {
+      selectedInvernaderos,
+      hasConfig,
+      totalTareas: this.getTotalConfiguredTasks(),
+      isEditMode: !!this.task
+    });
+    
+    return hasConfig;
+  }
+  
+  // NUEVO: Obtener total de tareas configuradas
+  getTotalConfiguredTasks(): number {
+    const selectedInvernaderos = this.getSelectedInvernaderos();
+    return selectedInvernaderos.reduce((total, inv) => total + this.getTareasForInvernadero(inv).length, 0);
+  }
+
+  // NUEVO: Limpiar todas las tareas seleccionadas
+  clearAllTareas() {
+    this.selectedTareas = [];
+    this.invernaderoTareasConfig = {};
+    this.activeTareaIndex = {};
+  }
+
+  // NUEVO: Obtener resumen de tareas por invernadero
+  getTaskSummary(): { [invernadero: string]: number } {
+    const summary: { [invernadero: string]: number } = {};
+    
+    Object.keys(this.invernaderoTareasConfig).forEach(inv => {
+      summary[inv] = Object.keys(this.invernaderoTareasConfig[inv] || {}).length;
+    });
+    
+    return summary;
+  }
+
   // Reset índice si cambia la selección
   // Mantener solo la versión principal más abajo
   @Input() task: any = null;
   @Output() cancel = new EventEmitter<void>();
   @Output() add = new EventEmitter<any>();
   @ViewChild('modalMessage', { static: false }) modalMessage!: ModalMessageComponent;
+  @ViewChild('hierarchicalTaskSelector') hierarchicalTaskSelector: any;
 
-  ngAfterViewInit(): void {}
+  ngAfterViewInit(): void {
+    console.log('🔧 ngAfterViewInit - task:', this.task);
+    
+    // Si estamos editando, inicializar después de que la vista esté lista
+    if (this.task) {
+      setTimeout(() => {
+        this.initFormFromTask();
+        
+        // Forzar actualización adicional del selector jerárquico
+        setTimeout(() => {
+          this.forceHierarchicalSelectorUpdate();
+        }, 500);
+      }, 100);
+    }
+  }
 
   greenhouses: Greenhouse[] = [];
   taskTypes: TaskType[] = [];
@@ -131,6 +412,17 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
   @Input() loggedUser: User | undefined = undefined;
   selectedTareaJerarquica: string = '';
   grupoTrabajo: string = '';
+  
+  // NUEVO: Selector múltiple de tareas
+  selectedTareas: string[] = []; // Array de tareas seleccionadas
+  availableTareas: DropdownOption[] = []; // Opciones de tareas para el selector
+  
+  // NUEVO: Configuración por invernadero y tarea
+  // Estructura: { invernadero: { tarea: { jornales, fecha, encargado } } }
+  invernaderoTareasConfig: { [invernadero: string]: { [tarea: string]: TaskConfig } } = {};
+  
+  // NUEVO: Índice activo del sub-carrusel de tareas (por invernadero)
+  activeTareaIndex: { [invernadero: string]: number } = {};
 
   ngOnInit(): void {
     // Establecer grupo de trabajo del usuario logueado
@@ -205,6 +497,52 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
     private cdr: ChangeDetectorRef
   ) {}
 
+  // 🔧 MÉTODO PARA FORZAR ACTUALIZACIÓN DEL SELECTOR JERÁRQUICO
+  forceHierarchicalSelectorUpdate(): void {
+    console.log('🔄 forceHierarchicalSelectorUpdate llamado con:', {
+      selectedTareaJerarquica: this.selectedTareaJerarquica,
+      hierarchicalTaskSelector: !!this.hierarchicalTaskSelector,
+      task: this.task?.tipo_tarea
+    });
+    
+    if (this.hierarchicalTaskSelector && this.selectedTareaJerarquica) {
+      console.log('🎯 Forzando actualización del hierarchical selector con:', this.selectedTareaJerarquica);
+      
+      // Múltiples formas de forzar la actualización
+      this.hierarchicalTaskSelector.selectedTarea = this.selectedTareaJerarquica;
+      
+      // Forzar detección de cambios ANTES
+      this.cdr.detectChanges();
+      
+      // Llamar a setInitialSelection si está disponible
+      if (this.hierarchicalTaskSelector.setInitialSelection) {
+        this.hierarchicalTaskSelector.setInitialSelection();
+        console.log('✅ setInitialSelection ejecutado inmediatamente');
+      }
+      
+      // Forzar detección de cambios DESPUÉS
+      this.cdr.detectChanges();
+      
+      // También intentar con ngOnChanges si existe
+      if (this.hierarchicalTaskSelector.ngOnChanges) {
+        this.hierarchicalTaskSelector.ngOnChanges({
+          selectedTarea: {
+            currentValue: this.selectedTareaJerarquica,
+            previousValue: '',
+            firstChange: false,
+            isFirstChange: () => false
+          }
+        });
+        console.log('✅ ngOnChanges ejecutado manualmente');
+      }
+    } else {
+      console.log('⚠️ No se puede forzar actualización:', {
+        hierarchicalTaskSelector: !!this.hierarchicalTaskSelector,
+        selectedTareaJerarquica: this.selectedTareaJerarquica
+      });
+    }
+  }
+
   initFormFromTask() {
     if (this.task) {
       // Para la edición, el invernadero-selector se encargará de la selección inicial
@@ -224,6 +562,40 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
       // 🔧 INICIALIZAR TIPO DE TAREA JERÁRQUICA
       this.selectedTareaJerarquica = this.task.tipo_tarea || '';
       this.selectedTaskType = this.task.tipo_tarea || '';
+      
+      console.log('🔧 INICIALIZANDO EDICIÓN:', {
+        tipoTarea: this.task.tipo_tarea,
+        selectedTareaJerarquica: this.selectedTareaJerarquica,
+        selectedTaskType: this.selectedTaskType
+      });
+      
+      // 🚀 MARCAR QUE ESTAMOS EN MODO EDICIÓN (NO MULTI-TAREA)
+      this.selectedTareas = []; // Limpiar multi-selección
+      console.log('📝 MODO EDICIÓN: Limpiando selectedTareas para forzar modo tradicional');
+      
+      // 🔧 BUSCAR Y CONFIGURAR EL OBJETO COMPLETO DE LA TAREA
+      if (this.task.tipo_tarea && this.taskTypes) {
+        const foundTask = this.taskTypes.find((t: any) => t.tipo === this.task.tipo_tarea || t.nombre === this.task.tipo_tarea);
+        if (foundTask) {
+          this.selectedTipoTarea = foundTask;
+          this.selectedTaskJornalUnidad = (foundTask as any).jornal_unidad || 0;
+          console.log('✅ Tarea encontrada al editar:', foundTask);
+          
+          // 🔧 FORZAR ACTUALIZACIÓN DEL SELECTOR JERÁRQUICO - MÚLTIPLES INTENTOS
+          this.forceHierarchicalSelectorUpdate();
+          setTimeout(() => {
+            this.forceHierarchicalSelectorUpdate();
+          }, 100);
+          setTimeout(() => {
+            this.forceHierarchicalSelectorUpdate();
+          }, 300);
+          setTimeout(() => {
+            this.forceHierarchicalSelectorUpdate();
+          }, 600);
+        } else {
+          console.log('⚠️ No se encontró la tarea:', this.task.tipo_tarea, 'en', this.taskTypes);
+        }
+      }
       
       // 🔧 CONFIGURAR TOGGLE BASÁNDOSE EN VALOR ALMACENADO
       const horaJornalValue = Number(this.task.hora_jornal) || 0;
@@ -916,8 +1288,19 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
 
   onSubmit() {
   console.log('🟢 onSubmit ejecutado');
+  console.log('🔍 ESTADO AL INICIO DEL SUBMIT:');
+  console.log('selectedTareas (desplegable):', this.selectedTareas);
+  console.log('hasConfiguredTareas():', this.hasConfiguredTareas());
+  console.log('getTotalConfiguredTasks():', this.getTotalConfiguredTasks());
+  
   // Interceptar validación nativa y mostrar modal personalizado si hay errores
-    const selectedInvernaderos = this.getSelectedInvernaderos();
+  const selectedInvernaderos = this.getSelectedInvernaderos();
+  
+  console.log('📊 TAREAS POR INVERNADERO:');
+  selectedInvernaderos.forEach(inv => {
+    const tareasConfig = this.getTareasForInvernadero(inv);
+    console.log(`${inv}: [${tareasConfig.join(', ')}] (${tareasConfig.length} tareas)`);
+  });
     let errorMsg = '';
 
     // Sincronizar encargado global con individuales antes de validar
@@ -943,50 +1326,63 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
       errorMsg = 'Por favor, selecciona al menos un invernadero.';
     }
 
-    // Validación de tipo de tarea - PRAGMÁTICA: si el selector jerárquico tiene algo seleccionado, es válido
+    // Validación de tipo de tarea dependiendo del modo
     let hasTaskSelected = false;
     
-    // Método 1: Verificar variables internas
-    if ((this.selectedTaskType && this.selectedTaskType.trim() !== '') || 
-        (this.selectedTareaJerarquica && this.selectedTareaJerarquica.trim() !== '')) {
+    // Verificar si hay tareas seleccionadas (modo múltiple) o usar validación original
+    if (this.selectedTareas.length > 0) {
       hasTaskSelected = true;
-    }
-    
-    // Método 2: Verificar DOM del selector jerárquico directamente
-    if (!hasTaskSelected) {
-      const hierarchicalSelector = document.querySelector('app-hierarchical-task-selector');
-      if (hierarchicalSelector) {
-        const selectedElements = hierarchicalSelector.querySelectorAll('.selected, .active, [class*="selected"]');
-        if (selectedElements.length > 0) {
-          console.log('✅ DETECTOR DOM: Encontrados elementos seleccionados en selector jerárquico');
-          hasTaskSelected = true;
+      console.log('🔍 TAREAS SELECCIONADAS:', this.selectedTareas);
+    } else {
+      // En modo simple: usar validación original
+      
+      // Método 1: Verificar variables internas
+      if ((this.selectedTaskType && this.selectedTaskType.trim() !== '') || 
+          (this.selectedTareaJerarquica && this.selectedTareaJerarquica.trim() !== '')) {
+        hasTaskSelected = true;
+      }
+      
+      // Método 2: Verificar DOM del selector jerárquico directamente
+      if (!hasTaskSelected) {
+        const hierarchicalSelector = document.querySelector('app-hierarchical-task-selector');
+        if (hierarchicalSelector) {
+          const selectedElements = hierarchicalSelector.querySelectorAll('.selected, .active, [class*="selected"]');
+          if (selectedElements.length > 0) {
+            console.log('✅ DETECTOR DOM: Encontrados elementos seleccionados en selector jerárquico');
+            hasTaskSelected = true;
+          }
         }
       }
+      
+      // Método 3: Si selectedTipoTarea tiene datos (indica que se procesó una selección)
+      if (!hasTaskSelected && this.selectedTipoTarea && this.selectedTipoTarea.nombre) {
+        console.log('✅ DETECTOR OBJETO: selectedTipoTarea tiene datos');
+        hasTaskSelected = true;
+      }
+      
+      console.log('🔍 VALIDACIÓN DE TAREA (MÚLTIPLES MÉTODOS):', {
+        selectedTaskType: this.selectedTaskType,
+        selectedTareaJerarquica: this.selectedTareaJerarquica,
+        selectedTipoTarea: this.selectedTipoTarea?.nombre || 'no hay',
+        hasTaskSelected: hasTaskSelected,
+        metodosUsados: ['variables internas', 'DOM selector', 'objeto tarea']
+      });
     }
     
-    // Método 3: Si selectedTipoTarea tiene datos (indica que se procesó una selección)
-    if (!hasTaskSelected && this.selectedTipoTarea && this.selectedTipoTarea.nombre) {
-      console.log('✅ DETECTOR OBJETO: selectedTipoTarea tiene datos');
-      hasTaskSelected = true;
-    }
-    
-    console.log('🔍 VALIDACIÓN DE TAREA (MÚLTIPLES MÉTODOS):', {
-      selectedTaskType: this.selectedTaskType,
-      selectedTareaJerarquica: this.selectedTareaJerarquica,
-      selectedTipoTarea: this.selectedTipoTarea?.nombre || 'no hay',
-      hasTaskSelected: hasTaskSelected,
-      metodosUsados: ['variables internas', 'DOM selector', 'objeto tarea']
-    });
-    
-    // TEMPORAL: Deshabilitar validación de tarea para debug
+    // Validación final de tarea
     if (!errorMsg && !hasTaskSelected) {
-      console.log('⚠️ VALIDACIÓN DE TAREA FALLÓ - PERO CONTINUANDO (DEBUG)');
-      console.log('🔧 Para habilitar validación, cambiar esta línea en onSubmit()');
-      // errorMsg = 'Por favor, selecciona un tipo de tarea.'; // DESHABILITADO TEMPORALMENTE
+      if (this.selectedTareas.length > 0) {
+        // Ya está validado arriba, esto no debería pasar
+        errorMsg = 'Error interno de validación de tareas.';
+      } else {
+        console.log('⚠️ VALIDACIÓN DE TAREA FALLÓ - PERO CONTINUANDO (DEBUG)');
+        console.log('🔧 Para habilitar validación, cambiar esta línea en onSubmit()');
+        // errorMsg = 'Por favor, selecciona al menos una tarea.'; // DESHABILITADO TEMPORALMENTE
+      }
     }
 
-    // Validación de estimaciones (si no es modo almacén)
-    if (!errorMsg && !this.isAlmacenMode) {
+    // Validación de estimaciones (si no es modo almacén Y no hay multitareas - formato antiguo)
+    if (!errorMsg && !this.isAlmacenMode && this.selectedTareas.length === 0) {
       const invalidEstimations = selectedInvernaderos.filter((inv: string) => {
         const estimation = this.estimations[inv];
         return !estimation || estimation <= 0;
@@ -1012,8 +1408,8 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
       errorMsg = 'Por favor, selecciona un género para la tarea de almacén/confección.';
     }
 
-    // Validación de fechas
-    if (!errorMsg) {
+    // Validación de fechas (formato antiguo - solo si no hay multitareas)
+    if (!errorMsg && this.selectedTareas.length === 0) {
       if (selectedInvernaderos.length === 1 || this.useIndividualDates) {
         const missingDates = selectedInvernaderos.some((g: string) => !this.dueDates[g] || this.dueDates[g].trim() === '');
         if (missingDates) {
@@ -1026,14 +1422,85 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
       }
     }
 
-    // Validación de encargados (unificada)
-    if (!errorMsg) {
+    // Validación de encargados (modo tradicional - solo si no hay tareas múltiples seleccionadas)
+    if (!errorMsg && this.selectedTareas.length === 0) {
       const invalidEncargados = selectedInvernaderos.filter((g: string) => !this.selectedEncargados[g] || this.selectedEncargados[g].trim() === '');
       if (invalidEncargados.length > 0) {
         if (this.useIndividualEncargados || selectedInvernaderos.length > 1) {
           errorMsg = `Por favor, selecciona un encargado para: ${invalidEncargados.join(', ')}`;
         } else {
           errorMsg = 'Por favor, selecciona un encargado para el invernadero.';
+        }
+      }
+    }
+
+    // Validación específica para tareas múltiples
+    if (!errorMsg && this.selectedTareas.length > 0) {
+      const isSimpleCase = selectedInvernaderos.length === 1 && this.selectedTareas.length === 1;
+      
+      console.log('🔍 VALIDACIÓN MULTITAREAS:', {
+        isSimpleCase,
+        useIndividualDates: this.useIndividualDates,
+        useIndividualEncargados: this.useIndividualEncargados,
+        singleDate: this.singleDate,
+        selectedEncargado: this.selectedEncargado
+      });
+      
+      // Solo validar campos globales si NO es caso simple y está en modo "mismo para todos"
+      if (!isSimpleCase && !this.useIndividualDates) {
+        if (!this.singleDate || this.singleDate.trim() === '') {
+          errorMsg = 'Por favor, selecciona la fecha límite para todas las tareas.';
+          console.log('❌ FALTA FECHA GLOBAL');
+        }
+      }
+      
+      if (!errorMsg && !isSimpleCase && !this.useIndividualEncargados) {
+        if (!this.selectedEncargado || this.selectedEncargado.trim() === '') {
+          errorMsg = 'Por favor, selecciona el encargado para todas las tareas.';
+          console.log('❌ FALTA ENCARGADO GLOBAL');
+        }
+      }
+
+      // Validar que cada invernadero-tarea tenga configuración completa
+      // CORRECCIÓN: Solo validar tareas que realmente están configuradas por invernadero
+      if (!errorMsg) {
+        for (const invernadero of selectedInvernaderos) {
+          const tareasParaValidar = this.getTareasForInvernadero(invernadero);
+          
+          console.log(`🔍 VALIDANDO ${invernadero}:`, {
+            tareasDelDesplegable: this.selectedTareas,
+            tareasRealesParaValidar: tareasParaValidar,
+            mensaje: 'Solo validando las tareas que realmente están configuradas'
+          });
+          
+          for (const tarea of tareasParaValidar) {
+            const config = this.getTaskConfig(invernadero, tarea);
+            if (!config) {
+              errorMsg = `Falta configuración para ${tarea} en ${invernadero}`;
+              break;
+            }
+
+            // Validar jornales (SIEMPRE requeridos)
+            if (!config.jornales || config.jornales <= 0) {
+              errorMsg = `Por favor, ingresa una estimación de jornales válida para ${tarea} en ${invernadero}`;
+              break;
+            }
+
+            // Validar fecha límite (si es caso simple O está en modo individual)
+            const needsIndividualDate = isSimpleCase || this.useIndividualDates;
+            if (needsIndividualDate && (!config.fechaLimite || config.fechaLimite.trim() === '')) {
+              errorMsg = `Por favor, selecciona una fecha límite para ${tarea} en ${invernadero}`;
+              break;
+            }
+
+            // Validar encargado (si es caso simple O está en modo individual)
+            const needsIndividualEncargado = isSimpleCase || this.useIndividualEncargados;
+            if (needsIndividualEncargado && (!config.encargado || config.encargado.trim() === '')) {
+              errorMsg = `Por favor, selecciona un encargado para ${tarea} en ${invernadero}`;
+              break;
+            }
+          }
+          if (errorMsg) break;
         }
       }
     }
@@ -1078,8 +1545,27 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
       }
       return;
     }
-    // Si todo es válido, continuar con la lógica normal
-    const tareas = selectedInvernaderos.map((g: string) => {
+    // Si todo es válido, continuar con la lógica dependiendo del modo
+    let tareas: any[] = [];
+    
+    if (this.hasConfiguredTareas()) {
+      // NUEVO: Crear múltiples tareas (solo las configuradas)
+      tareas = this.createMultipleTasks(selectedInvernaderos);
+    } else {
+      // SIN TAREAS CONFIGURADAS: No se debe crear nada
+      if (this.selectedTareas.length === 0) {
+        errorMsg = 'Por favor, selecciona al menos una tarea en el desplegable antes de crear.';
+      } else {
+        errorMsg = 'No hay tareas configuradas. Las tareas seleccionadas fueron eliminadas de todos los invernaderos.';
+      }
+      if (this.modalMessage) {
+        this.modalMessage.show(errorMsg);
+        this.cdr.markForCheck();
+      }
+      return;
+      
+      // Lógica original para modo simple (NUNCA SE EJECUTA AHORA)
+      tareas = selectedInvernaderos.map((g: string) => {
   let estimationNum: number;
       let estimacionEnHoras: number;
       let dimensionValue: number;
@@ -1183,11 +1669,272 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
         descripcion: data.descripcion
       });
       
-      return data;
-    });
+        return data;
+      });
+    }
     
     console.log('📤 TODAS LAS TAREAS A ENVIAR:', tareas);
     this.add.emit(tareas);
+  }
+
+  // NUEVO: Crear múltiples tareas para el modo multi-tarea
+  private createMultipleTasks(selectedInvernaderos: string[]): any[] {
+    const allTasks: any[] = [];
+
+    console.log('🎯 CREANDO MÚLTIPLES TAREAS:', {
+      invernaderos: selectedInvernaderos,
+      tareas: this.selectedTareas,
+      configuracion: this.invernaderoTareasConfig
+    });
+
+    // Para cada invernadero
+    selectedInvernaderos.forEach(invernadero => {
+      // Para cada tarea ESPECÍFICA de este invernadero (no las globales)
+      const tareasParaInvernadero = this.getTareasForInvernadero(invernadero);
+      
+      console.log(`🏠 ${invernadero} - Tareas específicas:`, tareasParaInvernadero);
+      
+      tareasParaInvernadero.forEach(tarea => {
+        const config = this.getTaskConfigSafe(invernadero, tarea);
+        
+        // Calcular estimación en horas basado en jornales
+        const factor = this.useEightHourJornal ? 8 : 6;
+        const estimacionEnHoras = config.jornales * factor;
+
+        // Determinar fecha límite: si no es individual, usar la global
+        const fechaLimite = this.useIndividualDates ? config.fechaLimite : this.singleDate;
+        
+        // Determinar encargado: si no es individual, usar el global
+        const encargadoId = this.useIndividualEncargados ? config.encargado : this.selectedEncargado;
+
+        // Calcular dimensión total basada en el modo (hectáreas vs kilos)
+        let dimensionTotal = 0;
+        let horasKilos = 0;
+        
+        if (this.isAlmacenMode) {
+          // Modo almacén: usar kg si aplica
+          horasKilos = this.showKgEstimationField() ? 1 : 0;
+          dimensionTotal = this.showKgEstimationField() ? (this.almacenKgEstimation[invernadero] || 0) : 0;
+        } else {
+          // Modo normal: hectáreas o kilos
+          horasKilos = this.useKilosMode ? 1 : 0;
+          dimensionTotal = this.useKilosMode ? 
+            (this.expectedKilos[invernadero] || 0) : 
+            (this.workingAreas[invernadero] || 0);
+        }
+
+        const taskData: any = {
+          invernadero: invernadero,
+          tipo_tarea: tarea,
+          estimacion_horas: estimacionEnHoras,
+          hora_jornal: this.useEightHourJornal ? 1 : 0,
+          horas_kilos: horasKilos,
+          fecha_limite: fechaLimite,
+          encargado_id: encargadoId,
+          descripcion: this.description || '',
+          dimension_total: dimensionTotal
+        };
+
+        console.log('📋 Tarea creada:', {
+          invernadero: taskData.invernadero,
+          tarea: taskData.tipo_tarea,
+          jornales: config.jornales,
+          horas: estimacionEnHoras,
+          fecha: taskData.fecha_limite,
+          encargado: taskData.encargado_id,
+          fechaSource: this.useIndividualDates ? 'individual' : 'global',
+          encargadoSource: this.useIndividualEncargados ? 'individual' : 'global',
+          dimension_total: taskData.dimension_total,
+          horas_kilos: taskData.horas_kilos,
+          dimensionSource: this.useKilosMode ? 'kilos' : 'hectáreas',
+          workingArea: this.workingAreas[invernadero],
+          expectedKilos: this.expectedKilos[invernadero]
+        });
+
+        allTasks.push(taskData);
+      });
+    });
+
+    return allTasks;
+  }
+
+  // NUEVO: Obtener el total de tareas que se van a crear
+  getTotalTasksToCreate(): number {
+    if (this.selectedTareas.length === 0) {
+      return this.getSelectedInvernaderos().length;
+    }
+    
+    return this.getSelectedInvernaderos().length * this.selectedTareas.length;
+  }
+
+  // NUEVO: Obtener un resumen de lo que se va a crear
+  getCreationSummary(): string {
+    const invernaderos = this.getSelectedInvernaderos();
+    
+    if (this.selectedTareas.length === 0) {
+      return `${invernaderos.length} tarea${invernaderos.length > 1 ? 's' : ''}`;
+    }
+    
+    const totalTasks = this.getTotalTasksToCreate();
+    return `${totalTasks} tareas (${this.selectedTareas.length} tipo${this.selectedTareas.length > 1 ? 's' : ''} × ${invernaderos.length} invernadero${invernaderos.length > 1 ? 's' : ''})`;
+  }
+
+  // NUEVO: Verificar si el formulario está listo para envío
+  isFormReadyForSubmission(): boolean {
+    const validationResult = this.getValidationStatus();
+    return validationResult.isValid;
+  }
+
+  // Nueva función que devuelve el estado detallado de validación
+  getValidationStatus(): {isValid: boolean, errors: string[], details: any} {
+    const errors: string[] = [];
+    const details: any = {};
+    
+    if (this.getSelectedInvernaderos().length === 0) {
+      errors.push('No hay invernaderos seleccionados');
+      return {isValid: false, errors, details};
+    }
+
+    // Verificar que haya tareas REALMENTE configuradas (no solo seleccionadas)
+    if (!this.hasConfiguredTareas()) {
+      if (this.selectedTareas.length === 0) {
+        errors.push('No hay tareas seleccionadas en el desplegable');
+        return {isValid: false, errors, details: {type: 'no_tasks_selected'}};
+      } else {
+        errors.push('No hay tareas configuradas en ningún invernadero (todas fueron eliminadas)');
+        return {isValid: false, errors, details: {type: 'all_tasks_removed'}};
+      }
+    }
+    
+    const selectedInvernaderos = this.getSelectedInvernaderos();
+    
+    // Calcular caso simple basado en tareas REALES por invernadero, no globales
+    let totalTasksRemaining = 0;
+    selectedInvernaderos.forEach(inv => {
+      totalTasksRemaining += this.getTareasForInvernadero(inv).length;
+    });
+    
+    const isSimpleCase = selectedInvernaderos.length === 1 && totalTasksRemaining === 1;
+    
+    details.isSimpleCase = isSimpleCase;
+    details.totalTasksRemaining = totalTasksRemaining;
+    details.selectedInvernaderos = selectedInvernaderos;
+    details.selectedTareas = this.selectedTareas;
+    details.useIndividualDates = this.useIndividualDates;
+    details.useIndividualEncargados = this.useIndividualEncargados;
+    
+    // Validar campos globales si aplica
+    if (!isSimpleCase) {
+      // Validar fecha global si no es individual
+      if (!this.useIndividualDates) {
+        if (!this.singleDate || this.singleDate.trim() === '') {
+          errors.push('Falta fecha límite global (toggle desactivado pero no hay fecha)');
+        }
+        details.singleDate = this.singleDate;
+      }
+      
+      // Validar encargado global si no es individual  
+      if (!this.useIndividualEncargados) {
+        if (!this.selectedEncargado || this.selectedEncargado.trim() === '') {
+          errors.push('Falta encargado global (toggle desactivado pero no hay encargado)');
+        }
+        details.selectedEncargado = this.selectedEncargado;
+      }
+    }
+
+    // Validar configuración por invernadero
+    details.invernaderoDetails = [];
+    for (const invernadero of selectedInvernaderos) {
+      const invDetails: any = {invernadero, tareas: []};
+      
+      // Solo validar tareas que realmente existen para este invernadero
+      const tareasParaInvernadero = this.getTareasForInvernadero(invernadero);
+      invDetails.tareasConfiguradas = tareasParaInvernadero;
+      
+      if (tareasParaInvernadero.length === 0) {
+        errors.push(`${invernadero}: No tiene tareas configuradas`);
+        invDetails.error = 'No hay tareas';
+      }
+      
+      for (const tarea of tareasParaInvernadero) {
+        const tareaDetails: any = {tarea};
+        const config = this.getTaskConfig(invernadero, tarea);
+        
+        tareaDetails.config = config;
+        
+        if (!config) {
+          errors.push(`${invernadero} - ${tarea}: No tiene configuración`);
+          tareaDetails.error = 'Sin configuración';
+        } else {
+          // Validar jornales
+          if (config.jornales <= 0) {
+            errors.push(`${invernadero} - ${tarea}: Jornales inválidos (${config.jornales})`);
+            tareaDetails.jornadesError = true;
+          }
+          
+          // Solo validar fecha individual si es caso simple O está en modo individual
+          const needsIndividualDate = isSimpleCase || this.useIndividualDates;
+          tareaDetails.needsIndividualDate = needsIndividualDate;
+          if (needsIndividualDate && (!config.fechaLimite || config.fechaLimite.trim() === '')) {
+            errors.push(`${invernadero} - ${tarea}: Falta fecha límite individual`);
+            tareaDetails.fechaError = true;
+          }
+          
+          // Solo validar encargado individual si es caso simple O está en modo individual
+          const needsIndividualEncargado = isSimpleCase || this.useIndividualEncargados;
+          tareaDetails.needsIndividualEncargado = needsIndividualEncargado;
+          if (needsIndividualEncargado && (!config.encargado || config.encargado.trim() === '')) {
+            errors.push(`${invernadero} - ${tarea}: Falta encargado individual`);
+            tareaDetails.encargadoError = true;
+          }
+        }
+        
+        invDetails.tareas.push(tareaDetails);
+      }
+      
+      details.invernaderoDetails.push(invDetails);
+    }
+    
+    return {
+      isValid: errors.length === 0,
+      errors,
+      details
+    };
+  }
+
+  // DEBUG: Método para verificar el estado del sistema
+  debugTaskSelection(): void {
+    const validationStatus = this.getValidationStatus();
+    
+    console.log('🔍 DEBUG - ESTADO COMPLETO DE VALIDACIÓN:');
+    console.log('===============================================');
+    
+    if (validationStatus.isValid) {
+      console.log('✅ FORMULARIO VÁLIDO - El botón debería estar habilitado');
+    } else {
+      console.log('❌ FORMULARIO INVÁLIDO - Errores encontrados:');
+      validationStatus.errors.forEach((error, index) => {
+        console.log(`   ${index + 1}. ${error}`);
+      });
+    }
+    
+    console.log('\n📊 DETALLES COMPLETOS:');
+    console.log('isFormReady:', this.isFormReadyForSubmission());
+    console.log('hasSelectedTareas:', this.hasSelectedTareas());
+    console.log('validationDetails:', validationStatus.details);
+    
+    console.log('\n🎯 CONFIGURACIÓN ACTUAL:');
+    console.log('invernaderoTareasConfig:', this.invernaderoTareasConfig);
+    
+    // Alert para mostrar errores en pantalla también
+    if (!validationStatus.isValid) {
+      const errorMsg = 'ERRORES ENCONTRADOS:\n\n' + 
+                      validationStatus.errors.map((e, i) => `${i + 1}. ${e}`).join('\n') +
+                      '\n\nRevisa la consola para más detalles.';
+      alert(errorMsg);
+    } else {
+      alert('✅ FORMULARIO VÁLIDO\n\nEl botón debería estar habilitado.\nSi no lo está, puede ser un problema de Angular Change Detection.');
+    }
   }
 
   // Método para actualizar estimaciones automáticamente basado en jornal_unidad
@@ -1213,12 +1960,20 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
 
   // Método para calcular jornales recomendados dinámicamente
   getCalculatedJornales(invernaderoNombre: string): string {
-    if (this.selectedTaskJornalUnidad > 0) {
-      const hectareas = this.workingAreas[invernaderoNombre] || 0;
-      if (hectareas > 0) {
-        const jornalesEstimados = this.selectedTaskJornalUnidad * hectareas;
-        return jornalesEstimados.toFixed(2).replace('.', ',');
-      }
+    const jornal = this.selectedTaskJornalUnidad || 0;
+    const hectareas = this.workingAreas[invernaderoNombre] || 0;
+    
+    console.log('📊 DEBUG getCalculatedJornales:', {
+      invernaderoNombre,
+      jornal,
+      hectareas,
+      hasConfiguredTareas: this.hasConfiguredTareas(),
+      shouldShowRecommendation: jornal > 0 && hectareas > 0
+    });
+    
+    if (jornal > 0 && hectareas > 0) {
+      const jornalesEstimados = jornal * hectareas;
+      return jornalesEstimados.toFixed(2).replace('.', ',');
     }
     return '0,00';
   }
