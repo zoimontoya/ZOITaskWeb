@@ -125,6 +125,7 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
   prevTarea(invernadero: string) {
     if (this.activeTareaIndex[invernadero] > 0) {
       this.activeTareaIndex[invernadero]--;
+      this.updateSelectedTaskJornalUnidad(invernadero);
     }
   }
 
@@ -132,6 +133,7 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
     const maxIndex = this.selectedTareas.length - 1;
     if (this.activeTareaIndex[invernadero] < maxIndex) {
       this.activeTareaIndex[invernadero]++;
+      this.updateSelectedTaskJornalUnidad(invernadero);
     }
   }
 
@@ -222,6 +224,12 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
     console.log('🎯 Tareas múltiples seleccionadas:', tareas);
     this.selectedTareas = [...tareas];
     this.updateInvernaderoTareasConfig();
+    
+    // Actualizar selectedTaskJornalUnidad para el invernadero activo
+    const invernaderoActivo = this.getSelectedInvernaderos()[this.activeInvernaderoIndex];
+    if (invernaderoActivo) {
+      this.updateSelectedTaskJornalUnidad(invernaderoActivo);
+    }
   }
 
   // NUEVO: Remover una tarea específica de la selección
@@ -499,47 +507,36 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
 
   // 🔧 MÉTODO PARA FORZAR ACTUALIZACIÓN DEL SELECTOR JERÁRQUICO
   forceHierarchicalSelectorUpdate(): void {
-    console.log('🔄 forceHierarchicalSelectorUpdate llamado con:', {
+    console.log('🔄 FORZAR SELECTOR - Datos:', {
+      task_tipo_tarea: this.task?.tipo_tarea,
       selectedTareaJerarquica: this.selectedTareaJerarquica,
-      hierarchicalTaskSelector: !!this.hierarchicalTaskSelector,
-      task: this.task?.tipo_tarea
+      hierarchicalExists: !!this.hierarchicalTaskSelector
     });
     
-    if (this.hierarchicalTaskSelector && this.selectedTareaJerarquica) {
-      console.log('🎯 Forzando actualización del hierarchical selector con:', this.selectedTareaJerarquica);
+    if (this.hierarchicalTaskSelector) {
+      const tareaASeleccionar = this.task?.tipo_tarea || this.selectedTareaJerarquica;
       
-      // Múltiples formas de forzar la actualización
-      this.hierarchicalTaskSelector.selectedTarea = this.selectedTareaJerarquica;
-      
-      // Forzar detección de cambios ANTES
-      this.cdr.detectChanges();
-      
-      // Llamar a setInitialSelection si está disponible
-      if (this.hierarchicalTaskSelector.setInitialSelection) {
-        this.hierarchicalTaskSelector.setInitialSelection();
-        console.log('✅ setInitialSelection ejecutado inmediatamente');
-      }
-      
-      // Forzar detección de cambios DESPUÉS
-      this.cdr.detectChanges();
-      
-      // También intentar con ngOnChanges si existe
-      if (this.hierarchicalTaskSelector.ngOnChanges) {
-        this.hierarchicalTaskSelector.ngOnChanges({
-          selectedTarea: {
-            currentValue: this.selectedTareaJerarquica,
-            previousValue: '',
-            firstChange: false,
-            isFirstChange: () => false
+      if (tareaASeleccionar) {
+        console.log('🎯 ACTUALIZANDO SELECTOR con:', tareaASeleccionar);
+        
+        // Forzar actualización directa
+        this.hierarchicalTaskSelector.selectedTarea = tareaASeleccionar;
+        this.selectedTareaJerarquica = tareaASeleccionar;
+        
+        // Forzar re-renderizado
+        this.cdr.markForCheck();
+        this.cdr.detectChanges();
+        
+        // Llamar setInitialSelection si existe
+        if (typeof this.hierarchicalTaskSelector.setInitialSelection === 'function') {
+          try {
+            this.hierarchicalTaskSelector.setInitialSelection();
+            console.log('✅ setInitialSelection ejecutado');
+          } catch (e) {
+            console.log('⚠️ Error en setInitialSelection:', e);
           }
-        });
-        console.log('✅ ngOnChanges ejecutado manualmente');
+        }
       }
-    } else {
-      console.log('⚠️ No se puede forzar actualización:', {
-        hierarchicalTaskSelector: !!this.hierarchicalTaskSelector,
-        selectedTareaJerarquica: this.selectedTareaJerarquica
-      });
     }
   }
 
@@ -581,17 +578,13 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
           this.selectedTaskJornalUnidad = (foundTask as any).jornal_unidad || 0;
           console.log('✅ Tarea encontrada al editar:', foundTask);
           
-          // 🔧 FORZAR ACTUALIZACIÓN DEL SELECTOR JERÁRQUICO - MÚLTIPLES INTENTOS
+          // 🔧 FORZAR ACTUALIZACIÓN DEL SELECTOR JERÁRQUICO - INMEDIATO Y RETRASOS
           this.forceHierarchicalSelectorUpdate();
-          setTimeout(() => {
-            this.forceHierarchicalSelectorUpdate();
-          }, 100);
-          setTimeout(() => {
-            this.forceHierarchicalSelectorUpdate();
-          }, 300);
-          setTimeout(() => {
-            this.forceHierarchicalSelectorUpdate();
-          }, 600);
+          
+          setTimeout(() => this.forceHierarchicalSelectorUpdate(), 50);
+          setTimeout(() => this.forceHierarchicalSelectorUpdate(), 200);
+          setTimeout(() => this.forceHierarchicalSelectorUpdate(), 500);
+          setTimeout(() => this.forceHierarchicalSelectorUpdate(), 1000);
         } else {
           console.log('⚠️ No se encontró la tarea:', this.task.tipo_tarea, 'en', this.taskTypes);
         }
@@ -1956,6 +1949,63 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
   // Método para obtener el placeholder del input de jornales (ya no se usa, mantenido por compatibilidad)
   getJornalPlaceholder(invernaderoNombre: string): string {
     return 'Ej: 5,5';
+  }
+
+  // Método para obtener el jornal_unidad de una tarea específica
+  getTaskJornalUnidad(tareaName: string): number {
+    if (!tareaName || !this.taskTypes) {
+      console.log('📊 getTaskJornalUnidad - Sin datos:', { tareaName, taskTypesLength: this.taskTypes?.length });
+      return 0;
+    }
+    
+    const task = this.taskTypes.find((t: any) => 
+      t.tarea_nombre === tareaName || t.tipo === tareaName || t.nombre === tareaName
+    );
+    
+    const jornal = (task as any)?.jornal_unidad || 0;
+    console.log('📊 getTaskJornalUnidad:', {
+      tareaName,
+      taskFound: !!task,
+      task: task,
+      jornal,
+      allTasks: this.taskTypes.map((t: any) => ({ nombre: t.nombre, tarea_nombre: t.tarea_nombre, tipo: t.tipo, jornal_unidad: t.jornal_unidad }))
+    });
+    return jornal;
+  }
+
+  // Método para actualizar selectedTaskJornalUnidad según la tarea activa
+  updateSelectedTaskJornalUnidad(invernadero: string): void {
+    const tareaActiva = this.getActiveTareaSafe(invernadero);
+    if (tareaActiva && this.taskTypes) {
+      const task = this.taskTypes.find((t: any) => 
+        t.tarea_nombre === tareaActiva || t.tipo === tareaActiva || t.nombre === tareaActiva
+      );
+      
+      if (task) {
+        this.selectedTaskJornalUnidad = (task as any).jornal_unidad || 0;
+        console.log('🔄 Actualizado selectedTaskJornalUnidad para', tareaActiva, ':', this.selectedTaskJornalUnidad);
+      }
+    }
+  }
+
+  // Método para calcular jornales recomendados para una tarea específica
+  getCalculatedJornalesForTask(invernaderoNombre: string, tareaName: string): string {
+    const jornal = this.getTaskJornalUnidad(tareaName);
+    const hectareas = this.workingAreas[invernaderoNombre] || 0;
+    
+    console.log('📊 getCalculatedJornalesForTask:', {
+      tarea: tareaName,
+      invernadero: invernaderoNombre,
+      jornal,
+      hectareas,
+      shouldShowRecommendation: jornal > 0 && hectareas > 0
+    });
+    
+    if (jornal > 0 && hectareas > 0) {
+      const jornalesEstimados = jornal * hectareas;
+      return jornalesEstimados.toFixed(2).replace('.', ',');
+    }
+    return '0,00';
   }
 
   // Método para calcular jornales recomendados dinámicamente

@@ -14,7 +14,7 @@
     <app-hierarchical-task-selector
       #hierarchicalTaskSelector
       [grupoTrabajo]="grupoTrabajo"
-      [selectedTarea]="selectedTareaJerarquica || task?.tipo_tarea"
+      [selectedTarea]="task?.tipo_tarea || selectedTareaJerarquica"
       [selectedTareas]="selectedTareas"
       [enableMultiSelection]="true"
       (tareaSelected)="onTareaJerarquicaSelected($event)"
@@ -314,7 +314,7 @@
             </div>
           </div>
           <!-- Estimación de jornales por invernadero (ocultar en modo ALMACÉN y cuando hay multitareas) -->
-          <div *ngIf="!isAlmacenMode && (!hasConfiguredTareas() || task)" class="jornal-estimation-section">
+          <div *ngIf="!isAlmacenMode && !hasConfiguredTareas()" class="jornal-estimation-section">
             <label [for]="'estimation_' + getSelectedInvernaderos()[activeInvernaderoIndex]">Estimación jornales *</label>
             <input 
               type="number" 
@@ -326,6 +326,7 @@
               required 
               placeholder="Ej: 5,5"
               class="jornal-input" />
+            <!-- Recomendación de jornales por hectárea (IGUAL QUE EN EL CAROUSEL) -->
             <div *ngIf="selectedTaskJornalUnidad > 0 && (workingAreas[getSelectedInvernaderos()[activeInvernaderoIndex]] || 0) > 0" class="jornal-recommendation">
               <small class="recommendation-text">
                 💡 Recomendado: {{ selectedTaskJornalUnidad.toFixed(2).replace('.', ',') }} × {{ getCurrentAreaDisplay(getSelectedInvernaderos()[activeInvernaderoIndex]) }}Ha = 
@@ -404,10 +405,10 @@
                     placeholder="Ej: 5,5"
                     class="config-input" />
                   <!-- Recomendación de jornales por hectárea -->
-                  <div *ngIf="selectedTaskJornalUnidad > 0 && (workingAreas[getSelectedInvernaderos()[activeInvernaderoIndex]] || 0) > 0" class="jornal-recommendation">
+                  <div *ngIf="getTaskJornalUnidad(getActiveTareaSafe(getSelectedInvernaderos()[activeInvernaderoIndex])) > 0 && (workingAreas[getSelectedInvernaderos()[activeInvernaderoIndex]] || 0) > 0" class="jornal-recommendation">
                     <small class="recommendation-text">
-                      💡 Recomendado: {{ selectedTaskJornalUnidad.toFixed(2).replace('.', ',') }} × {{ getCurrentAreaDisplay(getSelectedInvernaderos()[activeInvernaderoIndex]) }}Ha = 
-                      <strong>{{ getCalculatedJornales(getSelectedInvernaderos()[activeInvernaderoIndex]) }} jornales</strong>
+                      💡 Recomendado: {{ getTaskJornalUnidad(getActiveTareaSafe(getSelectedInvernaderos()[activeInvernaderoIndex])).toFixed(2).replace('.', ',') }} × {{ getCurrentAreaDisplay(getSelectedInvernaderos()[activeInvernaderoIndex]) }}Ha = 
+                      <strong>{{ getCalculatedJornalesForTask(getSelectedInvernaderos()[activeInvernaderoIndex], getActiveTareaSafe(getSelectedInvernaderos()[activeInvernaderoIndex])) }} jornales</strong>
                     </small>
                   </div>
                 </div>
