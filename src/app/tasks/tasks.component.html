@@ -396,10 +396,10 @@
             <div class="jornales-reales-section">
                 <div class="jornales-calculated">
                     <span class="calculated-label">Horas totales trabajadas:</span>
-                    <span class="calculated-value">{{ getTotalHorasTrabajadores() }}h</span>
+                    <span class="calculated-value">{{ taskToComplete && isUrgentTask(taskToComplete) ? getTotalHorasUrgentWorkers() : getTotalHorasTrabajadores() }}h</span>
                 </div>
                 <small class="jornales-info">
-                    *Calculado automáticamente sumando las horas de cada trabajador
+                    *Calculado automáticamente sumando las horas de cada trabajador {{ taskToComplete && isUrgentTask(taskToComplete) ? '(tarea urgente)' : '' }}
                 </small>
             </div>
 
@@ -420,10 +420,20 @@
                         {{getWorkersValidationMessage()}}
                     </p>
                     
-                    <div *ngIf="trabajadoresAsignados.length > 0" class="workers-summary">
+                    <!-- Mostrar trabajadores según el tipo de tarea -->
+                    <div *ngIf="taskToComplete && !isUrgentTask(taskToComplete) && trabajadoresAsignados.length > 0" class="workers-summary">
                         <h5>Trabajadores asignados:</h5>
                         <ul class="workers-list-summary">
                             <li *ngFor="let asignado of trabajadoresAsignados">
+                                <strong>{{asignado.trabajador.nombre}}</strong> - {{asignado.horas}}h
+                            </li>
+                        </ul>
+                    </div>
+                    
+                    <div *ngIf="taskToComplete && isUrgentTask(taskToComplete) && urgentTaskWorkers.length > 0" class="workers-summary">
+                        <h5>Trabajadores urgentes asignados:</h5>
+                        <ul class="workers-list-summary">
+                            <li *ngFor="let asignado of urgentTaskWorkers">
                                 <strong>{{asignado.trabajador.nombre}}</strong> - {{asignado.horas}}h
                             </li>
                         </ul>

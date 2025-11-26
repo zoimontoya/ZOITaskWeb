@@ -1410,12 +1410,31 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     this.progressValue = Number(task.progreso) || 0;
     this.jornalesRealesValue = 0; // Siempre empezar vacío para que el encargado ingrese las horas del día
     
-    // Resetear validación de trabajadores
-    this.trabajadoresValidados = false;
-    this.trabajadoresAsignados = [];
+    // Detectar si es tarea urgente para manejar trabajadores apropiados
+    const esUrgente = this.isUrgentTask(task);
+    console.log(`🎯 Abriendo modal para tarea ${esUrgente ? 'URGENTE' : 'NORMAL'}: ${task.id}`);
     
-    // Intentar cargar datos guardados previamente
-    this.loadDraftDataIfExists(task.id);
+    if (esUrgente) {
+      // Para tareas urgentes: inicializar y cargar trabajadores urgentes
+      console.log('🚨 Tarea urgente detectada - inicializando urgentTaskWorkers');
+      console.log('🔍 urgentTaskWorkers ANTES:', this.urgentTaskWorkers);
+      
+      // Inicializar array si no existe
+      if (!this.urgentTaskWorkers) {
+        this.urgentTaskWorkers = [];
+      }
+      
+      // Cargar trabajadores y datos guardados
+      this.loadTaskWorkers(task.id);
+      this.loadDraftDataForUrgentTask(task.id);
+      
+      console.log('🔍 urgentTaskWorkers DESPUÉS de cargar:', this.urgentTaskWorkers);
+    } else {
+      // Para tareas normales: resetear y cargar datos guardados normales
+      this.trabajadoresValidados = false;
+      this.trabajadoresAsignados = [];
+      this.loadDraftDataIfExists(task.id);
+    }
     
     // Si está en modo kilos, inicializar kilos recogidos desde desarrollo_actual
     if (this.isKilosMode(task)) {
@@ -1530,8 +1549,11 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     
     this.isProcessing = true;
     
-    // Validar que se hayan asignado trabajadores con horas
-    const totalHoras = this.getTotalHorasTrabajadores();
+    // Determinar si es tarea urgente para usar los trabajadores correctos
+    const esUrgente = this.isUrgentTask(this.taskToComplete);
+    
+    // Validar que se hayan asignado trabajadores con horas (usar método apropiado según tipo de tarea)
+    const totalHoras = esUrgente ? this.getTotalHorasUrgentWorkers() : this.getTotalHorasTrabajadores();
     if (totalHoras <= 0) {
       this.showNotificationMessage('Debes asignar trabajadores y sus horas antes de completar la tarea.', 'warning');
       this.isProcessing = false;
@@ -1568,9 +1590,43 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     
     this.showLoadingOverlay('Terminando tarea...');
     
-    // Completar directamente (actualizar progreso al 100% y completar en una sola operación)
-    const totalHorasCalculadas = this.getTotalHorasTrabajadores();
-    this.taskService.completeTaskDirect(this.taskToComplete.id, progressValue, desarrolloValue, totalHorasCalculadas, this.trabajadoresAsignados, this.name).subscribe({
+    // Completar directamente (usar trabajadores apropiados según tipo de tarea)
+    const totalHorasCalculadas = esUrgente ? this.getTotalHorasUrgentWorkers() : this.getTotalHorasTrabajadores();
+    const trabajadoresParaCompletar = esUrgente ? this.urgentTaskWorkers : this.trabajadoresAsignados;
+    
+    // IMPORTANTE: Para jornales_reales enviar el total de horas calculadas (no 0)
+    const jornalesReales = totalHorasCalculadas; // El total de horas trabajadas ES el valor de jornales reales
+    
+    console.log(`🔥 === COMPLETANDO TAREA ${esUrgente ? 'URGENTE' : 'NORMAL'} ===`);
+    console.log(`📊 Total horas calculadas: ${totalHorasCalculadas}`);
+    console.log(`👥 Trabajadores para completar (${trabajadoresParaCompletar.length}):`, trabajadoresParaCompletar);
+    console.log(`💰 Enviando jornales_reales: ${jornalesReales}`);
+    
+    // DEBUGGING DETALLADO
+    if (esUrgente) {
+      console.log('🚨 DATOS DE TAREA URGENTE:');
+      console.log('   - urgentTaskWorkers:', this.urgentTaskWorkers);
+      console.log('   - urgentTaskWorkers.length:', this.urgentTaskWorkers?.length);
+      console.log('   - getTotalHorasUrgentWorkers():', this.getTotalHorasUrgentWorkers());
+      console.log('   - trabajadoresAsignados (debería estar vacío):', this.trabajadoresAsignados);
+      console.log('   - getTotalHorasTrabajadores() (debería ser 0):', this.getTotalHorasTrabajadores());
+    } else {
+      console.log('📋 DATOS DE TAREA NORMAL:');
+      console.log('   - trabajadoresAsignados:', this.trabajadoresAsignados);
+      console.log('   - trabajadoresAsignados.length:', this.trabajadoresAsignados?.length);
+      console.log('   - getTotalHorasTrabajadores():', this.getTotalHorasTrabajadores());
+    }
+    
+    console.log(`🎯 Parámetros completeTaskDirect:`, {
+      id: this.taskToComplete.id,
+      progressValue, 
+      desarrolloValue, 
+      jornalesReales, 
+      trabajadoresCount: trabajadoresParaCompletar.length,
+      encargado: this.name
+    });
+    
+    this.taskService.completeTaskDirect(this.taskToComplete.id, progressValue, desarrolloValue, jornalesReales, trabajadoresParaCompletar, this.name).subscribe({
         next: () => {
           console.log('Tarea completada correctamente (operación única)');
           this.hideLoadingOverlay();
@@ -2396,6 +2452,21 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
 
   // Métodos para asignación de trabajadores
   onOpenWorkersModal(): void {
+    // Detectar si es tarea urgente para activar el modo apropiado
+    if (this.taskToComplete && this.isUrgentTask(this.taskToComplete)) {
+      this.isUrgentTaskWorkersMode = true;
+      console.log('🚨 === ABRIENDO MODAL TRABAJADORES URGENTES ===');
+      console.log('   - taskToComplete.id:', this.taskToComplete.id);
+      console.log('   - isUrgentTaskWorkersMode:', this.isUrgentTaskWorkersMode);
+      console.log('   - urgentTaskWorkers actuales:', this.urgentTaskWorkers);
+      console.log('   - urgentTaskWorkers.length:', this.urgentTaskWorkers?.length);
+    } else {
+      this.isUrgentTaskWorkersMode = false;
+      console.log('📋 === ABRIENDO MODAL TRABAJADORES NORMALES ===');
+      console.log('   - taskToComplete.id:', this.taskToComplete?.id);
+      console.log('   - isUrgentTaskWorkersMode:', this.isUrgentTaskWorkersMode);
+      console.log('   - trabajadoresAsignados actuales:', this.trabajadoresAsignados);
+    }
     this.showWorkersModal = true;
   }
 
@@ -2405,14 +2476,23 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   }
 
   onSaveWorkerAssignments(asignaciones: TrabajadorAsignado[]): void {
+    console.log('💾 === GUARDANDO ASIGNACIONES DE TRABAJADORES ===');
+    console.log('   - isUrgentTaskWorkersMode:', this.isUrgentTaskWorkersMode);
+    console.log('   - asignaciones recibidas:', asignaciones);
+    
     if (this.isUrgentTaskWorkersMode) {
       // Modo tarea urgente
+      console.log('🚨 Guardando en urgentTaskWorkers');
       this.urgentTaskWorkers = asignaciones;
       this.isUrgentTaskWorkersMode = false;
-      console.log('Trabajadores asignados a tarea urgente:', asignaciones);
+      console.log('✅ urgentTaskWorkers actualizado:', this.urgentTaskWorkers);
+      console.log('✅ Total horas urgentes:', this.getTotalHorasUrgentWorkers());
     } else {
       // Modo tarea normal
+      console.log('📋 Guardando en trabajadoresAsignados');
       this.trabajadoresAsignados = asignaciones;
+      console.log('✅ trabajadoresAsignados actualizado:', this.trabajadoresAsignados);
+      console.log('✅ Total horas normales:', this.getTotalHorasTrabajadores());
     }
     
     this.trabajadoresValidados = true;
@@ -2421,23 +2501,42 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
 
   // Verificar si se pueden asignar trabajadores (sin requerir horas)
   canAssignWorkers(): boolean {
-    return this.trabajadoresValidados && this.trabajadoresAsignados.length > 0;
+    const esUrgente = this.taskToComplete ? this.isUrgentTask(this.taskToComplete) : false;
+    
+    if (esUrgente) {
+      return this.urgentTaskWorkers && this.urgentTaskWorkers.length > 0;
+    } else {
+      return this.trabajadoresValidados && this.trabajadoresAsignados.length > 0;
+    }
   }
 
   // Verificar si se pueden actualizar/completar las tareas (requiere horas válidas)
   canProceedWithUpdate(): boolean {
-    const totalHoras = this.getTotalHorasTrabajadores();
-    const hasValidWorkerHours = this.trabajadoresValidados && 
-                               this.trabajadoresAsignados.length > 0 && 
-                               totalHoras > 0 &&
-                               this.trabajadoresAsignados.every(t => t.horas > 0);
-    
     // Si la tarea ya fue actualizada hoy, no se puede actualizar de nuevo
     if (this.taskToComplete && this.isTaskUpdatedToday(this.taskToComplete)) {
       return false;
     }
+
+    // Determinar si es tarea urgente para validar trabajadores correctos
+    const esUrgente = this.taskToComplete ? this.isUrgentTask(this.taskToComplete) : false;
     
-    return hasValidWorkerHours;
+    if (esUrgente) {
+      // Para tareas urgentes: validar urgentTaskWorkers
+      const totalHoras = this.getTotalHorasUrgentWorkers();
+      const hasValidWorkerHours = this.urgentTaskWorkers && 
+                                 this.urgentTaskWorkers.length > 0 && 
+                                 totalHoras > 0 &&
+                                 this.urgentTaskWorkers.every(t => t.horas > 0);
+      return hasValidWorkerHours;
+    } else {
+      // Para tareas normales: validar trabajadoresAsignados
+      const totalHoras = this.getTotalHorasTrabajadores();
+      const hasValidWorkerHours = this.trabajadoresValidados && 
+                                 this.trabajadoresAsignados.length > 0 && 
+                                 totalHoras > 0 &&
+                                 this.trabajadoresAsignados.every(t => t.horas > 0);
+      return hasValidWorkerHours;
+    }
   }
 
   // Verificar si se puede guardar tarea urgente como borrador (solo requiere trabajadores, no horas)
@@ -2525,18 +2624,38 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
       return '🚫 Esta tarea ya fue actualizada hoy. Podrá actualizarla mañana.';
     }
     
-    if (!this.trabajadoresValidados || this.trabajadoresAsignados.length === 0) {
-      return 'Debe asignar trabajadores primero';
+    // Detectar si es tarea urgente para usar trabajadores apropiados
+    const esUrgente = this.taskToComplete ? this.isUrgentTask(this.taskToComplete) : false;
+    
+    if (esUrgente) {
+      // Para tareas urgentes
+      if (!this.urgentTaskWorkers || this.urgentTaskWorkers.length === 0) {
+        return 'Debe asignar trabajadores urgentes primero';
+      }
+      
+      const totalHoras = this.getTotalHorasUrgentWorkers();
+      const trabajadoresSinHoras = this.urgentTaskWorkers.filter(t => t.horas <= 0);
+      
+      if (trabajadoresSinHoras.length > 0) {
+        return `⚠️ ${this.urgentTaskWorkers.length} trabajador(es) urgentes - ${trabajadoresSinHoras.length} sin horas (requeridas para actualizar)`;
+      }
+      
+      return `🚨 ${this.urgentTaskWorkers.length} trabajador(es) urgentes - ${totalHoras}h totales`;
+    } else {
+      // Para tareas normales
+      if (!this.trabajadoresValidados || this.trabajadoresAsignados.length === 0) {
+        return 'Debe asignar trabajadores primero';
+      }
+      
+      const totalHoras = this.getTotalHorasTrabajadores();
+      const trabajadoresSinHoras = this.trabajadoresAsignados.filter(t => t.horas <= 0);
+      
+      if (trabajadoresSinHoras.length > 0) {
+        return `⚠️ ${this.trabajadoresAsignados.length} trabajador(es) - ${trabajadoresSinHoras.length} sin horas (requeridas para actualizar)`;
+      }
+      
+      return `✅ ${this.trabajadoresAsignados.length} trabajador(es) - ${totalHoras}h totales`;
     }
-    
-    const totalHoras = this.getTotalHorasTrabajadores();
-    const trabajadoresSinHoras = this.trabajadoresAsignados.filter(t => t.horas <= 0);
-    
-    if (trabajadoresSinHoras.length > 0) {
-      return `⚠️ ${this.trabajadoresAsignados.length} trabajador(es) - ${trabajadoresSinHoras.length} sin horas (requeridas para actualizar)`;
-    }
-    
-    return `✅ ${this.trabajadoresAsignados.length} trabajador(es) - ${totalHoras}h totales`;
   }
 
   // Verificar si la tarea ya fue actualizada hoy
@@ -2871,6 +2990,28 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
       error: (error: any) => {
         // Error silencioso - no hay datos guardados o problema de conexión
         console.log('📂 No hay datos guardados para esta tarea o error al cargar:', error);
+      }
+    });
+  }
+
+  // Cargar datos guardados para tareas urgentes
+  private loadDraftDataForUrgentTask(taskId: string): void {
+    console.log('🚨 Cargando datos guardados para tarea urgente:', taskId);
+    this.taskService.loadDraftWorkerData(taskId).subscribe({
+      next: (draftData) => {
+        if (draftData && draftData.trabajadores && draftData.trabajadores.length > 0) {
+          console.log('📂 Cargando datos urgentes guardados:', draftData);
+          this.urgentTaskWorkers = draftData.trabajadores;
+          
+          // Mostrar mensaje informativo
+          const totalHoras = this.getTotalHorasUrgentWorkers();
+          this.showNotificationMessage(`Se han cargado ${draftData.trabajadores.length} trabajador(es) urgentes guardados con ${totalHoras}h totales.`, 'success');
+          console.log('✅ urgentTaskWorkers cargados:', this.urgentTaskWorkers);
+        }
+      },
+      error: (error: any) => {
+        // Error silencioso - no hay datos guardados o problema de conexión
+        console.log('📂 No hay datos guardados para esta tarea urgente o error al cargar:', error);
       }
     });
   }

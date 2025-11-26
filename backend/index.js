@@ -2679,6 +2679,35 @@ app.post('/tasks/:id/submit-urgent', verifyJWT, async (req, res) => {
     console.log('👤 Usuario es superior:', esSuperior);
     console.log('📋 Estado final de la tarea:', estadoFinal);
     
+    // CRÍTICO: Actualizar estimacion_horas y jornales_reales con el total de horas trabajadas
+    if (req.body.totalHoras !== undefined) {
+      const totalHoras = Number(req.body.totalHoras) || 0;
+      console.log(`💰 Actualizando estimacion_horas (col C) y jornales_reales (col G) con: ${totalHoras}h`);
+      
+      // Buscar índices de columnas
+      const headers = rows[0] || [];
+      const estimacionIndex = headers.findIndex(h => 
+        h && (h.toLowerCase().includes('estimacion') || 
+              h.toLowerCase().includes('estimación') ||
+              h.toLowerCase() === 'estimacion_horas')
+      );
+      const jornalesRealesIndex = headers.findIndex(h => 
+        h && (h.toLowerCase().includes('jornales_reales') || 
+              h.toLowerCase().includes('jornales reales') ||
+              h.toLowerCase() === 'jornales_reales')
+      );
+      
+      // Actualizar estimacion_horas (columna C por defecto, índice 2)
+      const estimacionCol = estimacionIndex >= 0 ? estimacionIndex : 2;
+      currentRow[estimacionCol] = totalHoras;
+      console.log(`✅ estimacion_horas actualizada en columna ${estimacionCol}: ${totalHoras}`);
+      
+      // Actualizar jornales_reales (columna G por defecto, índice 6) 
+      const jornalesCol = jornalesRealesIndex >= 0 ? jornalesRealesIndex : 6;
+      currentRow[jornalesCol] = totalHoras;
+      console.log(`✅ jornales_reales actualizada en columna ${jornalesCol}: ${totalHoras}`);
+    }
+    
     currentRow[15] = estadoFinal; // proceso (columna P)
     currentRow[16] = fechaActual; // fecha_actualizacion (columna Q)
     
