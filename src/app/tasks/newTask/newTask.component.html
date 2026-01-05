@@ -87,8 +87,8 @@
       
       <!-- Controles de organización (siempre visibles cuando hay múltiples invernaderos) -->
       <div class="organization-controls">
-        <!-- Toggle para modo de fechas (solo mostrar si hay invernaderos seleccionados) -->
-        <div *ngIf="getSelectedInvernaderos().length > 1" class="date-mode-toggle">
+        <!-- Toggle para modo de fechas (solo mostrar si hay múltiples tareas O múltiples invernaderos) -->
+        <div *ngIf="shouldShowToggles()" class="date-mode-toggle">
           <label class="toggle-container">
             <span class="toggle-label">Fechas límite:</span>
             <div class="toggle-switch">
@@ -105,8 +105,8 @@
           </label>
         </div>
         
-        <!-- Toggle para encargados (solo mostrar si hay invernaderos seleccionados) -->
-        <div *ngIf="getSelectedInvernaderos().length > 1" class="encargado-mode-toggle">
+        <!-- Toggle para encargados (solo mostrar si hay múltiples tareas O múltiples invernaderos) -->
+        <div *ngIf="shouldShowToggles()" class="encargado-mode-toggle">
           <label class="toggle-container">
             <span class="toggle-label">Encargados:</span>
             <div class="toggle-switch">
@@ -125,8 +125,8 @@
       </div>
     </div>
 
-    <!-- Campos globales cuando están desactivados los toggles (solo para múltiples invernaderos) -->
-    <div *ngIf="getSelectedInvernaderos().length > 1" class="single-values-section">
+    <!-- Campos globales cuando están desactivados los toggles (solo para múltiples tareas O múltiples invernaderos) -->
+    <div *ngIf="shouldShowToggles()" class="single-values-section">
       <!-- Campo de fecha global (cuando el toggle individual está OFF) -->
       <div class="single-date-container" [style.display]="useIndividualDates ? 'none' : 'block'">
         <label for="singleDate">Fecha límite para todos los invernaderos *</label>
@@ -136,6 +136,8 @@
           name="singleDate" 
           [(ngModel)]="singleDate"
           (ngModelChange)="onSingleDateChange()"
+          (change)="onDateInputChange($event)"
+          (input)="onDateInputChange($event)"
           required 
           class="single-date-input" />
       </div>
@@ -313,8 +315,8 @@
               </div>
             </div>
           </div>
-          <!-- Estimación de jornales por invernadero (ocultar en modo ALMACÉN y cuando hay multitareas) -->
-          <div *ngIf="!isAlmacenMode && !hasConfiguredTareas()" class="jornal-estimation-section">
+          <!-- Estimación de jornales por invernadero (ocultar en modo ALMACÉN, multitareas Y modo edición) -->
+          <div *ngIf="!isAlmacenMode && !hasConfiguredTareas() && !task" class="jornal-estimation-section">
             <label [for]="'estimation_' + getSelectedInvernaderos()[activeInvernaderoIndex]">Estimación jornales *</label>
             <input 
               type="number" 
@@ -439,12 +441,12 @@
                   </app-searchable-dropdown>
                 </div>
 
-                <!-- Estimación de horas (calculado automáticamente) -->
+                <!-- Estimación recomendada de jornales (calculado automáticamente) -->
                 <div class="form-group">
                   <div class="hours-display">
-                    <span class="hours-label">🕐 Estimación horas:</span>
+                    <span class="hours-label">💡 Estimación recomendada:</span>
                     <span class="hours-value">
-                      {{ (getTaskConfigSafe(getSelectedInvernaderos()[activeInvernaderoIndex], getActiveTareaSafe(getSelectedInvernaderos()[activeInvernaderoIndex])).jornales * (useEightHourJornal ? 8 : 6)).toFixed(1) }} horas
+                      {{ getRecommendedJornales(getSelectedInvernaderos()[activeInvernaderoIndex], getActiveTareaSafe(getSelectedInvernaderos()[activeInvernaderoIndex])).toFixed(2).replace('.', ',') }} jornales
                     </span>
                   </div>
                 </div>
@@ -459,8 +461,11 @@
             <input 
               type="date" 
               [id]="'date_' + getSelectedInvernaderos()[activeInvernaderoIndex]"
-              [name]="'date_' + getSelectedInvernaderos()[activeInvernaderoIndex]"
+              [name]="'date_' + getSelectedInvernaderos()[activeInvernaderoIndex] + '_individual'"
               [(ngModel)]="dueDates[getSelectedInvernaderos()[activeInvernaderoIndex]]" 
+              (ngModelChange)="onIndividualDateChange(getSelectedInvernaderos()[activeInvernaderoIndex], $event)"
+              (change)="onIndividualDateInputChange($event)"
+              (input)="onIndividualDateInputChange($event)"
               required 
               class="date-input" />
           </div>
@@ -529,8 +534,8 @@
       </button>
       <button 
         type="submit" 
-        [disabled]="hasConfiguredTareas() && !isFormReadyForSubmission()"
-        [class.ready]="hasConfiguredTareas() && isFormReadyForSubmission()">
+        [disabled]="!isFormReadyForSubmission()"
+        [class.ready]="isFormReadyForSubmission()">
         {{ task ? 'Guardar cambios' : (hasConfiguredTareas() ? 'Crear Tareas' : 'Crear') }}
       </button>
     </p>

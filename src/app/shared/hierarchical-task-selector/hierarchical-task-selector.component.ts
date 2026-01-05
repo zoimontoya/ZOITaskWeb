@@ -153,6 +153,16 @@ export class HierarchicalTaskSelectorComponent implements OnInit, OnChanges {
       console.log('  - selectedTipo:', this.selectedTipo);
       console.log('  - selectedTaskLabel:', this.selectedTaskLabel);
       
+      // CRÍTICO: En modo multi-selección, agregar al array para mostrar la palomita
+      if (this.enableMultiSelection && this.selectedTaskLabel && !this.selectedTareas.includes(this.selectedTaskLabel)) {
+        console.log('📌 Modo edición: agregando tarea al array selectedTareas');
+        this.selectedTareas.push(this.selectedTaskLabel);
+        console.log('📌 selectedTareas actualizado:', this.selectedTareas);
+        
+        // Emitir evento de multi-selección
+        this.tareasSelectedMultiple.emit([...this.selectedTareas]);
+      }
+      
       // Emitir la selección inicial
       this.emitSelection();
     } else {

@@ -70,8 +70,28 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
     const invernaderos = this.getSelectedInvernaderos();
     const newConfig: { [invernadero: string]: { [tarea: string]: TaskConfig } } = {};
 
+    // 🔧 CASO SIMPLE: En 1 invernadero + 1 tarea, usar valores individuales
+    const isSimpleCase = invernaderos.length === 1 && this.selectedTareas.length === 1;
+
     invernaderos.forEach(inv => {
       newConfig[inv] = {};
+      
+      // Determinar valores por defecto según el tipo de caso
+      let defaultFecha = this.singleDate;
+      let defaultEncargado = this.selectedEncargado;
+      
+      if (isSimpleCase) {
+        // En caso simple, usar valores individuales como fuente de verdad
+        defaultFecha = this.dueDates[inv] || this.singleDate;
+        defaultEncargado = this.selectedEncargados[inv] || this.selectedEncargado;
+        console.log('🔧 CASO SIMPLE - Usando valores individuales:', {
+          invernadero: inv,
+          fechaIndividual: this.dueDates[inv],
+          encargadoIndividual: this.selectedEncargados[inv],
+          fechaFinal: defaultFecha,
+          encargadoFinal: defaultEncargado
+        });
+      }
       
       // Si ya existía configuración para este invernadero, preservar solo las tareas existentes
       if (this.invernaderoTareasConfig[inv]) {
@@ -87,8 +107,8 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
           if (!this.invernaderoTareasConfig[inv][tarea]) {
             newConfig[inv][tarea] = {
               jornales: 0,
-              fechaLimite: this.singleDate,
-              encargado: this.selectedEncargado,
+              fechaLimite: defaultFecha,
+              encargado: defaultEncargado,
               estimacionHoras: 0
             };
           }
@@ -98,8 +118,8 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
         this.selectedTareas.forEach(tarea => {
           newConfig[inv][tarea] = {
             jornales: 0,
-            fechaLimite: this.singleDate,
-            encargado: this.selectedEncargado,
+            fechaLimite: defaultFecha,
+            encargado: defaultEncargado,
             estimacionHoras: 0
           };
         });
@@ -199,6 +219,34 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
 
   // NUEVO: Actualizar configuración de tarea específica
   updateTaskConfig(invernadero: string, tarea: string, config: Partial<TaskConfig>) {
+    // 🔧 DEBUGGING ESPECÍFICO para cambios de fecha en configuración de tareas
+    if (config.fechaLimite) {
+      console.log('📅 🎯 === UPDATETASKCONFIG - CAMBIO DE FECHA ===');
+      console.log('📅 🎯 Detalles del cambio:', {
+        invernadero: invernadero,
+        tarea: tarea,
+        newFechaLimite: config.fechaLimite,
+        oldFechaLimite: this.invernaderoTareasConfig[invernadero]?.[tarea]?.fechaLimite,
+        isEditMode: !!this.task,
+        isInitializing: this.isInitializing
+      });
+      
+      // En modo edición, sincronizar con singleDate y dueDates
+      if (this.task && this.task.invernadero === invernadero) {
+        console.log('📅 🎯 SINCRONIZANDO fecha de configuración → singleDate y dueDates');
+        const oldSingleDate = this.singleDate;
+        const oldDueDate = this.dueDates[invernadero];
+        
+        this.singleDate = config.fechaLimite;
+        this.dueDates[invernadero] = config.fechaLimite;
+        
+        console.log('📅 🎯 Valores actualizados:', {
+          singleDate: `"${oldSingleDate}" → "${this.singleDate}"`,
+          dueDates: `"${oldDueDate}" → "${this.dueDates[invernadero]}"`
+        });
+      }
+    }
+    
     if (this.invernaderoTareasConfig[invernadero]?.[tarea]) {
       Object.assign(this.invernaderoTareasConfig[invernadero][tarea], config);
     }
@@ -282,10 +330,10 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
   
   // NUEVO: Verificar si hay tareas realmente configuradas (no solo seleccionadas)
   hasConfiguredTareas(): boolean {
-    // Si estamos editando, NO tenemos tareas configuradas (modo tradicional)
+    // MODO EDICIÓN: Si tenemos una tarea a editar, consideramos que "está configurada" para efectos de validación
     if (this.task) {
-      console.log('📝 MODO EDICIÓN: hasConfiguredTareas = false');
-      return false;
+      console.log('📝 MODO EDICIÓN: hasConfiguredTareas = true (hay tarea para editar)');
+      return true; // En modo edición, siempre hay al menos una tarea "configurada"
     }
     
     const selectedInvernaderos = this.getSelectedInvernaderos();
@@ -305,6 +353,26 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
   getTotalConfiguredTasks(): number {
     const selectedInvernaderos = this.getSelectedInvernaderos();
     return selectedInvernaderos.reduce((total, inv) => total + this.getTareasForInvernadero(inv).length, 0);
+  }
+
+  // NUEVO: Determinar si se deben mostrar los toggles de fecha/encargado
+  shouldShowToggles(): boolean {
+    const selectedInvernaderos = this.getSelectedInvernaderos();
+    const totalTareas = this.selectedTareas.length;
+    
+    // Mostrar toggles cuando hay más de 1 invernadero O más de 1 tarea
+    // NO mostrar cuando hay exactamente 1 invernadero y 1 tarea (caso simple)
+    const shouldShow = selectedInvernaderos.length > 1 || totalTareas > 1;
+    
+    console.log('🔧 shouldShowToggles:', {
+      invernaderos: selectedInvernaderos.length,
+      tareas: totalTareas,
+      shouldShow,
+      razon: selectedInvernaderos.length > 1 ? 'múltiples invernaderos' : 
+             totalTareas > 1 ? 'múltiples tareas' : 'caso simple'
+    });
+    
+    return shouldShow;
   }
 
   // NUEVO: Limpiar todas las tareas seleccionadas
@@ -371,7 +439,7 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
   
   // Nueva funcionalidad para fechas: por defecto global, toggle activa individual
   useIndividualDates = false; // false = global, true = individual
-  singleDate = ''; // Fecha global cuando useIndividualDates es false
+  // REMOVIDO: singleDate ahora se maneja con getter/setter más abajo
   
   // Detectar si estamos en modo ALMACÉN
   isAlmacenMode = false;
@@ -428,6 +496,12 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
   // NUEVO: Configuración por invernadero y tarea
   // Estructura: { invernadero: { tarea: { jornales, fecha, encargado } } }
   invernaderoTareasConfig: { [invernadero: string]: { [tarea: string]: TaskConfig } } = {};
+  
+  // 🔧 NUEVO: Control de inicialización para evitar cambios automáticos
+  isInitializing: boolean = false;
+  
+  // 🔧 Variable para fecha límite global (con debugging manual cuando sea necesario)
+  singleDate: string = '';
   
   // NUEVO: Índice activo del sub-carrusel de tareas (por invernadero)
   activeTareaIndex: { [invernadero: string]: number } = {};
@@ -542,6 +616,10 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
 
   initFormFromTask() {
     if (this.task) {
+      // 🔧 ACTIVAR MODO INICIALIZACIÓN para evitar cambios automáticos
+      this.isInitializing = true;
+      console.log('🔧 INICIANDO MODO INICIALIZACIÓN - Bloqueando cambios automáticos');
+      
       // Para la edición, el invernadero-selector se encargará de la selección inicial
       // solo configuramos el área de trabajo actual
       if (this.task.invernadero) {
@@ -645,6 +723,19 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
         this.forceSyncForEdit();
         // 🔧 NUEVO: Restaurar valores que puedan haberse perdido
         this.restoreEditValues();
+        
+        // 🚀 AUTOCOMPLETAR CARRUSEL DE JORNALES EN MODO EDICIÓN
+        if (this.task && this.task.invernadero && this.task.tipo_tarea) {
+          setTimeout(() => {
+            this.autoFillCarouselJornales(this.task.invernadero, this.task.tipo_tarea);
+          }, 200); // Pequeño retraso adicional para asegurar que el carrusel esté renderizado
+        }
+        
+        // 🔧 DESACTIVAR MODO INICIALIZACIÓN después de completar setup
+        setTimeout(() => {
+          this.isInitializing = false;
+          console.log('✅ MODO INICIALIZACIÓN COMPLETADO - Permitiendo cambios normales');
+        }, 1500); // Suficiente tiempo para que terminen todos los timeouts de inicialización
       }, 100);
     } else {
       // Limpiar todo para nueva tarea
@@ -811,8 +902,24 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
     } else {
       // Cambiamos a fecha global
       if (selectedInvernaderos.length > 0 && this.dueDates[selectedInvernaderos[0]]) {
-        // Usar la primera fecha individual como global
-        this.singleDate = this.dueDates[selectedInvernaderos[0]];
+        // 🔧 PROTECCIÓN: No sobrescribir singleDate durante inicialización o en modo edición si el usuario ya cambió el valor
+        if (!this.isInitializing && (!this.task || !this.singleDate || this.singleDate === this.task.fecha_limite)) {
+          // Usar la primera fecha individual como global solo si es seguro
+          console.log('📅 🔄 Sincronizando fecha individual → global:', this.dueDates[selectedInvernaderos[0]]);
+          console.log('📅 🔄 ANTES de sobrescribir singleDate:', this.singleDate);
+          this.singleDate = this.dueDates[selectedInvernaderos[0]];
+          console.log('📅 🔄 DESPUÉS de sobrescribir singleDate:', this.singleDate);
+        } else {
+          console.log('📅 🛡️ PROTEGIDO: No sobrescribiendo singleDate durante inicialización/edición', {
+            isInitializing: this.isInitializing,
+            isTask: !!this.task,
+            singleDate: this.singleDate,
+            taskFechaLimite: this.task?.fecha_limite,
+            razon: this.isInitializing ? 'inicializando' : 
+                   !this.task ? 'no es edición' :
+                   !this.singleDate ? 'singleDate vacío' : 'usuario cambió fecha'
+          });
+        }
       }
     }
   }
@@ -856,8 +963,19 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
       } else {
         // Modo fecha global: asegurar que existe singleDate, pero NO sobrescribir si ya tiene valor
         if (!this.singleDate) {
+          console.log('📅 ⚙️ Inicializando singleDate vacío en modo global');
           this.singleDate = '';
+        } else {
+          console.log('📅 ✅ singleDate ya tiene valor, no sobrescribiendo:', this.singleDate);
         }
+        
+        // 🔧 CASO SIMPLE: También inicializar dueDates individuales para que los campos HTML funcionen
+        this.invernaderoSelection.invernaderos.forEach((inv: string) => {
+          if (!this.dueDates[inv]) {
+            this.dueDates[inv] = '';
+            console.log(`📅 🔧 Inicializando dueDates[${inv}] para caso simple`);
+          }
+        });
       }
       
       // Inicializar áreas de trabajo para cada invernadero seleccionado (solo si no existen o es modo creación)
@@ -874,10 +992,8 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
         }
       });
       
-      // Actualizar estimaciones automáticamente para los nuevos invernaderos (solo en modo creación)
-      if (!this.task) {
-        this.updateEstimationsBasedOnJornalUnidad();
-      }
+      // Actualizar estimaciones automáticamente para los nuevos invernaderos
+      this.updateEstimationsBasedOnJornalUnidad();
       
       // Limpiar áreas de invernaderos que ya no están seleccionados (solo en modo creación)
       if (!this.task) {
@@ -930,14 +1046,153 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
   
   updateEncargado(invernadero: string, encargadoId: string) {
     this.selectedEncargados[invernadero] = encargadoId;
+    
+    // 🔧 CASO SIMPLE: Sincronizar con configuración de tarea
+    if (this.selectedTareas.length === 1 && this.getSelectedInvernaderos().length === 1) {
+      const tarea = this.selectedTareas[0];
+      if (tarea) {
+        console.log('🔧 CASO SIMPLE: Sincronizando encargado individual con config de tarea');
+        this.updateTaskConfig(invernadero, tarea, { encargado: encargadoId });
+      }
+    }
   }
   
   // Métodos para sincronizar valores globales con individuales
   onSingleDateChange() {
+    console.log('📅 === onSingleDateChange EJECUTADO ===');
+    console.log('📅 Estado actual:', {
+      singleDate: this.singleDate,
+      useIndividualDates: this.useIndividualDates,
+      isEditMode: !!this.task,
+      isInitializing: this.isInitializing,
+      selectedInvernaderos: this.getSelectedInvernaderos(),
+      dueDatesActual: JSON.stringify(this.dueDates)
+    });
+    
+    // 🔧 Durante inicialización, no sobrescribir valores PERO permitir cambios del usuario
+    if (this.isInitializing) {
+      console.log('🔧 onSingleDateChange - MODO INICIALIZACIÓN: Saltando actualización automática');
+      return;
+    }
+    
+    // En modo edición, siempre actualizar dueDates cuando el usuario cambie singleDate
+    if (this.task && this.singleDate) {
+      const inv = this.task.invernadero;
+      console.log('📅 MODO EDICIÓN: Sincronizando fecha para invernadero:', inv);
+      this.dueDates[inv] = this.singleDate;
+      console.log(`📅 ACTUALIZADO: dueDates[${inv}] = ${this.singleDate}`);
+      return;
+    }
+    
+    // Modo creación: lógica original
     if (!this.useIndividualDates && this.singleDate) {
       this.getSelectedInvernaderos().forEach(inv => {
+        const valorAnterior = this.dueDates[inv];
         this.dueDates[inv] = this.singleDate;
+        console.log(`📅 CREACIÓN: dueDates[${inv}]: ${valorAnterior} → ${this.singleDate}`);
       });
+    } else {
+      console.log('📅 NO se actualizaron dueDates porque:', {
+        useIndividualDates: this.useIndividualDates,
+        singleDateExists: !!this.singleDate,
+        explicacion: this.useIndividualDates ? 'modo individual activo' : 'no hay fecha única'
+      });
+    }
+    
+    console.log('📅 Estado final dueDates:', JSON.stringify(this.dueDates));
+  }
+  
+  // 🔧 NUEVO: Capturar eventos directos del input de fecha
+  onDateInputChange(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const newValue = input.value;
+    
+    console.log('📅 🎯 === INPUT DIRECTO DE FECHA ===');
+    console.log('📅 🎯 Detalles del evento:', {
+      eventType: event.type,
+      newValue: newValue,
+      currentSingleDate: this.singleDate,
+      isInitializing: this.isInitializing,
+      isEditMode: !!this.task,
+      inputId: input.id
+    });
+    
+    // FORZAR actualización de singleDate
+    if (this.singleDate !== newValue) {
+      console.log(`📅 🎯 FORZANDO ACTUALIZACIÓN: "${this.singleDate}" → "${newValue}"`);
+      this.singleDate = newValue;
+      
+      // Disparar manualmente onSingleDateChange para asegurar sincronización
+      setTimeout(() => {
+        console.log('📅 🎯 Ejecutando onSingleDateChange desde input directo');
+        this.onSingleDateChange();
+      }, 10);
+    } else {
+      console.log('📅 🎯 No hay cambio de valor, no actualizando');
+    }
+  }
+  
+  // 🔧 NUEVO: Capturar cambios en campos de fecha INDIVIDUALES
+  onIndividualDateChange(invernadero: string, newDate: string) {
+    console.log('📅 🎯 === CAMBIO FECHA INDIVIDUAL ===');
+    console.log('📅 🎯 Detalles:', {
+      invernadero: invernadero,
+      newDate: newDate,
+      oldDate: this.dueDates[invernadero],
+      isEditMode: !!this.task,
+      isInitializing: this.isInitializing
+    });
+    
+    // 🔧 CASO SIMPLE: Sincronizar con configuración de tarea
+    if (this.selectedTareas.length === 1 && this.getSelectedInvernaderos().length === 1) {
+      const tarea = this.selectedTareas[0];
+      if (tarea) {
+        console.log('🔧 CASO SIMPLE: Sincronizando fecha individual con config de tarea');
+        this.updateTaskConfig(invernadero, tarea, { fechaLimite: newDate });
+      }
+    }
+    
+    // En modo edición, también actualizar singleDate para mantener sincronización
+    if (this.task && this.task.invernadero === invernadero) {
+      console.log('📅 🎯 MODO EDICIÓN: Sincronizando fecha individual → singleDate');
+      const oldSingleDate = this.singleDate;
+      this.singleDate = newDate;
+      console.log(`📅 🎯 singleDate actualizado: "${oldSingleDate}" → "${newDate}"`);
+    }
+  }
+  
+  // 🔧 NUEVO: Capturar eventos directos del input de fecha INDIVIDUAL
+  onIndividualDateInputChange(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const newValue = input.value;
+    const inputId = input.id;
+    
+    console.log('📅 🎯 === INPUT DIRECTO FECHA INDIVIDUAL ===');
+    console.log('📅 🎯 Detalles del evento:', {
+      eventType: event.type,
+      newValue: newValue,
+      inputId: inputId,
+      isInitializing: this.isInitializing,
+      isEditMode: !!this.task
+    });
+    
+    // Determinar a qué invernadero corresponde este input
+    const match = inputId.match(/date_(.+)/);
+    if (match) {
+      const invernadero = match[1];
+      console.log(`📅 🎯 Input corresponde al invernadero: ${invernadero}`);
+      
+      // Forzar actualización si es diferente
+      if (this.dueDates[invernadero] !== newValue) {
+        console.log(`📅 🎯 FORZANDO actualización dueDates[${invernadero}]: "${this.dueDates[invernadero]}" → "${newValue}"`);
+        this.dueDates[invernadero] = newValue;
+        
+        // En modo edición, sincronizar con singleDate
+        if (this.task && this.task.invernadero === invernadero) {
+          console.log('📅 🎯 SINCRONIZANDO con singleDate en modo edición');
+          this.singleDate = newValue;
+        }
+      }
     }
   }
   
@@ -958,6 +1213,18 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
     subtipo?: string,
     tarea_completa?: any
   }) {
+    // 🔧 Durante inicialización, solo establecer valores sin disparar cálculos automáticos
+    if (this.isInitializing) {
+      console.log('🔧 onTareaJerarquicaSelected - MODO INICIALIZACIÓN: Solo estableciendo valores sin recálculos', {
+        tarea: tareaData.nombre,
+        isInitializing: this.isInitializing
+      });
+      this.selectedTareaJerarquica = tareaData.nombre;
+      this.selectedTaskType = tareaData.nombre;
+      this.selectedTaskJornalUnidad = tareaData.jornal_unidad;
+      return; // No ejecutar el resto de la lógica durante inicialización
+    }
+    
     // Sincronizar ambas variables de tarea seleccionada
     this.selectedTareaJerarquica = tareaData.nombre;
     this.selectedTaskType = tareaData.nombre; // Mantener compatibilidad
@@ -1258,6 +1525,13 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
     // Asegurar que el valor esté dentro del rango válido pero SIN redondear
     const clampedValue = Math.min(Math.max(0, value), maxArea);
     this.workingAreas[invernaderoNombre] = clampedValue; // Mantener precisión completa
+    
+    console.log('🏡 HECTÁREAS ACTUALIZADAS:', {
+      invernadero: invernaderoNombre,
+      valorIngresado: value,
+      valorFinal: clampedValue,
+      workingAreas: this.workingAreas
+    });
   }
 
   updateExpectedKilos(invernaderoNombre: string, event: Event) {
@@ -1286,7 +1560,136 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
   console.log('hasConfiguredTareas():', this.hasConfiguredTareas());
   console.log('getTotalConfiguredTasks():', this.getTotalConfiguredTasks());
   
-  // Interceptar validación nativa y mostrar modal personalizado si hay errores
+  // 🔧 MODO EDICIÓN: Usar lógica simplificada
+  if (this.task) {
+    console.log('📝 MODO EDICIÓN: Usando validación simplificada y enviando directamente');
+    
+    // Usar la validación simplificada del método getValidationStatus()
+    const validationResult = this.getValidationStatus();
+    
+    if (!validationResult.isValid) {
+      const errorMsg = validationResult.errors.join(', ');
+      console.log('❌ Error de validación en modo edición:', errorMsg);
+      if (this.modalMessage) {
+        this.modalMessage.show(errorMsg);
+        this.cdr.markForCheck();
+      }
+      return;
+    }
+    
+    console.log('✅ Validación de modo edición exitosa, construyendo datos para envío');
+    
+    // Construir objeto de tarea para edición - PRESERVAR valores originales
+    const inv = this.task.invernadero;
+    
+    // 🔧 FECHA LÍMITE: Usar el valor actual del formulario (lo que el usuario cambió)
+    // Prioridad: taskConfig.fechaLimite > dueDates[inv] (campo específico) > singleDate (campo global) > valor original
+    let fechaLimiteEnvio: string;
+    
+    // Verificar si hay configuración de tarea específica (para modo multitareas)
+    const taskConfig = this.task.tipo_tarea ? this.getTaskConfig(inv, this.task.tipo_tarea) : null;
+    
+    if (taskConfig?.fechaLimite && taskConfig.fechaLimite !== this.task.fecha_limite) {
+      // El usuario cambió la fecha en la configuración de tarea específica
+      fechaLimiteEnvio = taskConfig.fechaLimite;
+      console.log('📅 USANDO taskConfig.fechaLimite (usuario cambió fecha en configuración):', taskConfig.fechaLimite);
+    } else if (this.dueDates[inv] && this.dueDates[inv] !== this.task.fecha_limite) {
+      // El usuario cambió la fecha en el campo individual específico
+      fechaLimiteEnvio = this.dueDates[inv];
+      console.log('📅 USANDO dueDates[inv] (usuario cambió fecha individual):', this.dueDates[inv]);
+    } else if (this.singleDate && this.singleDate !== this.task.fecha_limite) {
+      // El usuario cambió la fecha en el campo principal global
+      fechaLimiteEnvio = this.singleDate;
+      console.log('📅 USANDO singleDate (usuario cambió fecha global):', this.singleDate);
+    } else if (taskConfig?.fechaLimite) {
+      // Usar configuración de tarea como fallback
+      fechaLimiteEnvio = taskConfig.fechaLimite;
+      console.log('📅 USANDO taskConfig.fechaLimite (fallback):', taskConfig.fechaLimite);
+    } else if (this.dueDates[inv]) {
+      // Usar dueDates como fallback
+      fechaLimiteEnvio = this.dueDates[inv];
+      console.log('📅 USANDO dueDates[inv] (fallback):', this.dueDates[inv]);
+    } else if (this.singleDate) {
+      // Usar singleDate como fallback
+      fechaLimiteEnvio = this.singleDate;
+      console.log('📅 USANDO singleDate (fallback):', this.singleDate);
+    } else {
+      // Usar valor original como último recurso
+      fechaLimiteEnvio = this.task.fecha_limite || '';
+      console.log('📅 USANDO valor original (último recurso):', fechaLimiteEnvio);
+    }
+    
+    console.log('📅 FECHA LÍMITE - Análisis completo:', {
+      'taskConfig.fechaLimite (configuración)': taskConfig?.fechaLimite || 'N/A',
+      'dueDates[inv] (campo individual)': this.dueDates[inv],
+      'singleDate (campo global)': this.singleDate,
+      'task.fecha_limite (original)': this.task.fecha_limite,
+      'valor_final_enviado': fechaLimiteEnvio,
+      'logica_usada': fechaLimiteEnvio === taskConfig?.fechaLimite ? 'taskConfig' :
+                      fechaLimiteEnvio === this.dueDates[inv] ? 'dueDates[inv]' : 
+                      fechaLimiteEnvio === this.singleDate ? 'singleDate' : 'original'
+    });
+    
+    // 🔧 ESTIMACIÓN: NO recalcular automáticamente, usar valor original de la tarea a menos que el usuario haya cambiado explícitamente el campo
+    let estimacionEnHoras: number;
+    
+    // Verificar si el usuario cambió la estimación comparando con el valor original
+    const estimacionUsuario = parseFloat(this.estimation.replace(',', '.')) || 0;
+    const estimacionOriginal = Number(this.task.estimacion_horas) || 0;
+    
+    if (Math.abs(estimacionUsuario * (this.useEightHourJornal ? 8 : 6) - estimacionOriginal) < 0.01) {
+      // El usuario NO cambió la estimación, usar el valor original
+      estimacionEnHoras = estimacionOriginal;
+      console.log('📝 PRESERVANDO estimación original:', estimacionOriginal, 'horas');
+    } else {
+      // El usuario SÍ cambió la estimación, calcular basado en su input
+      const factor = this.useEightHourJornal ? 8 : 6;
+      estimacionEnHoras = estimacionUsuario * factor;
+      console.log('🔧 USANDO nueva estimación del usuario:', estimacionUsuario, 'jornales →', estimacionEnHoras, 'horas');
+    }
+    
+    const horaJornal = this.useEightHourJornal ? 1 : 0;
+    const horasKilos = this.useKilosMode ? 1 : 0;
+    const dimensionValue = this.useKilosMode ? (this.expectedKilos[inv] || 0) : (this.workingAreas[inv] || 0);
+    
+    const tareaParaEnviar = this.selectedTaskType || this.selectedTareaJerarquica || this.selectedTipoTarea?.nombre || this.task.tipo_tarea;
+    
+    const data: any = {
+      id: this.task.id,
+      invernadero: inv,
+      tipo_tarea: tareaParaEnviar,
+      estimacion_horas: estimacionEnHoras,
+      hora_jornal: horaJornal,
+      horas_kilos: horasKilos,
+      fecha_limite: fechaLimiteEnvio, // 🔧 Usar valor procesado con debugging
+      encargado_id: this.selectedEncargado,
+      descripcion: this.description || '',
+      dimension_total: dimensionValue
+    };
+    
+    // Si es modo almacén con kg
+    if (this.showKgEstimationField() && this.almacenKgEstimation[inv]) {
+      data.kg_estimado_almacen = this.almacenKgEstimation[inv];
+      if (this.selectedGenero) {
+        data.genero = this.selectedGenero;
+      }
+    }
+    
+    console.log('📤 ENVIANDO DATOS DE EDICIÓN:', data);
+    
+    // 🔧 DEBUG: Mostrar valores de fecha para diagnosticar
+    console.log('📅 DEBUG FECHAS:', {
+      'singleDate (formulario)': this.singleDate,
+      'task.fecha_limite (original)': this.task.fecha_limite,
+      [`dueDates[${inv}]`]: this.dueDates[inv],
+      'valor_enviado': data.fecha_limite
+    });
+    
+    this.add.emit([data]); // Emitir como array para mantener consistencia
+    return;
+  }
+  
+  // MODO CREACIÓN: Lógica completa original
   const selectedInvernaderos = this.getSelectedInvernaderos();
   
   console.log('📊 TAREAS POR INVERNADERO:');
@@ -1695,10 +2098,31 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
         const estimacionEnHoras = config.jornales * factor;
 
         // Determinar fecha límite: si no es individual, usar la global
-        const fechaLimite = this.useIndividualDates ? config.fechaLimite : this.singleDate;
+        // 🔧 CASO SIMPLE: En 1 inv + 1 tarea, usar siempre los valores individuales
+        const isSimpleCase = selectedInvernaderos.length === 1 && this.selectedTareas.length === 1;
+        let fechaLimite: string;
+        let encargadoId: string;
         
-        // Determinar encargado: si no es individual, usar el global
-        const encargadoId = this.useIndividualEncargados ? config.encargado : this.selectedEncargado;
+        if (isSimpleCase) {
+          // En caso simple, usar valores individuales SIEMPRE
+          fechaLimite = this.dueDates[invernadero] || config.fechaLimite || '';
+          encargadoId = this.selectedEncargados[invernadero] || config.encargado || '';
+          console.log('🔧 CASO SIMPLE - Asignando valores:', {
+            invernadero,
+            fechaFromDueDates: this.dueDates[invernadero],
+            fechaFromConfig: config.fechaLimite,
+            fechaFinal: fechaLimite,
+            encargadoFromSelected: this.selectedEncargados[invernadero],
+            encargadoFromConfig: config.encargado,
+            encargadoFinal: encargadoId,
+            debugDueDates: JSON.stringify(this.dueDates),
+            debugSelectedEncargados: JSON.stringify(this.selectedEncargados)
+          });
+        } else {
+          // Lógica normal para casos múltiples
+          fechaLimite = this.useIndividualDates ? config.fechaLimite : this.singleDate;
+          encargadoId = this.useIndividualEncargados ? config.encargado : this.selectedEncargado;
+        }
 
         // Calcular dimensión total basada en el modo (hectáreas vs kilos)
         let dimensionTotal = 0;
@@ -1788,7 +2212,40 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
       return {isValid: false, errors, details};
     }
 
-    // Verificar que haya tareas REALMENTE configuradas (no solo seleccionadas)
+    // MODO EDICIÓN: Validación simplificada
+    if (this.task) {
+      console.log('📝 MODO EDICIÓN: Usando validación simplificada');
+      
+      // Validar campos básicos requeridos para edición
+      if (!this.selectedEncargado || this.selectedEncargado.trim() === '') {
+        errors.push('Falta seleccionar encargado');
+      }
+      
+      if (!this.singleDate || this.singleDate.trim() === '') {
+        errors.push('Falta fecha límite');
+      }
+      
+      if (!this.estimation || parseFloat(this.estimation) <= 0) {
+        errors.push('Falta estimación de jornales válida');
+      }
+      
+      const inv = this.task.invernadero;
+      if (!this.workingAreas[inv] || this.workingAreas[inv] <= 0) {
+        errors.push('Falta área de trabajo válida');
+      }
+      
+      details.editMode = true;
+      details.task = this.task.tipo_tarea;
+      details.invernadero = inv;
+      
+      return {
+        isValid: errors.length === 0,
+        errors,
+        details
+      };
+    }
+
+    // MODO CREACIÓN: Verificar que haya tareas REALMENTE configuradas (no solo seleccionadas)
     if (!this.hasConfiguredTareas()) {
       if (this.selectedTareas.length === 0) {
         errors.push('No hay tareas seleccionadas en el desplegable');
@@ -1932,9 +2389,30 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
 
   // Método para actualizar estimaciones automáticamente basado en jornal_unidad
   updateEstimationsBasedOnJornalUnidad(): void {
-    // Este método ya no llena automáticamente los valores
-    // Solo actualiza los placeholders a través de getJornalPlaceholder()
-    // El usuario verá la recomendación pero decidirá si usarla
+    // En modo edición O durante inicialización, NO recalcular automáticamente las estimaciones
+    if (this.task || this.isInitializing) {
+      console.log('📝 MODO EDICIÓN/INICIALIZACIÓN: Saltando recálculo automático de estimaciones para preservar valores del usuario', {
+        isEditMode: !!this.task,
+        isInitializing: this.isInitializing
+      });
+      return;
+    }
+    
+    // Calcular automáticamente los jornales basado en hectáreas * jornal_unidad (solo modo creación)
+    if (this.selectedTaskJornalUnidad > 0) {
+      console.log('🧮 Calculando estimaciones automáticas basado en jornal_unidad:', this.selectedTaskJornalUnidad);
+      
+      const selectedInvernaderos = this.getSelectedInvernaderos();
+      selectedInvernaderos.forEach(inv => {
+        const hectareas = this.workingAreas[inv] || 0;
+        if (hectareas > 0) {
+          const jornalesCalculados = hectareas * this.selectedTaskJornalUnidad;
+          this.estimations[inv] = jornalesCalculados;
+          
+          console.log(`🧮 ${inv}: ${hectareas} Ha × ${this.selectedTaskJornalUnidad} = ${jornalesCalculados} jornales`);
+        }
+      });
+    }
   }
 
   // Método para recalcular estimación cuando cambie el área de trabajo
@@ -1962,13 +2440,23 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
       t.tarea_nombre === tareaName || t.tipo === tareaName || t.nombre === tareaName
     );
     
-    const jornal = (task as any)?.jornal_unidad || 0;
+    const jornalRaw = (task as any)?.jornal_unidad || 0;
+    
+    // Limpiar el valor de jornal_unidad de comillas malformadas y convertir a número
+    let jornal = 0;
+    if (jornalRaw) {
+      const jornalString = String(jornalRaw)
+        .replace(/^["'`]+|["'`]+$/g, '') // Remover comillas del inicio y final
+        .replace(',', '.'); // Cambiar comas por puntos
+      jornal = parseFloat(jornalString) || 0;
+    }
+    
     console.log('📊 getTaskJornalUnidad:', {
       tareaName,
       taskFound: !!task,
-      task: task,
-      jornal,
-      allTasks: this.taskTypes.map((t: any) => ({ nombre: t.nombre, tarea_nombre: t.tarea_nombre, tipo: t.tipo, jornal_unidad: t.jornal_unidad }))
+      jornalRaw: jornalRaw,
+      jornalLimpio: jornal,
+      task: task
     });
     return jornal;
   }
@@ -2006,6 +2494,59 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
       return jornalesEstimados.toFixed(2).replace('.', ',');
     }
     return '0,00';
+  }
+
+  // Método para la estimación recomendada en el carrusel
+  getRecommendedJornales(invernaderoNombre: string, tareaName: string): number {
+    // Verificar que los parámetros sean válidos
+    if (!invernaderoNombre || !tareaName) {
+      return 0;
+    }
+    
+    let jornal = 0;
+    
+    // En modo EDICIÓN: usar selectedTipoTarea
+    if (this.task && this.selectedTipoTarea && this.selectedTipoTarea.jornal_unidad) {
+      const jornalString = String(this.selectedTipoTarea.jornal_unidad);
+      jornal = parseFloat(jornalString.replace(',', '.')) || 0;
+    } 
+    // En modo CREACIÓN: buscar el jornal_unidad específico de esta tarea del carrusel
+    else {
+      jornal = this.getTaskJornalUnidad(tareaName);
+    }
+    
+    const hectareas = this.workingAreas[invernaderoNombre] || 0;
+    const calculo = jornal * hectareas;
+    
+    console.log('💡 Estimación recomendada:', {
+      tarea: tareaName,
+      jornal_unidad: jornal,
+      hectareas: hectareas,
+      resultado: calculo
+    });
+    
+    return calculo > 0 ? calculo : 0;
+  }
+
+  // Método para autocompletar la estimación de jornales en el carrusel (modo edición)
+  autoFillCarouselJornales(invernadero: string, tarea: string): void {
+    if (this.task) { // Solo en modo edición
+      // Usar el valor de estimation (campo externo) que ya se inicializó con this.task.estimacion_horas
+      const estimacionDelCampoExterno = parseFloat(this.estimation) || 0;
+      
+      if (estimacionDelCampoExterno > 0) {
+        // Actualizar el campo de jornales del carrusel con el valor del campo externo
+        const taskConfig = this.getTaskConfigSafe(invernadero, tarea);
+        this.updateTaskConfig(invernadero, tarea, { jornales: estimacionDelCampoExterno });
+        console.log('🚀 AUTOCOMPLETADO carrusel desde campo externo:', {
+          estimacion_original: this.estimation,
+          valor_numerico: estimacionDelCampoExterno,
+          transferido_a_carrusel: true
+        });
+      } else {
+        console.log('⚠️ No hay estimación válida en el campo externo para transferir al carrusel');
+      }
+    }
   }
 
   // Método para calcular jornales recomendados dinámicamente
@@ -2089,11 +2630,32 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
       console.log(`✅ Área restaurada para ${inv}: ${currentArea}`);
     }
     
-    // 2. Restaurar fecha límite
+    // 2. Restaurar fecha límite SOLO si el usuario NO la ha cambiado
     if (this.task.fecha_limite) {
-      this.singleDate = this.task.fecha_limite;
-      this.dueDates[inv] = this.task.fecha_limite;
-      console.log(`✅ Fecha límite restaurada: ${this.task.fecha_limite}`);
+      const fechaOriginal = this.task.fecha_limite;
+      const fechaActual = this.singleDate;
+      
+      console.log('📅 🔧 ANALIZANDO si restaurar fecha:', {
+        'task.fecha_limite (original)': fechaOriginal,
+        'singleDate (actual)': fechaActual,
+        'dueDates[inv] (actual)': this.dueDates[inv],
+        'usuario_cambio_fecha': fechaActual !== fechaOriginal
+      });
+      
+      // SOLO restaurar si singleDate está vacío o es igual al original (no ha cambiado)
+      if (!fechaActual || fechaActual === fechaOriginal) {
+        console.log('📅 🔧 RESTAURANDO fecha porque no hay cambios del usuario');
+        this.singleDate = fechaOriginal;
+        this.dueDates[inv] = fechaOriginal;
+      } else {
+        console.log('📅 🛡️ NO RESTAURANDO fecha porque el usuario la cambió:', {
+          'valor_usuario': fechaActual,
+          'valor_original': fechaOriginal,
+          'accion': 'preservando cambio del usuario'
+        });
+        // Asegurar que dueDates refleje el cambio del usuario
+        this.dueDates[inv] = fechaActual;
+      }
     }
     
     // 3. Restaurar encargado
@@ -2132,24 +2694,32 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
     
     const inv = this.task.invernadero;
     
-    // Verificar que todos los valores críticos estén configurados correctamente
-    const fechaCorrecta = this.singleDate === this.task.fecha_limite;
-    const encargadoCorrecta = this.selectedEncargado === this.task.encargado_id;
-    const estimacionCorrecta = this.estimation === (Number(this.task.estimacion_horas) || 0).toString();
-    const descripcionCorrecta = this.description === (this.task.descripcion || '');
-    
+    // 🔧 MODIFICADO: No exigir que los valores sean iguales al original - permitir cambios del usuario
+    // Verificar que todos los valores críticos estén configurados (no vacíos)
+    const fechaExiste = !!(this.singleDate && this.singleDate.trim() !== '');
+    const encargadoExiste = !!(this.selectedEncargado && this.selectedEncargado.trim() !== '');
+    const estimacionExiste = !!(this.estimation && parseFloat(this.estimation.replace(',', '.')) > 0);
+    const descripcionExiste = true; // La descripción puede estar vacía
     const areaCorrecta = !!(this.workingAreas[inv] && this.workingAreas[inv] > 0);
     
-    const todoCorrecto = fechaCorrecta && encargadoCorrecta && estimacionCorrecta && descripcionCorrecta && areaCorrecta;
+    const todoCorrecto = fechaExiste && encargadoExiste && estimacionExiste && descripcionExiste && areaCorrecta;
     
     if (!todoCorrecto) {
-      console.log('🔧 Valores aún no están correctos:', {
-        fechaCorrecta,
-        encargadoCorrecta,
-        estimacionCorrecta,
-        descripcionCorrecta,
-        areaCorrecta
+      console.log('🔧 Valores aún no están configurados correctamente:', {
+        fechaExiste,
+        encargadoExiste,
+        estimacionExiste,
+        descripcionExiste,
+        areaCorrecta,
+        valores: {
+          singleDate: this.singleDate,
+          selectedEncargado: this.selectedEncargado,
+          estimation: this.estimation,
+          workingArea: this.workingAreas[inv]
+        }
       });
+    } else {
+      console.log('✅ Todos los valores están configurados correctamente - deteniendo restauraciones automáticas');
     }
     
     return todoCorrecto;
