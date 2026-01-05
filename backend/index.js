@@ -178,9 +178,11 @@ function formatDateToEuropean(date) {
       dateObj = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
       console.log(`🔧 Parseado manualmente: año=${parts[0]}, mes=${parts[1]}, día=${parts[2]}`);
     } else if (date.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) {
-      // Si ya viene en formato DD/MM/YYYY, devolverlo tal como está
-      console.log(`🔧 Ya en formato europeo: ${date}`);
-      return date;
+      // Si viene en formato DD/MM/YYYY, parsearlo para normalizar con ceros
+      console.log(`🔧 Formato europeo detectado, normalizando: ${date}`);
+      const parts = date.split('/');
+      dateObj = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+      console.log(`🔧 Parseado europeo: día=${parts[0]}, mes=${parts[1]}, año=${parts[2]}`);
     } else {
       console.log(`🔧 Formato desconocido, usando new Date(): ${date}`);
       dateObj = new Date(date);
@@ -209,6 +211,38 @@ function formatDateToEuropean(date) {
 // Función auxiliar para obtener fecha actual en formato europeo
 function getCurrentEuropeanDate() {
   return formatDateToEuropean(new Date());
+}
+
+// Función para comparar fechas europeas de forma flexible (con o sin ceros)
+function compararFechasEuropeas(fecha1, fecha2) {
+  console.log(`🔍 Comparando fechas: "${fecha1}" vs "${fecha2}"`);
+  
+  if (!fecha1 || !fecha2) {
+    console.log(`❌ Una de las fechas está vacía`);
+    return false;
+  }
+  
+  // Función para normalizar fecha europea a formato comparable
+  const normalizar = (fecha) => {
+    const match = fecha.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (!match) return null;
+    
+    const dia = match[1].padStart(2, '0');
+    const mes = match[2].padStart(2, '0');
+    const año = match[3];
+    
+    return `${dia}/${mes}/${año}`;
+  };
+  
+  const fecha1Normalizada = normalizar(fecha1);
+  const fecha2Normalizada = normalizar(fecha2);
+  
+  console.log(`📅 Normalizadas: "${fecha1Normalizada}" vs "${fecha2Normalizada}"`);
+  
+  const sonIguales = fecha1Normalizada === fecha2Normalizada;
+  console.log(`✅ Resultado comparación: ${sonIguales}`);
+  
+  return sonIguales;
 }
 
 // Función para convertir fecha europea (DD/MM/YYYY) a formato ISO (YYYY-MM-DD) para JavaScript
@@ -3008,13 +3042,22 @@ app.get('/trabajadores-tarea/:taskId', optionalJWT, async (req, res) => {
     const fechaHoy = getCurrentEuropeanDate();
     console.log('📅 Filtrando trabajadores SOLO para fecha de hoy:', fechaHoy);
     
+    // 🔍 DEBUG TEMPORAL: Mostrar TODOS los registros de esta tarea para diagnosticar
+    console.log(`🔎 === DEBUG: TODOS LOS REGISTROS DE TAREA ${taskId} ===`);
+    let registrosEncontrados = 0;
+    
     dataRows.forEach((row, index) => {
       if (row[rankingIndex] && row[rankingIndex].toString() === taskId.toString()) {
+        registrosEncontrados++;
         const fechaRegistro = row[fechaIndex] || '';
+        const trabajadorRegistro = row[trabajadorIndex] || '';
+        const horasRegistro = row[horasIndex] || '';
         
-        // 🔍 FILTRO: Solo incluir registros de HOY
-        if (fechaRegistro !== fechaHoy) {
-          console.log(`⏭️ Saltando registro ${index + 2}: Fecha ${fechaRegistro} ≠ ${fechaHoy}`);
+        console.log(`📋 Registro ${index + 2}: Trabajador="${trabajadorRegistro}", Horas="${horasRegistro}", Fecha="${fechaRegistro}", Hoy="${fechaHoy}", Match=${compararFechasEuropeas(fechaRegistro, fechaHoy)}`);
+        
+        // 🔍 FILTRO: Solo incluir registros de HOY (usando comparación flexible)
+        if (!compararFechasEuropeas(fechaRegistro, fechaHoy)) {
+          console.log(`⏭️ Saltando registro ${index + 2}: Fecha ${fechaRegistro} ≠ ${fechaHoy} (después de normalización)`);
           return; // Saltar este registro
         }
         
@@ -3033,6 +3076,11 @@ app.get('/trabajadores-tarea/:taskId', optionalJWT, async (req, res) => {
         });
       }
     });
+    
+    console.log(`🔎 === RESUMEN DEBUG TAREA ${taskId} ===`);
+    console.log(`📊 Total registros encontrados con esta tarea: ${registrosEncontrados}`);
+    console.log(`📅 Fecha esperada (hoy): "${fechaHoy}"`);
+    console.log(`✅ Registros que pasan el filtro de fecha: ${trabajadoresData.length}`);
     
     // Agrupar por trabajador y sumar horas
     const trabajadoresAgrupados = {};

@@ -441,16 +441,6 @@
                   </app-searchable-dropdown>
                 </div>
 
-                <!-- Estimación recomendada de jornales (calculado automáticamente) -->
-                <div class="form-group">
-                  <div class="hours-display">
-                    <span class="hours-label">💡 Estimación recomendada:</span>
-                    <span class="hours-value">
-                      {{ getRecommendedJornales(getSelectedInvernaderos()[activeInvernaderoIndex], getActiveTareaSafe(getSelectedInvernaderos()[activeInvernaderoIndex])).toFixed(2).replace('.', ',') }} jornales
-                    </span>
-                  </div>
-                </div>
-
               </div>
             </div>
           </div>
@@ -495,43 +485,9 @@
         placeholder="Descripción opcional de la tarea..."
         [required]="false"></textarea>
     </p>
-    <!-- NUEVO: Resumen de creación -->
-    <div *ngIf="hasConfiguredTareas() && getSelectedInvernaderos().length > 0" class="creation-summary">
-      <div class="summary-info">
-        <span class="summary-icon">📊</span>
-        <span class="summary-text">Se crearán {{ getCreationSummary() }}</span>
-      </div>
-      <div class="summary-details">
-        <small>
-          {{ getTotalConfiguredTasks() }} tarea{{ getTotalConfiguredTasks() > 1 ? 's' : '' }} configurada{{ getTotalConfiguredTasks() > 1 ? 's' : '' }} × 
-          {{ getSelectedInvernaderos().length }} invernadero{{ getSelectedInvernaderos().length > 1 ? 's' : '' }}
-        </small>
-      </div>
-    </div>
-
-    <!-- DEBUG: Estado del botón -->
-    <div *ngIf="hasConfiguredTareas()" style="background: #f0f0f0; padding: 10px; margin: 10px 0; border-radius: 5px; font-size: 12px;">
-      <div style="font-weight: bold; color: #333;">🔍 Estado de validación:</div>
-      <div [ngStyle]="{'color': isFormReadyForSubmission() ? 'green' : 'red', 'font-weight': 'bold'}">
-        {{ isFormReadyForSubmission() ? '✅ Formulario VÁLIDO' : '❌ Formulario INVÁLIDO' }}
-      </div>
-      <div style="margin-top: 5px;">
-        <div>📋 Tareas: {{ selectedTareas.length }}</div>
-        <div>🏠 Invernaderos: {{ getSelectedInvernaderos().length }}</div>
-        <div>📅 Fechas individuales: {{ useIndividualDates ? 'SÍ' : 'NO' }}</div>
-        <div>👤 Encargados individuales: {{ useIndividualEncargados ? 'SÍ' : 'NO' }}</div>
-        <div style="margin-top: 5px; color: #666;">
-          <small>Haz clic en 'Debug Detallado' para más información</small>
-        </div>
-      </div>
-    </div>
 
     <p class="actions">
       <button type="button" (click)="onCancel()">Cancelar</button>
-      <!-- DEBUG: Botón temporal para investigar problemas -->
-      <button type="button" (click)="debugTaskSelection()" style="background-color: orange; color: white; margin: 0 5px; font-size: 12px;">
-        🔍 Debug Detallado
-      </button>
       <button 
         type="submit" 
         [disabled]="!isFormReadyForSubmission()"

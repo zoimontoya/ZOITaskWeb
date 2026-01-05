@@ -2737,12 +2737,14 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
   loadTaskWorkers(taskId: string): void {
     console.log(`🔍 loadTaskWorkers INICIADO para tarea ${taskId}`);
     
-    if (this.taskWorkersMap.has(taskId)) {
-      console.log(`⚠️ Tarea ${taskId} ya está en el mapa, saltando carga`);
-      return; // Ya cargado
+    // Verificar si ya está cargando para evitar múltiples llamadas, pero permitir recarga diaria
+    const currentData = this.taskWorkersMap.get(taskId);
+    if (currentData && currentData.length === 0) {
+      console.log(`⚠️ Tarea ${taskId} ya está cargando, saltando carga duplicada`);
+      return; 
     }
 
-    // Marcar como cargando para evitar múltiples llamadas
+    // Marcar como cargando para evitar múltiples llamadas simultáneas
     this.taskWorkersMap.set(taskId, []);
     console.log(`📝 Tarea ${taskId} marcada como cargando en el mapa`);
 
@@ -2789,46 +2791,21 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
     } else {
       console.log('📋 Cargando trabajadores de tarea NORMAL:', taskId);
       
-      // Verificar si es tarea urgente para filtrar por fecha actual
-      const isTaskUrgent = task && this.isUrgentTask(task);
+      // Para TODAS las tareas (urgentes y normales), filtrar por fecha actual
       const today = new Date().toISOString().split('T')[0];
+      let endpoint = `${environment.apiBaseUrl}/trabajadores-tarea/${taskId}?fecha=${today}`;
       
-      let endpoint = `${environment.apiBaseUrl}/trabajadores-tarea/${taskId}`;
-      
-      if (isTaskUrgent) {
-        // Para tareas urgentes, añadir filtro de fecha actual
-        endpoint += `?fecha=${today}`;
-        console.log('⚡ Tarea urgente detectada, filtrando por fecha:', today);
-      }
+      console.log(`📅 Filtrando trabajadores por fecha de hoy: ${today}`);
+      console.log('🌐 URL completa:', endpoint);
       
       this.http.get<any[]>(endpoint).subscribe({
         next: (trabajadores) => {
-          console.log(`📥 Respuesta de trabajadores recibida para tarea ${isTaskUrgent ? 'URGENTE' : 'NORMAL'}:`, trabajadores);
-          console.log(`✅ Total trabajadores cargados: ${trabajadores.length}`);
+          console.log(`📥 Respuesta de trabajadores recibida (filtrados por hoy):`, trabajadores);
+          console.log(`✅ Total trabajadores de hoy: ${trabajadores.length}`);
           
-          let trabajadoresFiltrados = trabajadores;
-          
-          // Si es tarea urgente y el backend no filtró por fecha, filtrar en frontend
-          if (isTaskUrgent && trabajadores.length > 0) {
-            // Verificar si los trabajadores tienen fecha y filtrar por hoy
-            trabajadoresFiltrados = trabajadores.filter(trabajador => {
-              if (trabajador.fecha) {
-                const fechaTrabajador = trabajador.fecha.split('T')[0]; // Obtener solo la parte de fecha
-                const esHoy = fechaTrabajador === today;
-                if (!esHoy) {
-                  console.log(`🗓️ Filtrando trabajador ${trabajador.nombre}: fecha ${fechaTrabajador} !== hoy ${today}`);
-                }
-                return esHoy;
-              }
-              // Si no tiene fecha, asumir que es de hoy (fallback)
-              return true;
-            });
-            
-            console.log(`🎯 Tarea urgente: ${trabajadores.length} → ${trabajadoresFiltrados.length} trabajadores (solo hoy)`);
-          }
-          
-          console.log('🔄 Trabajadores filtrados finales:', trabajadoresFiltrados);
-          this.taskWorkersMap.set(taskId, trabajadoresFiltrados);
+          // Ya viene filtrado por fecha del backend, no necesitamos filtro adicional
+          console.log('🔄 Trabajadores finales (de hoy):', trabajadores);
+          this.taskWorkersMap.set(taskId, trabajadores);
           console.log('💾 Tarea guardada en mapa. Total en mapa:', this.taskWorkersMap.size);
           this.cdr.detectChanges(); // Forzar actualización de la vista
         },
@@ -2839,6 +2816,19 @@ export class TasksComponent implements OnInit, OnDestroy, OnChanges {
         }
       });
     }
+  }
+
+  // Método para forzar la recarga de trabajadores de una tarea específica
+  refreshTaskWorkers(taskId: string): void {
+    console.log(`🔄 Forzando recarga de trabajadores para tarea ${taskId}`);
+    this.taskWorkersMap.delete(taskId);
+    this.loadTaskWorkers(taskId);
+  }
+
+  // Método para limpiar el caché de trabajadores (útil para refrescar datos diarios)
+  clearWorkersCache(): void {
+    console.log(`🧹 Limpiando caché de trabajadores`);
+    this.taskWorkersMap.clear();
   }
 
   getTaskWorkers(taskId: string): any[] {
