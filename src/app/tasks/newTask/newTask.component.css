@@ -368,7 +368,7 @@ button[type="submit"]:active {
   box-shadow: 0 0 0 2px rgba(122, 179, 119, 0.2);
 }
 
-/* Estilos para las barras de selección de área */
+/* Estilos para las barras de selección de área (reutilizables) */
 .working-area-controls {
   margin: 0.75rem 0;
   padding: 0.75rem;
@@ -645,49 +645,7 @@ select:required::after {
   font-weight: 600;
 }
 
-/* Estilos para controles de kilos */
-.kilos-input-controls {
-  margin-top: 0.5rem;
-}
 
-.kilos-input-container {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.8rem;
-  background-color: rgba(255, 152, 0, 0.05);
-  border: 1px solid rgba(255, 152, 0, 0.2);
-  border-radius: 6px;
-}
-
-.kilos-label {
-  font-weight: 500;
-  color: #e65100;
-  min-width: 120px;
-  margin: 0;
-}
-
-.kilos-input {
-  flex: 1;
-  max-width: 120px;
-  font-weight: 600;
-  text-align: center;
-  border: 2px solid #ffb74d;
-  background-color: #fff3e0;
-  padding: 0.4rem;
-}
-
-.kilos-input:focus {
-  outline: none;
-  border-color: #ff9800;
-  box-shadow: 0 0 0 3px rgba(255, 152, 0, 0.1);
-}
-
-.kilos-unit {
-  font-weight: 600;
-  color: #e65100;
-  font-size: 0.9rem;
-}
 
 /* ===== NUEVOS ESTILOS PARA BLOQUES POR INVERNADERO ===== */
 
@@ -764,7 +722,9 @@ select:required::after {
   transition: all 0.3s ease;
   width: 100%;
   box-sizing: border-box;
-  overflow: hidden;
+  overflow: visible; /* Cambiado de hidden a visible para permitir dropdowns */
+  position: relative;
+  z-index: 1; /* Z-index bajo para el contenedor */
 }
 
 .invernadero-block:hover {
@@ -976,17 +936,7 @@ select:required::after {
   font-style: italic;
 }
 
-.working-area-section {
-  margin-bottom: 1rem;
-}
 
-.working-area-header .area-label {
-  color: #d4f0d4;
-  font-weight: 600;
-  font-size: 0.9rem;
-  display: block;
-  margin-bottom: 0.3rem;
-}
 
 .jornal-estimation-section {
   margin-bottom: 1rem;
@@ -1554,7 +1504,9 @@ select:required::after {
   box-shadow: 0 3px 10px rgba(115,202,122,0.15);
   width: 100%;
   box-sizing: border-box;
-  overflow: hidden;
+  overflow: visible; /* Cambiado de hidden a visible para permitir dropdowns */
+  position: relative;
+  z-index: 1; /* Z-index bajo para el contenedor */
 }
 
 .tarea-carousel-header {
@@ -1745,7 +1697,102 @@ select:required::after {
   100% {
     box-shadow: 0 4px 15px rgba(76,175,80,0.4);
   }
-}/* ====== ESTILOS PARA CONFIGURACIÓN DE TAREAS ====== */
+}
+
+/* ====== ESTILOS PARA CONTROLES DE MEDICIÓN EN CARRUSEL ====== */
+.task-measurement-controls {
+  margin: 1rem 0;
+  padding: 1rem;
+  background: rgba(115, 202, 122, 0.08);
+  border: 1px solid rgba(115, 202, 122, 0.2);
+  border-radius: 8px;
+}
+
+.task-measurement-controls .hour-jornal-toggle {
+  margin-bottom: 1rem;
+}
+
+.task-measurement-controls .measurement-type-toggle {
+  margin-bottom: 0;
+}
+
+.task-measurement-controls .toggle-container {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  cursor: pointer;
+  user-select: none;
+  padding: 0.5rem;
+  border-radius: 6px;
+  transition: background-color 0.2s ease;
+}
+
+.task-measurement-controls .toggle-container:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.task-measurement-controls .toggle-label {
+  font-weight: 500;
+  color: #2d5a2f;
+  min-width: 120px;
+  font-size: 0.9rem;
+}
+
+.task-measurement-controls .toggle-description {
+  color: #666;
+  font-size: 0.85rem;
+  font-style: italic;
+  font-weight: 600;
+}
+
+.task-measurement-controls .measurement-type-toggle .toggle-description {
+  color: #e65100;
+}
+
+/* ====== ESTILOS PARA ÁREA DE TRABAJO DENTRO DEL CARRUSEL ====== */
+.task-working-area-section {
+  margin: 1rem 0;
+  padding: 1rem;
+  background: rgba(76, 175, 80, 0.08);
+  border: 1px solid rgba(76, 175, 80, 0.2);
+  border-radius: 8px;
+}
+
+.task-working-area-section .working-area-header {
+  margin-bottom: 0.8rem;
+}
+
+.task-working-area-section .area-label {
+  color: #2d5a2f;
+  font-weight: 600;
+  font-size: 0.95rem;
+  display: block;
+  margin-bottom: 0.3rem;
+}
+
+.task-working-area-section .area-info {
+  color: #666;
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+.task-working-area-section .working-area-controls {
+  margin: 0.75rem 0 0 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+}
+
+.task-working-area-section .kilos-input-controls {
+  margin-top: 0;
+}
+
+.task-working-area-section .kilos-input-container {
+  background-color: rgba(255, 152, 0, 0.08);
+  border: 1px solid rgba(255, 152, 0, 0.25);
+}
+
+/* ====== ESTILOS PARA CONFIGURACIÓN DE TAREAS ====== */
 .tarea-config-section {
   margin-top: 1.5rem;
   padding: 1.2rem;
@@ -1755,7 +1802,9 @@ select:required::after {
   box-shadow: 0 2px 8px rgba(0,0,0,0.05);
   width: 100%;
   box-sizing: border-box;
-  overflow: hidden;
+  overflow: visible; /* Cambiado de hidden a visible para permitir dropdowns */
+  position: relative;
+  z-index: 1; /* Z-index bajo para el contenedor */
 }
 
 .task-config-form {

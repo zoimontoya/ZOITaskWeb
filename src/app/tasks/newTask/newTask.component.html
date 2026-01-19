@@ -47,43 +47,7 @@
     <!-- Configuraciones globales (mostrar solo si hay controles relevantes) -->
     <div *ngIf="!isAlmacenMode || getSelectedInvernaderos().length > 1" class="global-settings">
       <!-- Controles de dimensiones (solo en modo normal) -->
-      <div *ngIf="!isAlmacenMode" class="dimension-controls">
-        <!-- Interruptor para horas por jornal -->
-        <div class="hour-jornal-toggle">
-          <label class="toggle-container">
-            <span class="toggle-label">Horas por jornal:</span>
-            <div class="toggle-switch">
-              <input 
-                type="checkbox" 
-                [(ngModel)]="useEightHourJornal"
-                name="useEightHourJornal"
-                class="toggle-input">
-              <span class="toggle-slider"></span>
-            </div>
-            <span class="toggle-description">
-              {{ useEightHourJornal ? '8 horas por jornal' : '6 horas por jornal' }}
-            </span>
-          </label>
-        </div>
-        
-        <!-- Interruptor para tipo de medición: Hectáreas vs Kilos -->
-        <div class="measurement-type-toggle">
-          <label class="toggle-container">
-            <span class="toggle-label">Tipo de medición:</span>
-            <div class="toggle-switch">
-              <input 
-                type="checkbox" 
-                [(ngModel)]="useKilosMode"
-                name="useKilosMode"
-                class="toggle-input">
-              <span class="toggle-slider"></span>
-            </div>
-            <span class="toggle-description">
-              {{ useKilosMode ? 'Kilos esperados' : 'Hectáreas del terreno' }}
-            </span>
-          </label>
-        </div>
-      </div>
+
       
       <!-- Controles de organización (siempre visibles cuando hay múltiples invernaderos) -->
       <div class="organization-controls">
@@ -261,60 +225,7 @@
               </div>
             </div>
           </div>
-          <!-- Área de trabajo (ocultar en modo ALMACÉN) -->
-          <div *ngIf="!isAlmacenMode" class="working-area-section">
-            <div class="working-area-header">
-              <span class="area-label">{{ useKilosMode ? 'Producción esperada' : 'Área de trabajo' }}</span>
-              <span *ngIf="!useKilosMode" class="area-info">
-                {{ getCurrentAreaDisplay(getSelectedInvernaderos()[activeInvernaderoIndex]) }}Ha / {{ getMaxAreaDisplay(getSelectedInvernaderos()[activeInvernaderoIndex]) }}Ha
-                ({{ getAreaPercentage(getSelectedInvernaderos()[activeInvernaderoIndex]).toFixed(1) }}%)
-              </span>
-            </div>
-            <!-- MODO HECTÁREAS: Slider y controles de área -->
-            <div *ngIf="!useKilosMode" class="working-area-controls">
-              <div class="area-slider-container">
-                <input 
-                  type="range" 
-                  class="area-slider"
-                  [min]="0"
-                  [max]="getMaxArea(getSelectedInvernaderos()[activeInvernaderoIndex])"
-                  [step]="0.01"
-                  [value]="workingAreas[getSelectedInvernaderos()[activeInvernaderoIndex]] || 0"
-                  (input)="updateWorkingAreaAndEstimation(getSelectedInvernaderos()[activeInvernaderoIndex], $event)"
-                  [id]="'areaSlider_' + getSelectedInvernaderos()[activeInvernaderoIndex]">
-                <div class="slider-track-bg"></div>
-                <div class="slider-track-fill" 
-                     [style.width.%]="getAreaPercentage(getSelectedInvernaderos()[activeInvernaderoIndex])"></div>
-              </div>
-              <div class="area-input-container">
-                <input 
-                  type="number" 
-                  class="area-input"
-                  [min]="0"
-                  [max]="getMaxArea(getSelectedInvernaderos()[activeInvernaderoIndex])"
-                  [step]="0.01"
-                  [value]="workingAreas[getSelectedInvernaderos()[activeInvernaderoIndex]] || 0"
-                  (input)="updateWorkingAreaAndEstimation(getSelectedInvernaderos()[activeInvernaderoIndex], $event)"
-                  placeholder="Área">
-                <span class="area-unit">Ha</span>
-              </div>
-            </div>
-            <!-- MODO KILOS: Input directo para kilos esperados -->
-            <div *ngIf="useKilosMode" class="kilos-input-controls">
-              <div class="kilos-input-container">
-                <input 
-                  type="number" 
-                  class="kilos-input"
-                  [min]="0"
-                  [step]="0.1"
-                  [value]="expectedKilos[getSelectedInvernaderos()[activeInvernaderoIndex]] || 0"
-                  (input)="updateExpectedKilos(getSelectedInvernaderos()[activeInvernaderoIndex], $event)"
-                  [id]="'kilosInput_' + getSelectedInvernaderos()[activeInvernaderoIndex]"
-                  placeholder="Ej: 1500">
-                <span class="kilos-unit">Kg</span>
-              </div>
-            </div>
-          </div>
+
           <!-- Estimación de jornales por invernadero (ocultar en modo ALMACÉN, multitareas Y modo edición) -->
           <div *ngIf="!isAlmacenMode && !hasConfiguredTareas() && !task" class="jornal-estimation-section">
             <label [for]="'estimation_' + getSelectedInvernaderos()[activeInvernaderoIndex]">Estimación jornales *</label>
@@ -412,6 +323,102 @@
                       💡 Recomendado: {{ getTaskJornalUnidad(getActiveTareaSafe(getSelectedInvernaderos()[activeInvernaderoIndex])).toFixed(2).replace('.', ',') }} × {{ getCurrentAreaDisplay(getSelectedInvernaderos()[activeInvernaderoIndex]) }}Ha = 
                       <strong>{{ getCalculatedJornalesForTask(getSelectedInvernaderos()[activeInvernaderoIndex], getActiveTareaSafe(getSelectedInvernaderos()[activeInvernaderoIndex])) }} jornales</strong>
                     </small>
+                  </div>
+                </div>
+
+                <!-- Controles de configuración de medición por tarea -->
+                <div class="task-measurement-controls">
+                  <!-- Interruptor para horas por jornal -->
+                  <div class="hour-jornal-toggle">
+                    <label class="toggle-container">
+                      <span class="toggle-label">Horas por jornal:</span>
+                      <div class="toggle-switch">
+                        <input 
+                          type="checkbox" 
+                          [checked]="getTaskUseEightHourJornal(getSelectedInvernaderos()[activeInvernaderoIndex], getActiveTareaSafe(getSelectedInvernaderos()[activeInvernaderoIndex]))"
+                          (change)="onTaskUseEightHourJornalChange(getSelectedInvernaderos()[activeInvernaderoIndex], getActiveTareaSafe(getSelectedInvernaderos()[activeInvernaderoIndex]), $event)"
+                          [name]="'useEightHourJornal_' + getSelectedInvernaderos()[activeInvernaderoIndex] + '_' + getActiveTareaSafe(getSelectedInvernaderos()[activeInvernaderoIndex])"
+                          class="toggle-input">
+                        <span class="toggle-slider"></span>
+                      </div>
+                      <span class="toggle-description">
+                        {{ getTaskUseEightHourJornal(getSelectedInvernaderos()[activeInvernaderoIndex], getActiveTareaSafe(getSelectedInvernaderos()[activeInvernaderoIndex])) ? '8 horas por jornal' : '6 horas por jornal' }}
+                      </span>
+                    </label>
+                  </div>
+                  
+                  <!-- Interruptor para tipo de medición: Hectáreas vs Kilos -->
+                  <div class="measurement-type-toggle">
+                    <label class="toggle-container">
+                      <span class="toggle-label">Tipo de medición:</span>
+                      <div class="toggle-switch">
+                        <input 
+                          type="checkbox" 
+                          [checked]="getTaskUseKilosMode(getSelectedInvernaderos()[activeInvernaderoIndex], getActiveTareaSafe(getSelectedInvernaderos()[activeInvernaderoIndex]))"
+                          (change)="onTaskUseKilosModeChange(getSelectedInvernaderos()[activeInvernaderoIndex], getActiveTareaSafe(getSelectedInvernaderos()[activeInvernaderoIndex]), $event)"
+                          [name]="'useKilosMode_' + getSelectedInvernaderos()[activeInvernaderoIndex] + '_' + getActiveTareaSafe(getSelectedInvernaderos()[activeInvernaderoIndex])"
+                          class="toggle-input">
+                        <span class="toggle-slider"></span>
+                      </div>
+                      <span class="toggle-description">
+                        {{ getTaskUseKilosMode(getSelectedInvernaderos()[activeInvernaderoIndex], getActiveTareaSafe(getSelectedInvernaderos()[activeInvernaderoIndex])) ? 'Kilos esperados' : 'Hectáreas del terreno' }}
+                      </span>
+                    </label>
+                  </div>
+                </div>
+
+                <!-- Área de trabajo específica por tarea -->
+                <div class="task-working-area-section">
+                  <div class="working-area-header">
+                    <span class="area-label">{{ getTaskUseKilosMode(getSelectedInvernaderos()[activeInvernaderoIndex], getActiveTareaSafe(getSelectedInvernaderos()[activeInvernaderoIndex])) ? 'Producción esperada' : 'Área de trabajo' }}</span>
+                    <span *ngIf="!getTaskUseKilosMode(getSelectedInvernaderos()[activeInvernaderoIndex], getActiveTareaSafe(getSelectedInvernaderos()[activeInvernaderoIndex]))" class="area-info">
+                      {{ getCurrentAreaDisplay(getSelectedInvernaderos()[activeInvernaderoIndex]) }}Ha / {{ getMaxAreaDisplay(getSelectedInvernaderos()[activeInvernaderoIndex]) }}Ha
+                      ({{ getAreaPercentage(getSelectedInvernaderos()[activeInvernaderoIndex]).toFixed(1) }}%)
+                    </span>
+                  </div>
+                  <!-- MODO HECTÁREAS: Slider y controles de área -->
+                  <div *ngIf="!getTaskUseKilosMode(getSelectedInvernaderos()[activeInvernaderoIndex], getActiveTareaSafe(getSelectedInvernaderos()[activeInvernaderoIndex]))" class="working-area-controls">
+                    <div class="area-slider-container">
+                      <input 
+                        type="range" 
+                        class="area-slider"
+                        [min]="0"
+                        [max]="getMaxArea(getSelectedInvernaderos()[activeInvernaderoIndex])"
+                        [step]="0.01"
+                        [value]="workingAreas[getSelectedInvernaderos()[activeInvernaderoIndex]] || 0"
+                        (input)="updateWorkingAreaAndEstimation(getSelectedInvernaderos()[activeInvernaderoIndex], $event)"
+                        [id]="'areaSlider_' + getSelectedInvernaderos()[activeInvernaderoIndex]">
+                      <div class="slider-track-bg"></div>
+                      <div class="slider-track-fill" 
+                           [style.width.%]="getAreaPercentage(getSelectedInvernaderos()[activeInvernaderoIndex])"></div>
+                    </div>
+                    <div class="area-input-container">
+                      <input 
+                        type="number" 
+                        class="area-input"
+                        [min]="0"
+                        [max]="getMaxArea(getSelectedInvernaderos()[activeInvernaderoIndex])"
+                        [step]="0.01"
+                        [value]="workingAreas[getSelectedInvernaderos()[activeInvernaderoIndex]] || 0"
+                        (input)="updateWorkingAreaAndEstimation(getSelectedInvernaderos()[activeInvernaderoIndex], $event)"
+                        placeholder="Área">
+                      <span class="area-unit">Ha</span>
+                    </div>
+                  </div>
+                  <!-- MODO KILOS: Input directo para kilos esperados -->
+                  <div *ngIf="getTaskUseKilosMode(getSelectedInvernaderos()[activeInvernaderoIndex], getActiveTareaSafe(getSelectedInvernaderos()[activeInvernaderoIndex]))" class="kilos-input-controls">
+                    <div class="kilos-input-container">
+                      <input 
+                        type="number" 
+                        class="kilos-input"
+                        [min]="0"
+                        [step]="0.1"
+                        [value]="expectedKilos[getSelectedInvernaderos()[activeInvernaderoIndex]] || 0"
+                        (input)="updateExpectedKilos(getSelectedInvernaderos()[activeInvernaderoIndex], $event)"
+                        [id]="'kilosInput_' + getSelectedInvernaderos()[activeInvernaderoIndex]"
+                        placeholder="Ej: 1500">
+                      <span class="kilos-unit">Kg</span>
+                    </div>
                   </div>
                 </div>
 

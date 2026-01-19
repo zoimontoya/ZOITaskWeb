@@ -133,7 +133,7 @@ export interface DropdownOption {
       border-top: none;
       border-radius: 0 0 4px 4px;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-      z-index: 1000;
+      z-index: 9999;
       max-height: 300px;
       overflow: hidden;
     }
@@ -220,7 +220,7 @@ export interface DropdownOption {
       left: 0;
       right: 0;
       bottom: 0;
-      z-index: 999;
+      z-index: 9998;
     }
     
     /* Scrollbar personalizado para las opciones */

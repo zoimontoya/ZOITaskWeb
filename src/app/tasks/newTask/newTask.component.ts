@@ -19,6 +19,9 @@ interface TaskConfig {
   fechaLimite: string;
   encargado: string;
   estimacionHoras: number;
+  // NUEVO: Configuraciones específicas por tarea
+  useEightHourJornal?: boolean; // false = 6h, true = 8h
+  useKilosMode?: boolean; // false = hectáreas, true = kilos
 }
 
 @Component({
@@ -109,7 +112,10 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
               jornales: 0,
               fechaLimite: defaultFecha,
               encargado: defaultEncargado,
-              estimacionHoras: 0
+              estimacionHoras: 0,
+              // NUEVO: Valores por defecto de medición por tarea
+              useEightHourJornal: true, // Por defecto 8 horas
+              useKilosMode: false // Por defecto hectáreas
             };
           }
         });
@@ -120,7 +126,10 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
             jornales: 0,
             fechaLimite: defaultFecha,
             encargado: defaultEncargado,
-            estimacionHoras: 0
+            estimacionHoras: 0,
+            // NUEVO: Valores por defecto de medición por tarea
+            useEightHourJornal: true, // Por defecto 8 horas
+            useKilosMode: false // Por defecto hectáreas
           };
         });
       }
@@ -205,7 +214,10 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
       jornales: 0,
       fechaLimite: this.singleDate,
       encargado: this.selectedEncargado,
-      estimacionHoras: 0
+      estimacionHoras: 0,
+      // NUEVO: Valores por defecto de medición
+      useEightHourJornal: true, // Por defecto 8 horas
+      useKilosMode: false // Por defecto hectáreas
     };
     
     // Guardar la configuración por defecto
@@ -219,6 +231,18 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
 
   // NUEVO: Actualizar configuración de tarea específica
   updateTaskConfig(invernadero: string, tarea: string, config: Partial<TaskConfig>) {
+    // DEBUG: Log de configuración de medición específica por tarea
+    if (config.useEightHourJornal !== undefined || config.useKilosMode !== undefined) {
+      console.log('🎯 === UPDATETASKCONFIG - CAMBIO DE MEDICIÓN POR TAREA ===');
+      console.log('🎯 Detalles del cambio:', {
+        invernadero: invernadero,
+        tarea: tarea,
+        cambios: config,
+        configAnterior: this.invernaderoTareasConfig[invernadero]?.[tarea],
+        estructuraCompleta: this.invernaderoTareasConfig
+      });
+    }
+
     // 🔧 DEBUGGING ESPECÍFICO para cambios de fecha en configuración de tareas
     if (config.fechaLimite) {
       console.log('📅 🎯 === UPDATETASKCONFIG - CAMBIO DE FECHA ===');
@@ -247,8 +271,34 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
       }
     }
     
+    // Asegurar que existe la estructura antes de actualizar
+    if (!this.invernaderoTareasConfig[invernadero]) {
+      this.invernaderoTareasConfig[invernadero] = {};
+    }
+    if (!this.invernaderoTareasConfig[invernadero][tarea]) {
+      this.invernaderoTareasConfig[invernadero][tarea] = {
+        jornales: 0,
+        fechaLimite: this.singleDate,
+        encargado: this.selectedEncargado,
+        estimacionHoras: 0,
+        useEightHourJornal: true,
+        useKilosMode: false
+      };
+    }
+    
     if (this.invernaderoTareasConfig[invernadero]?.[tarea]) {
       Object.assign(this.invernaderoTareasConfig[invernadero][tarea], config);
+      
+      // DEBUG: Verificar que el cambio se aplicó
+      if (config.useEightHourJornal !== undefined || config.useKilosMode !== undefined) {
+        console.log('🎯 Configuración ACTUALIZADA:', {
+          invernadero,
+          tarea,
+          configuracionFinal: this.invernaderoTareasConfig[invernadero][tarea],
+          useEightHourJornal: this.invernaderoTareasConfig[invernadero][tarea].useEightHourJornal,
+          useKilosMode: this.invernaderoTareasConfig[invernadero][tarea].useKilosMode
+        });
+      }
     }
   }
 
@@ -644,9 +694,23 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
         selectedTaskType: this.selectedTaskType
       });
       
-      // 🚀 MARCAR QUE ESTAMOS EN MODO EDICIÓN (NO MULTI-TAREA)
-      this.selectedTareas = []; // Limpiar multi-selección
-      console.log('📝 MODO EDICIÓN: Limpiando selectedTareas para forzar modo tradicional');
+      // 🚀 CONFIGURAR MODO EDICIÓN CON CARRUSEL DE TAREA ESPECÍFICA
+      if (this.task.tipo_tarea) {
+        this.selectedTareas = [this.task.tipo_tarea]; // Configurar la tarea que se está editando
+        console.log('📝 MODO EDICIÓN: Configurando selectedTareas para usar carrusel:', this.selectedTareas);
+        
+        // Actualizar configuración de invernaderos-tareas para el carrusel
+        this.updateInvernaderoTareasConfig();
+        
+        // 🔧 CONFIGURAR ÍNDICE ACTIVO DE TAREA PARA MODO EDICIÓN
+        if (this.task.invernadero) {
+          this.activeTareaIndex[this.task.invernadero] = 0; // Primera (y única) tarea
+          console.log('📝 CONFIGURADO activeTareaIndex para edición:', this.activeTareaIndex);
+        }
+      } else {
+        this.selectedTareas = []; // Solo limpiar si no hay tarea
+        console.log('📝 MODO EDICIÓN: Limpiando selectedTareas (sin tipo_tarea)');
+      }
       
       // 🔧 BUSCAR Y CONFIGURAR EL OBJETO COMPLETO DE LA TAREA
       if (this.task.tipo_tarea && this.taskTypes) {
@@ -675,6 +739,35 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
       // 🔧 CONFIGURAR TOGGLE DE MEDICIÓN (Hectáreas vs Kilos)
       const horasKilosValue = Number(this.task.horas_kilos) || 0;
       this.useKilosMode = (horasKilosValue === 1);
+
+      // 🔧 NUEVO: Configurar estructura específica por tarea para modo edición
+      if (this.task.invernadero && this.task.tipo_tarea) {
+        // Inicializar la estructura si no existe
+        if (!this.invernaderoTareasConfig[this.task.invernadero]) {
+          this.invernaderoTareasConfig[this.task.invernadero] = {};
+        }
+        
+        // Configurar la tarea específica con los valores de la BD
+        this.invernaderoTareasConfig[this.task.invernadero][this.task.tipo_tarea] = {
+          jornales: Number(this.task.estimacion_horas) || 0,
+          fechaLimite: this.task.fecha_limite || '',
+          encargado: this.task.encargado_id || '',
+          estimacionHoras: Number(this.task.estimacion_horas) || 0,
+          // CRÍTICO: Configurar medición específica desde la BD
+          useEightHourJornal: (horaJornalValue === 1),
+          useKilosMode: (horasKilosValue === 1)
+        };
+        
+        console.log('🔧 CONFIGURACIÓN ESPECÍFICA POR TAREA (MODO EDICIÓN):', {
+          invernadero: this.task.invernadero,
+          tarea: this.task.tipo_tarea,
+          horaJornalFromDB: horaJornalValue,
+          horasKilosFromDB: horasKilosValue,
+          useEightHourJornal: (horaJornalValue === 1),
+          useKilosMode: (horasKilosValue === 1),
+          configuracionCreada: this.invernaderoTareasConfig[this.task.invernadero][this.task.tipo_tarea]
+        });
+      }
       
       // La estimación ya viene convertida a jornales por loadTasks()
       this.estimation = (Number(this.task.estimacion_horas) || 0).toString();
@@ -684,6 +777,7 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
       this.estimations = {};
       this.selectedEncargados = {};
       this.expectedKilos = {}; // 🔧 IMPORTANTE: Inicializar kilos esperados para edición
+      this.workingAreas = {}; // 🔧 IMPORTANTE: Inicializar áreas de trabajo para edición
       this.almacenKgEstimation = {}; // 🔧 Inicializar estimaciones de kg para modo almacén
       
       if (this.task.invernadero) {
@@ -692,16 +786,26 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
         this.estimations[this.task.invernadero] = Number(this.task.estimacion_horas) || 0;
         this.selectedEncargados[this.task.invernadero] = this.task.encargado_id || '';
         
-        // Si es tarea de kilos, configurar kilos esperados
-        if (this.useKilosMode && this.task.dimension_total) {
+        // 🔧 CONFIGURAR CAMPOS BASÁNDOSE EN LA CONFIGURACIÓN ESPECÍFICA POR TAREA
+        const taskUseKilos = this.getTaskUseKilosMode(this.task.invernadero, this.task.tipo_tarea);
+        
+        if (taskUseKilos && this.task.dimension_total) {
+          // Si es tarea de kilos, configurar kilos esperados
           const kilosActuales = parseFloat(String(this.task.dimension_total).replace(',', '.')) || 0;
           this.expectedKilos[this.task.invernadero] = kilosActuales;
+          console.log('🔧 KILOS ESPERADOS configurados:', kilosActuales);
+        } else if (!taskUseKilos && this.task.dimension_total) {
+          // Si es tarea de hectáreas, configurar área de trabajo
+          const hectareasActuales = parseFloat(String(this.task.dimension_total).replace(',', '.')) || 0;
+          this.workingAreas[this.task.invernadero] = hectareasActuales;
+          console.log('🔧 ÁREA DE TRABAJO configurada:', hectareasActuales);
         }
         
         // Si es modo almacén y hay kg_estimado_almacen, cargarlo
         if (this.task.kg_estimado_almacen) {
           const kgEstimadoAlmacen = parseFloat(String(this.task.kg_estimado_almacen).replace(',', '.')) || 0;
           this.almacenKgEstimation[this.task.invernadero] = kgEstimadoAlmacen;
+          console.log('🔧 KG ALMACÉN configurados:', kgEstimadoAlmacen);
         }
       }
       
@@ -1542,6 +1646,50 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
     this.expectedKilos[invernaderoNombre] = clampedValue;
   }
 
+  // NUEVO: Obtener configuración de medición específica por tarea
+  getTaskUseEightHourJornal(invernadero: string, tarea: string): boolean {
+    const config = this.getTaskConfigSafe(invernadero, tarea);
+    return config.useEightHourJornal ?? true; // Por defecto 8 horas
+  }
+
+  getTaskUseKilosMode(invernadero: string, tarea: string): boolean {
+    const config = this.getTaskConfigSafe(invernadero, tarea);
+    
+    // DEBUG para modo edición
+    if (this.task && this.task.id) {
+      console.log('🎯 getTaskUseKilosMode MODO EDICIÓN:', {
+        invernadero, 
+        tarea, 
+        configFound: !!config,
+        useKilosMode: config.useKilosMode,
+        taskHorasKilos: this.task.horas_kilos,
+        result: config.useKilosMode ?? false
+      });
+    }
+    
+    return config.useKilosMode ?? false; // Por defecto hectáreas
+  }
+
+  // NUEVO: Actualizar configuración de medición por tarea
+  updateTaskUseEightHourJornal(invernadero: string, tarea: string, value: boolean) {
+    this.updateTaskConfig(invernadero, tarea, { useEightHourJornal: value });
+  }
+
+  updateTaskUseKilosMode(invernadero: string, tarea: string, value: boolean) {
+    this.updateTaskConfig(invernadero, tarea, { useKilosMode: value });
+  }
+
+  // NUEVO: Métodos auxiliares para manejar eventos de checkbox
+  onTaskUseEightHourJornalChange(invernadero: string, tarea: string, event: Event) {
+    const target = event.target as HTMLInputElement;
+    this.updateTaskUseEightHourJornal(invernadero, tarea, target.checked);
+  }
+
+  onTaskUseKilosModeChange(invernadero: string, tarea: string, event: Event) {
+    const target = event.target as HTMLInputElement;
+    this.updateTaskUseKilosMode(invernadero, tarea, target.checked);
+  }
+
   onCancel() {
     this.cancel.emit();
   }
@@ -2093,8 +2241,9 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
       tareasParaInvernadero.forEach(tarea => {
         const config = this.getTaskConfigSafe(invernadero, tarea);
         
-        // Calcular estimación en horas basado en jornales
-        const factor = this.useEightHourJornal ? 8 : 6;
+        // Calcular estimación en horas basado en jornales usando configuración específica por tarea
+        const useEightHourJornalForThisTask = this.getTaskUseEightHourJornal(invernadero, tarea);
+        const factor = useEightHourJornalForThisTask ? 8 : 6;
         const estimacionEnHoras = config.jornales * factor;
 
         // Determinar fecha límite: si no es individual, usar la global
@@ -2124,18 +2273,19 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
           encargadoId = this.useIndividualEncargados ? config.encargado : this.selectedEncargado;
         }
 
-        // Calcular dimensión total basada en el modo (hectáreas vs kilos)
+        // Calcular dimensión total basada en el modo específico por tarea (hectáreas vs kilos)
         let dimensionTotal = 0;
         let horasKilos = 0;
+        const useKilosModeForThisTask = this.getTaskUseKilosMode(invernadero, tarea);
         
         if (this.isAlmacenMode) {
           // Modo almacén: usar kg si aplica
           horasKilos = this.showKgEstimationField() ? 1 : 0;
           dimensionTotal = this.showKgEstimationField() ? (this.almacenKgEstimation[invernadero] || 0) : 0;
         } else {
-          // Modo normal: hectáreas o kilos
-          horasKilos = this.useKilosMode ? 1 : 0;
-          dimensionTotal = this.useKilosMode ? 
+          // Modo normal: usar configuración específica por tarea
+          horasKilos = useKilosModeForThisTask ? 1 : 0;
+          dimensionTotal = useKilosModeForThisTask ? 
             (this.expectedKilos[invernadero] || 0) : 
             (this.workingAreas[invernadero] || 0);
         }
@@ -2144,7 +2294,7 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
           invernadero: invernadero,
           tipo_tarea: tarea,
           estimacion_horas: estimacionEnHoras,
-          hora_jornal: this.useEightHourJornal ? 1 : 0,
+          hora_jornal: useEightHourJornalForThisTask ? 1 : 0,
           horas_kilos: horasKilos,
           fecha_limite: fechaLimite,
           encargado_id: encargadoId,
@@ -2163,7 +2313,9 @@ export class newTaskComponent implements OnInit, OnChanges, AfterViewInit {
           encargadoSource: this.useIndividualEncargados ? 'individual' : 'global',
           dimension_total: taskData.dimension_total,
           horas_kilos: taskData.horas_kilos,
-          dimensionSource: this.useKilosMode ? 'kilos' : 'hectáreas',
+          dimensionSource: useKilosModeForThisTask ? 'kilos' : 'hectáreas',
+          useEightHourJornal: useEightHourJornalForThisTask,
+          useKilosMode: useKilosModeForThisTask,
           workingArea: this.workingAreas[invernadero],
           expectedKilos: this.expectedKilos[invernadero]
         });
