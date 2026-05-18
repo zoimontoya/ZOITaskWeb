@@ -1,4 +1,5 @@
 export const environment = {
   production: false,
-  apiBaseUrl: '/api' // Usar proxy nginx tanto en desarrollo como en producción
+  apiBaseUrl: '/api', // Usar proxy ng serve en desarrollo
+  googleSheetsTaskTypesUrl: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR_l3eDLgV1-W9cmjmg49gEoNn8nrz8OvwYgZ457tMMaGXWmypEmb-HQ2TXTpPNB5lTEHVlEe4AiHbN/pub?gid=506405967&single=true&output=csv'
 };

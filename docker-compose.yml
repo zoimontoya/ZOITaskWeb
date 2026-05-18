@@ -9,6 +9,8 @@ services:
       # 🔒 Credenciales cargadas desde .env de forma segura
       - GOOGLE_SERVICE_ACCOUNT_JSON=${GOOGLE_SERVICE_ACCOUNT_JSON}
       - SPREADSHEET_ID=${SPREADSHEET_ID}
+      - TECHNICIAN_SPREADSHEET_ID=${TECHNICIAN_SPREADSHEET_ID}
+      - JWT_SECRET=${JWT_SECRET}
     env_file:
       - .env
     networks:

@@ -10,9 +10,9 @@ COPY package*.json ./
 # Instalar dependencias
 RUN npm ci --only=production && npm cache clean --force
 
-# Copiar el código fuente y credenciales
+# Copiar el código fuente
+# Nota: Las credenciales vienen desde .env inyectado en docker-compose.yml
 COPY index.js ./
-COPY service-account.json ./
 
 # Exponer el puerto
 EXPOSE 3000

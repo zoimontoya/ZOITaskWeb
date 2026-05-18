@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
+import { environment } from '../../environments/environment';
 
 export interface TaskType {
   tipo: string;
@@ -9,8 +10,8 @@ export interface TaskType {
 
 @Injectable({ providedIn: 'root' })
 export class TaskTypeService {
-  // Reemplaza esta URL por la de tu hoja de cálculo publicada como CSV para tipos de tarea
-  private csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR_l3eDLgV1-W9cmjmg49gEoNn8nrz8OvwYgZ457tMMaGXWmypEmb-HQ2TXTpPNB5lTEHVlEe4AiHbN/pub?gid=506405967&single=true&output=csv';
+  // URL configurada en environment.ts por entorno
+  private csvUrl = environment.googleSheetsTaskTypesUrl;
 
   constructor(private http: HttpClient) {}
 

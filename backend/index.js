@@ -1,8 +1,12 @@
+import dotenv from 'dotenv';
 import express from 'express';
 import cors from 'cors';
 import { google } from 'googleapis';
 import fs from 'fs';
 import jwt from 'jsonwebtoken';
+
+dotenv.config();
+
 
 const app = express();
 app.use(cors());
@@ -50,8 +54,11 @@ const cacheService = {
   }
 };
 
-// Clave secreta para JWT (en producción debería estar en variable de entorno)
-const JWT_SECRET = 'zoi-task-web-secret-key-2025';
+// Clave secreta para JWT (cargada desde .env en producción)
+const JWT_SECRET = process.env.JWT_SECRET || 'zoi-task-web-secret-key-2025';
+if (!process.env.JWT_SECRET) {
+  console.warn('⚠️ JWT_SECRET no está definida en .env, usando valor por defecto (no seguro para producción)');
+}
 
 // Middleware para verificar JWT (REQUERIDO - para rutas protegidas)
 const verifyJWT = (req, res, next) => {
