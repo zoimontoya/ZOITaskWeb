@@ -1,7 +1,13 @@
 #!/bin/bash
 
-# Script de despliegue automático para ZOI Task Web
-echo "🚀 Desplegando ZOI Task Web en producción..."
+# Script de actualización/despliegue para servidor Ubuntu existente
+set -euo pipefail
+
+APP_DIR="/home/teseo/ZOITaskWeb"
+REPO_URL="https://github.com/zoimontoya/ZOITaskWeb.git"
+BRANCH="production-deployment"
+
+echo "🚀 Actualizando ZOI Task Web en Ubuntu..."
 
 # Actualizar sistema
 sudo apt update && sudo apt upgrade -y
@@ -16,38 +22,68 @@ if ! command -v docker &> /dev/null; then
     sudo systemctl enable docker
 fi
 
-# Instalar Docker Compose si no está instalado
-if ! command -v docker-compose &> /dev/null; then
-    echo "🔧 Instalando Docker Compose..."
-    sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-    sudo chmod +x /usr/local/bin/docker-compose
+# Instalar plugin Docker Compose v2 si no está instalado
+if ! docker compose version &> /dev/null; then
+    echo "🔧 Instalando Docker Compose plugin..."
+    sudo apt install -y docker-compose-plugin
 fi
 
-# Clonar repositorio (si no existe)
-if [ ! -d "ZOITaskWeb" ]; then
-    git clone https://github.com/zoimontoya/ZOITaskWeb.git
+# Asegurar que Docker esté activo
+sudo systemctl start docker
+sudo systemctl enable docker
+
+# Clonar repositorio si no existe
+if [ ! -d "$APP_DIR/.git" ]; then
+    echo "📥 Clonando repositorio en $APP_DIR"
+    sudo mkdir -p /home/teseo
+    sudo chown -R "$USER":"$USER" /home/teseo
+    git clone -b "$BRANCH" "$REPO_URL" "$APP_DIR"
 fi
 
-cd ZOITaskWeb
+cd "$APP_DIR"
+
+echo "🔄 Actualizando rama $BRANCH..."
+git fetch origin
+git checkout "$BRANCH"
+git pull --rebase origin "$BRANCH"
 
 # Configurar variables de entorno
 echo "⚙️ Configurando variables de entorno..."
-cp .env.example .env
-echo "📝 IMPORTANTE: Edita el archivo .env con tus credenciales de Google Sheets"
-nano .env
+if [ ! -f ".env" ]; then
+    cp .env.example .env
+    echo "📝 IMPORTANTE: Se creó .env. Debes completar credenciales de Google Sheets"
+    nano .env
+fi
+
+# Verificar variables mínimas requeridas
+for key in NODE_ENV PORT SPREADSHEET_ID TECHNICIAN_SPREADSHEET_ID GOOGLE_SERVICE_ACCOUNT_JSON JWT_SECRET; do
+  if ! grep -q "^${key}=" .env; then
+    echo "❌ Falta variable requerida en .env: ${key}"
+    echo "   Edita .env y vuelve a ejecutar este script."
+    exit 1
+  fi
+done
+
+chmod 600 .env || true
 
 # Construir y ejecutar contenedores
 echo "🏗️ Construyendo y ejecutando contenedores..."
-docker-compose up -d --build
+docker compose down
+docker compose build --no-cache
+docker compose up -d
 
 # Mostrar estado
 echo "✅ Despliegue completado!"
 echo "🌐 Tu aplicación está disponible en:"
-echo "   http://$(curl -s ipinfo.io/ip):8080"
+echo "   http://$(curl -s ipinfo.io/ip):8090"
 echo ""
 echo "📊 Estado de contenedores:"
-docker ps
+docker compose ps
 
 echo ""
 echo "🔧 Para ver logs:"
-echo "   docker-compose logs -f"
+echo "   docker compose logs -f"
+echo ""
+echo "🩺 Health checks:"
+echo "   Frontend: http://localhost:8090"
+echo "   Backend:  http://localhost:3000/health"

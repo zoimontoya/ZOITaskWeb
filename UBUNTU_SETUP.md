@@ -4,7 +4,7 @@
 
 ### 1. Crear el archivo .env
 ```bash
-cd ZOITaskWeb
+cd /home/teseo/ZOITaskWeb
 nano .env
 ```
 
@@ -43,3 +43,15 @@ Los siguientes archivos están listos para transferir:
 - `src/` (carpeta completa)
 - `backend/` (carpeta completa)
 - Scripts de instalación y comandos útiles
+
+## 🔄 Actualización en servidor existente
+
+```bash
+cd /home/teseo/ZOITaskWeb
+git fetch origin
+git checkout production-deployment
+git pull --rebase origin production-deployment
+docker compose down
+docker compose build --no-cache
+docker compose up -d
+```

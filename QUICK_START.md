@@ -26,8 +26,10 @@ chmod +x deploy.sh
 ```
 
 ### 3️⃣ Acceder
-- **Tu dispositivo:** http://localhost
-- **Otros dispositivos:** http://[TU_IP_LOCAL]
+- **Tu dispositivo:** http://localhost:8090
+- **Otros dispositivos:** http://[TU_IP_LOCAL]:8090
+
+> Si ya tienes la instalación en Ubuntu, usa la ruta: `/home/teseo/ZOITaskWeb`
 
 ---
 

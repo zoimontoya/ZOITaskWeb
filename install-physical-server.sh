@@ -1,6 +1,8 @@
 #!/bin/bash
 # Script de instalación para servidor físico - ZOI Task Web
 
+set -euo pipefail
+
 echo "🏠 Instalando ZOI Task Web en servidor físico..."
 
 # Detectar el sistema operativo
@@ -22,19 +24,29 @@ sudo usermod -aG docker $USER
 sudo systemctl start docker
 sudo systemctl enable docker
 
-# Instalar Docker Compose
-echo "🔧 Instalando Docker Compose..."
-sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-sudo chmod +x /usr/local/bin/docker-compose
+# Instalar Docker Compose plugin (v2)
+echo "🔧 Instalando Docker Compose plugin..."
+if [ -f /etc/debian_version ]; then
+    sudo apt install -y docker-compose-plugin
+elif [ -f /etc/redhat-release ]; then
+    sudo yum install -y docker-compose-plugin || true
+fi
+
+if ! docker compose version &> /dev/null; then
+    echo "❌ No se pudo instalar Docker Compose plugin."
+    exit 1
+fi
 
 # Crear directorio para la aplicación
-mkdir -p ~/zoi-task-web
-cd ~/zoi-task-web
+sudo mkdir -p /home/teseo/ZOITaskWeb
+sudo chown -R "$USER":"$USER" /home/teseo/ZOITaskWeb
+cd /home/teseo/ZOITaskWeb
 
 echo "✅ Sistema preparado!"
-echo "📁 Ahora copia tu código ZOITaskWeb a este directorio"
+echo "📁 Ahora clona/actualiza tu código ZOITaskWeb en este directorio"
 echo "📍 Ubicación: $(pwd)"
 echo ""
 echo "Siguientes pasos:"
-echo "1. Copia tu carpeta ZOITaskWeb aquí"
-echo "2. Ejecuta: cd ZOITaskWeb && docker-compose up -d"
+echo "1. git clone -b production-deployment https://github.com/zoimontoya/ZOITaskWeb.git ."
+echo "2. Configura .env"
+echo "3. Ejecuta: docker compose up -d --build"
